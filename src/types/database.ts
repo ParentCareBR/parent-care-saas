@@ -77,9 +77,9 @@ export type Database = {
         Relationships: [];
       };
       expenses: {
-        Row: { id: string; organization_id: string; cared_person_id: string | null; category: string; description: string; amount: number; created_at: string; };
-        Insert: { id?: string; organization_id: string; cared_person_id?: string | null; category: string; description: string; amount: number; created_at?: string; };
-        Update: { id?: string; organization_id?: string; cared_person_id?: string | null; category?: string; description?: string; amount?: number; };
+        Row: { id: string; organization_id: string; cared_person_id: string | null; category: string; description: string; amount: number; currency: string; paid_at: string | null; paid_by: string | null; receipt_url: string | null; created_by: string; created_at: string; };
+        Insert: { id?: string; organization_id: string; cared_person_id?: string | null; category: string; description: string; amount: number; currency?: string; paid_at?: string | null; paid_by?: string | null; receipt_url?: string | null; created_by: string; created_at?: string; };
+        Update: { id?: string; organization_id?: string; cared_person_id?: string | null; category?: string; description?: string; amount?: number; currency?: string; paid_at?: string | null; paid_by?: string | null; receipt_url?: string | null; created_by?: string; created_at?: string; };
         Relationships: [];
       };
       plans: {

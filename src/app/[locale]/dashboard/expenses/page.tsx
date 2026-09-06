@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -65,8 +64,6 @@ const EXAMPLE_EXPENSE: Expense = {
 export default function ExpensesPage() {
   const { user, currentOrganizationId } = useAuth();
   const { selectedPerson } = useCaredPerson();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createClient() as any;
   const { toast } = useToast();
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -91,28 +88,25 @@ export default function ExpensesPage() {
     }
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from('expenses')
-      .select('*')
-      .eq('cared_person_id', selectedPerson.id)
-      .order('date', { ascending: false })
-      .limit(100);
-
-    if (error) {
-      // Table may not exist yet
-      console.error('Erro ao buscar despesas:', error.message);
+    try {
+      const res = await fetch(`/api/expenses?caredPersonId=${selectedPerson.id}`);
+      const data = await res.json();
+      if (res.ok && data.success && Array.isArray(data.expenses)) {
+        if (data.expenses.length > 0) {
+          setExpenses(data.expenses);
+        } else {
+          setExpenses([EXAMPLE_EXPENSE]);
+        }
+      } else {
+        setExpenses([EXAMPLE_EXPENSE]);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar despesas:', err);
       setExpenses([EXAMPLE_EXPENSE]);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    if (data && data.length > 0) {
-      setExpenses(data);
-    } else {
-      setExpenses([EXAMPLE_EXPENSE]);
-    }
-    setLoading(false);
-  }, [selectedPerson, currentOrganizationId, supabase]);
+  }, [selectedPerson, currentOrganizationId]);
 
   useEffect(() => {
     fetchExpenses();
@@ -140,7 +134,7 @@ export default function ExpensesPage() {
       category: expense.category,
       description: expense.description,
       amount: String(expense.amount),
-      date: expense.date.slice(0, 10),
+      date: (expense.date || new Date().toISOString()).slice(0, 10),
       paid_by: expense.paid_by || '',
       notes: expense.notes || '',
     });
@@ -152,43 +146,53 @@ export default function ExpensesPage() {
     if (!selectedPerson || !currentOrganizationId || !user) return;
     setSaving(true);
 
+    const isEdit = Boolean(editExpense && !editExpense.isExample);
+    const url = '/api/expenses';
+    const method = isEdit ? 'PUT' : 'POST';
+
     const payload = {
-      cared_person_id: selectedPerson.id,
-      organization_id: currentOrganizationId,
+      id: editExpense?.id,
+      caredPersonId: selectedPerson.id,
       category: form.category,
       description: form.description,
-      amount: parseFloat(form.amount),
-      date: new Date(form.date).toISOString(),
+      amount: form.amount,
+      date: form.date,
       paid_by: form.paid_by || null,
       notes: form.notes || null,
-      created_by: user.id,
     };
 
-    if (editExpense && !editExpense.isExample) {
-      const { error } = await supabase
-        .from('expenses')
-        .update(payload)
-        .eq('id', editExpense.id);
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-      if (error) {
-        toast({ title: 'Erro ao atualizar', description: error.message, variant: 'destructive' });
-        setSaving(false);
-        return;
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        toast({
+          title: isEdit ? 'Despesa atualizada!' : 'Despesa registrada!',
+          description: `${form.description} — R$ ${Number(parseFloat(form.amount.replace(',', '.'))).toFixed(2)}`,
+        });
+        setModalOpen(false);
+        await fetchExpenses();
+      } else {
+        toast({
+          title: isEdit ? 'Erro ao atualizar' : 'Erro ao registrar despesa',
+          description: data.error || 'Não foi possível salvar a despesa.',
+          variant: 'destructive',
+        });
       }
-      toast({ title: 'Despesa atualizada!' });
-    } else {
-      const { error } = await supabase.from('expenses').insert(payload);
-      if (error) {
-        toast({ title: 'Erro ao registrar despesa', description: error.message, variant: 'destructive' });
-        setSaving(false);
-        return;
-      }
-      toast({ title: 'Despesa registrada!' });
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao salvar despesa',
+        description: err.message || 'Falha na conexão.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
     }
-
-    setModalOpen(false);
-    fetchExpenses();
-    setSaving(false);
   };
 
   const handleDelete = async (expense: Expense) => {
@@ -196,12 +200,19 @@ export default function ExpensesPage() {
       setExpenses([]);
       return;
     }
-    const { error } = await supabase.from('expenses').delete().eq('id', expense.id);
-    if (error) {
-      toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Despesa excluída.' });
-      fetchExpenses();
+    try {
+      const res = await fetch(`/api/expenses?id=${expense.id}&caredPersonId=${selectedPerson?.id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast({ title: 'Despesa excluída.' });
+        fetchExpenses();
+      } else {
+        toast({ title: 'Erro ao excluir', description: data.error, variant: 'destructive' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Erro ao excluir', description: err.message, variant: 'destructive' });
     }
   };
 
