@@ -338,7 +338,7 @@ export default function SubscriptionSettingsPage() {
                     : tPlan('seat_plural', { count: subscription.seat_limit })}
                 </CardTitle>
                 <CardDescription className="text-xs mt-1 text-stone-500">
-                  Código da assinatura: <code className="text-stone-700 font-mono text-[11px]">{subscription.paddle_subscription_id?.substring(0, 14)}…</code>
+                  {tBilling('sub_code')} <code className="text-stone-700 font-mono text-[11px]">{subscription.paddle_subscription_id?.substring(0, 14)}…</code>
                 </CardDescription>
               </div>
               {getStatusBadge(subscription.status)}
@@ -349,19 +349,19 @@ export default function SubscriptionSettingsPage() {
             {/* Billing Info Row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="text-center p-3 bg-white rounded-xl border border-stone-100 shadow-xs">
-                <p className="text-xs text-stone-500 mb-1">Valor Mensal</p>
+                <p className="text-xs text-stone-500 mb-1">{tBilling('monthly_value')}</p>
                 <p className="font-bold text-stone-900 text-lg">{formatCurrency(subscription.recurring_total)}</p>
               </div>
               <div className="text-center p-3 bg-white rounded-xl border border-stone-100 shadow-xs">
-                <p className="text-xs text-stone-500 mb-1">Por Acesso</p>
+                <p className="text-xs text-stone-500 mb-1">{tBilling('per_seat_label')}</p>
                 <p className="font-bold text-stone-900 text-lg">{formatCurrency(subscription.unit_price)}</p>
               </div>
               <div className="text-center p-3 bg-white rounded-xl border border-stone-100 shadow-xs">
-                <p className="text-xs text-stone-500 mb-1">Próxima Cobrança</p>
+                <p className="text-xs text-stone-500 mb-1">{tBilling('next_charge')}</p>
                 <p className="font-bold text-stone-900 text-sm">{formatDate(subscription.next_billed_at || subscription.current_period_end)}</p>
               </div>
               <div className="text-center p-3 bg-white rounded-xl border border-stone-100 shadow-xs">
-                <p className="text-xs text-stone-500 mb-1">Período Atual</p>
+                <p className="text-xs text-stone-500 mb-1">{tBilling('current_period')}</p>
                 <p className="font-bold text-stone-900 text-xs">
                   {formatDate(subscription.current_period_start)} → {formatDate(subscription.current_period_end)}
                 </p>
@@ -389,17 +389,17 @@ export default function SubscriptionSettingsPage() {
                 <div className="grid grid-cols-3 gap-3 mt-3 text-xs text-stone-600">
                   <div className="text-center">
                     <p className="font-bold text-stone-900 text-base">{entitlements.activeMembersCount}</p>
-                    <p>Membros Ativos</p>
+                    <p>{tBilling('active_members')}</p>
                   </div>
                   <div className="text-center">
                     <p className="font-bold text-stone-900 text-base">{entitlements.reservedInvitesCount}</p>
-                    <p>Convites Reservados</p>
+                    <p>{tBilling('reserved_invites')}</p>
                   </div>
                   <div className="text-center">
                     <p className={`font-bold text-base ${entitlements.availableSeats === 0 ? 'text-red-600' : 'text-emerald-700'}`}>
                       {entitlements.availableSeats}
                     </p>
-                    <p>Disponíveis</p>
+                    <p>{tBilling('available_seats')}</p>
                   </div>
                 </div>
 
@@ -494,7 +494,7 @@ export default function SubscriptionSettingsPage() {
                   <DialogTrigger asChild>
                     <Button size="sm" variant="outline" className="h-9 rounded-lg border-stone-300 gap-1.5">
                       <TrendingDown className="h-4 w-4" />
-                      Reduzir Acessos
+                      {tBilling('downgrade_title')}
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
@@ -572,7 +572,7 @@ export default function SubscriptionSettingsPage() {
                 <DialogTrigger asChild>
                   <Button size="sm" variant="ghost" className="h-9 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 gap-1.5">
                     <XCircle className="h-4 w-4" />
-                    Cancelar Assinatura
+                    {tBilling('cancel_title')}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
@@ -836,7 +836,7 @@ export default function SubscriptionSettingsPage() {
             <BarChart3 className="h-5 w-5 text-stone-600" />
             {tBilling('billing_history')}
           </CardTitle>
-          <CardDescription className="text-xs">Todas as cobranças realizadas no seu cartão de crédito.</CardDescription>
+          <CardDescription className="text-xs">{tBilling('billing_history_desc')}</CardDescription>
         </CardHeader>
         <CardContent>
           {billingHistory.length === 0 ? (
@@ -844,7 +844,7 @@ export default function SubscriptionSettingsPage() {
               <ShieldCheck className="h-10 w-10 text-stone-300 mx-auto mb-3" />
               <p className="text-sm text-stone-400">{tBilling('no_history')}</p>
               <p className="text-xs text-stone-400 mt-1">
-                As faturas aparecerão aqui após o fim do período de teste gratuito.
+                {tBilling('no_history_desc')}
               </p>
             </div>
           ) : (
@@ -852,10 +852,10 @@ export default function SubscriptionSettingsPage() {
               <table className="w-full text-sm text-left text-stone-600">
                 <thead className="text-xs text-stone-500 uppercase border-b border-stone-100">
                   <tr>
-                    <th className="pb-2 pr-4 font-semibold">Data</th>
-                    <th className="pb-2 pr-4 font-semibold">Valor</th>
-                    <th className="pb-2 pr-4 font-semibold">Status</th>
-                    <th className="pb-2 font-semibold">Referência</th>
+                    <th className="pb-2 pr-4 font-semibold">{tBilling('th_date')}</th>
+                    <th className="pb-2 pr-4 font-semibold">{tBilling('th_amount')}</th>
+                    <th className="pb-2 pr-4 font-semibold">{tBilling('th_status')}</th>
+                    <th className="pb-2 font-semibold">{tBilling('th_ref')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-50">
@@ -865,7 +865,7 @@ export default function SubscriptionSettingsPage() {
                       <td className="py-3 pr-4 font-bold text-stone-900">{formatCurrency(item.amount_paid)}</td>
                       <td className="py-3 pr-4">
                         <Badge className={item.status === 'paid' ? 'bg-emerald-100 text-emerald-700 text-[11px]' : 'bg-stone-100 text-stone-600 text-[11px]'}>
-                          {item.status === 'paid' ? 'Pago' : item.status}
+                          {item.status === 'paid' ? tBilling('paid_badge') : item.status}
                         </Badge>
                       </td>
                       <td className="py-3 text-xs font-mono text-stone-500">{item.gateway_invoice_id || '—'}</td>
