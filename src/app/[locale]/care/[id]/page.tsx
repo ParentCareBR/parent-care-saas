@@ -13,7 +13,11 @@ import {
   CheckCircle2,
   Calendar,
   BellRing,
-  RotateCcw
+  RotateCcw,
+  Sun,
+  Moon,
+  Activity as ActivityIcon,
+  Clock
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -29,6 +33,8 @@ export default function ElderlyViewPage({
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set());
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   
   const [personInfo, setPersonInfo] = useState({
     name: 'Carregando...',
@@ -101,6 +107,39 @@ export default function ElderlyViewPage({
       if (appt) {
         nextAppt = `${appt.title} (${format(new Date(appt.starts_at), "dd/MM 'às' HH:mm", { locale: ptBR })})`;
       }
+
+      // Fetch monitoring settings for this cared person
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: settingsData } = await (supabase as any)
+        .from('cared_person_monitoring_settings')
+        .select('enabled, monitoring_definitions(code)')
+        .eq('cared_person_id', params.id);
+
+      const enabledSet = new Set<string>();
+      if (!settingsData || settingsData.length === 0) {
+        // Defaults if no custom configuration saved yet
+        [
+          'meds_scheduled',
+          'schedule_appointments',
+          'checkin_btn_im_well',
+          'checkin_btn_need_help',
+          'checkin_btn_took_med',
+          'checkin_btn_ate',
+          'checkin_btn_drank_water',
+          'checkin_btn_emergency',
+        ].forEach((c) => enabledSet.add(c));
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        settingsData.forEach((row: any) => {
+          const code = row.monitoring_definitions?.code;
+          if (row.enabled && code) {
+            enabledSet.add(code);
+          }
+        });
+      }
+
+      setEnabledModules(enabledSet);
+      setSettingsLoaded(true);
 
       setPersonInfo({
         name: firstName,
@@ -205,7 +244,7 @@ export default function ElderlyViewPage({
         </Button>
       </div>
 
-      <div className="p-6 max-w-2xl mx-auto space-y-6 pb-32">
+      <div className={`p-6 max-w-2xl mx-auto space-y-6 ${enabledModules.has('checkin_btn_emergency') ? 'pb-36' : 'pb-12'}`}>
         {successMsg && (
           <div className="bg-emerald-100 border-4 border-emerald-500 text-emerald-800 p-6 rounded-3xl flex items-center gap-4 mb-8 shadow-lg animate-in slide-in-from-top-4">
             <CheckCircle2 className="h-10 w-10 shrink-0" />
@@ -218,8 +257,8 @@ export default function ElderlyViewPage({
           </div>
         )}
 
-        {/* Daily Summary Cards */}
-        {personInfo.nextMedication && (
+        {/* Daily Summary Cards (Only shown if module is enabled for this person) */}
+        {enabledModules.has('meds_scheduled') && personInfo.nextMedication && (
           <div className="bg-white p-6 rounded-3xl border-4 border-blue-100 flex items-center gap-6 shadow-sm">
             <div className="bg-blue-100 p-4 rounded-2xl">
               <Pill className="h-10 w-10 text-blue-600" />
@@ -231,7 +270,7 @@ export default function ElderlyViewPage({
           </div>
         )}
 
-        {personInfo.nextAppointment && (
+        {enabledModules.has('schedule_appointments') && personInfo.nextAppointment && (
           <div className="bg-white p-6 rounded-3xl border-4 border-purple-100 flex items-center gap-6 shadow-sm">
             <div className="bg-purple-100 p-4 rounded-2xl">
               <Calendar className="h-10 w-10 text-purple-600" />
@@ -243,86 +282,153 @@ export default function ElderlyViewPage({
           </div>
         )}
 
-        {/* Action Grid */}
-        <div className="grid grid-cols-2 gap-6 mt-8">
-          <button 
-            disabled={loading}
-            onClick={() => handleAction('mood', 'Estou bem', 'check_ins', { mood: 'great', checked_by: personInfo.userId, notes: 'Estou bem' })}
-            className="bg-white border-4 border-stone-200 hover:border-emerald-500 active:bg-emerald-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
-          >
-            <div className="bg-emerald-100 p-6 rounded-full">
-              <Heart className="h-14 w-14 text-emerald-600" />
-            </div>
-            <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Estou<br/>Bem</span>
-          </button>
+        {/* Action Grid (Category L Check-in Buttons) */}
+        {settingsLoaded && (
+          <div className="grid grid-cols-2 gap-6 mt-8">
+            {enabledModules.has('checkin_btn_im_well') && (
+              <button 
+                disabled={loading}
+                onClick={() => handleAction('mood', 'Estou bem', 'check_ins', { mood: 'great', checked_by: personInfo.userId, notes: 'Estou bem' })}
+                className="bg-white border-4 border-stone-200 hover:border-emerald-500 active:bg-emerald-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
+              >
+                <div className="bg-emerald-100 p-6 rounded-full">
+                  <Heart className="h-14 w-14 text-emerald-600" />
+                </div>
+                <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Estou<br/>Bem</span>
+              </button>
+            )}
 
-          <button 
-            disabled={loading}
-            onClick={() => handleAction('meal', 'Já me alimentei', 'meals', { meal_type: 'other', logged_by: personInfo.userId })}
-            className="bg-white border-4 border-stone-200 hover:border-amber-500 active:bg-amber-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
-          >
-            <div className="bg-amber-100 p-6 rounded-full">
-              <Coffee className="h-14 w-14 text-amber-600" />
-            </div>
-            <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Já<br/>Comi</span>
-          </button>
+            {enabledModules.has('checkin_btn_ate') && (
+              <button 
+                disabled={loading}
+                onClick={() => handleAction('meal', 'Já me alimentei', 'meals', { meal_type: 'other', logged_by: personInfo.userId })}
+                className="bg-white border-4 border-stone-200 hover:border-amber-500 active:bg-amber-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
+              >
+                <div className="bg-amber-100 p-6 rounded-full">
+                  <Coffee className="h-14 w-14 text-amber-600" />
+                </div>
+                <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Já<br/>Comi</span>
+              </button>
+            )}
 
-          <button 
-            disabled={loading || !personInfo.medicationId}
-            onClick={() => handleAction('medication', 'Remédio tomado', 'medication_confirmations', { medication_id: personInfo.medicationId, confirmed_by: personInfo.userId, status: 'taken' })}
-            className="bg-white border-4 border-stone-200 hover:border-blue-500 active:bg-blue-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95 disabled:opacity-50"
-          >
-            <div className="bg-blue-100 p-6 rounded-full">
-              <Pill className="h-14 w-14 text-blue-600" />
-            </div>
-            <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Tomei o<br/>Remédio</span>
-          </button>
+            {enabledModules.has('checkin_btn_took_med') && (
+              <button 
+                disabled={loading || !personInfo.medicationId}
+                onClick={() => handleAction('medication', 'Remédio tomado', 'medication_confirmations', { medication_id: personInfo.medicationId, confirmed_by: personInfo.userId, status: 'taken' })}
+                className="bg-white border-4 border-stone-200 hover:border-blue-500 active:bg-blue-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+              >
+                <div className="bg-blue-100 p-6 rounded-full">
+                  <Pill className="h-14 w-14 text-blue-600" />
+                </div>
+                <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Tomei o<br/>Remédio</span>
+              </button>
+            )}
 
-          <button 
-            disabled={loading}
-            onClick={() => handleAction('hydration', 'Bebi água', 'hydration_logs', { amount_ml: 250, logged_by: personInfo.userId })}
-            className="bg-white border-4 border-stone-200 hover:border-cyan-500 active:bg-cyan-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
-          >
-            <div className="bg-cyan-100 p-6 rounded-full">
-              <Droplet className="h-14 w-14 text-cyan-600" />
-            </div>
-            <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Bebi<br/>Água</span>
-          </button>
-        </div>
+            {enabledModules.has('checkin_btn_drank_water') && (
+              <button 
+                disabled={loading}
+                onClick={() => handleAction('hydration', 'Bebi água', 'hydration_logs', { amount_ml: 250, logged_by: personInfo.userId })}
+                className="bg-white border-4 border-stone-200 hover:border-cyan-500 active:bg-cyan-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
+              >
+                <div className="bg-cyan-100 p-6 rounded-full">
+                  <Droplet className="h-14 w-14 text-cyan-600" />
+                </div>
+                <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Bebi<br/>Água</span>
+              </button>
+            )}
 
-        <button 
-          disabled={loading}
-          onClick={() => {
-            if(window.confirm('Tem certeza que precisa de ajuda agora?')) {
-              handleAction('help', 'Preciso de ajuda', 'help_requests', { message: 'Preciso de ajuda geral', requested_by: personInfo.userId });
-            }
-          }}
-          className="w-full bg-white border-4 border-orange-200 hover:border-orange-500 active:bg-orange-50 p-8 rounded-[2rem] flex items-center justify-center gap-6 transition-all shadow-sm active:scale-95 mt-6"
-        >
-          <div className="bg-orange-100 p-5 rounded-full">
-            <BellRing className="h-12 w-12 text-orange-600" />
+            {enabledModules.has('checkin_btn_woke_up') && (
+              <button 
+                disabled={loading}
+                onClick={() => handleAction('wake', 'Bom dia! Avisamos que você acordou', 'check_ins', { mood: 'great', checked_by: personInfo.userId, notes: 'Acordou - Início do dia' })}
+                className="bg-white border-4 border-stone-200 hover:border-yellow-500 active:bg-yellow-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
+              >
+                <div className="bg-yellow-100 p-6 rounded-full">
+                  <Sun className="h-14 w-14 text-yellow-600" />
+                </div>
+                <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Acordei</span>
+              </button>
+            )}
+
+            {enabledModules.has('checkin_btn_going_to_sleep') && (
+              <button 
+                disabled={loading}
+                onClick={() => handleAction('sleep', 'Boa noite! Registramos seu descanso', 'check_ins', { mood: 'good', checked_by: personInfo.userId, notes: 'Foi dormir - Descanso noturno' })}
+                className="bg-white border-4 border-stone-200 hover:border-indigo-500 active:bg-indigo-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
+              >
+                <div className="bg-indigo-100 p-6 rounded-full">
+                  <Moon className="h-14 w-14 text-indigo-600" />
+                </div>
+                <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Vou<br/>Dormir</span>
+              </button>
+            )}
+
+            {enabledModules.has('checkin_btn_activity_done') && (
+              <button 
+                disabled={loading}
+                onClick={() => handleAction('activity', 'Parabéns! Atividade concluída', 'check_ins', { mood: 'great', checked_by: personInfo.userId, notes: 'Atividade concluída com sucesso' })}
+                className="bg-white border-4 border-stone-200 hover:border-purple-500 active:bg-purple-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
+              >
+                <div className="bg-purple-100 p-6 rounded-full">
+                  <ActivityIcon className="h-14 w-14 text-purple-600" />
+                </div>
+                <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Fiz<br/>Atividade</span>
+              </button>
+            )}
+
+            {enabledModules.has('checkin_btn_remind_later') && (
+              <button 
+                disabled={loading}
+                onClick={() => handleAction('remind_later', 'Lembrete adiado em 15 minutos', 'check_ins', { checked_by: personInfo.userId, notes: 'Lembrar mais tarde (15 min)' })}
+                className="bg-white border-4 border-stone-200 hover:border-slate-500 active:bg-slate-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
+              >
+                <div className="bg-slate-100 p-6 rounded-full">
+                  <Clock className="h-14 w-14 text-slate-600" />
+                </div>
+                <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Lembrar<br/>Depois</span>
+              </button>
+            )}
           </div>
-          <span className="text-4xl font-bold text-stone-800">Preciso de Ajuda</span>
-        </button>
-      </div>
+        )}
 
-      {/* Emergency Button - Fixed Bottom */}
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white to-transparent">
-        <div className="max-w-2xl mx-auto">
+        {/* Big Help Button */}
+        {enabledModules.has('checkin_btn_need_help') && (
           <button 
             disabled={loading}
             onClick={() => {
-              if(window.confirm('ALERTA DE EMERGÊNCIA! Deseja enviar um alerta para todos os familiares agora?')) {
-                handleAction('emergency', 'EMERGÊNCIA! Preciso de ajuda imediata', 'emergency_events', { reported_by: personInfo.userId, description: 'Emergência acionada pela tela do idoso', severity: 'critical' });
+              if(window.confirm('Tem certeza que precisa de ajuda agora?')) {
+                handleAction('help', 'Preciso de ajuda', 'help_requests', { message: 'Preciso de ajuda geral', requested_by: personInfo.userId });
               }
             }}
-            className="w-full bg-red-600 hover:bg-red-700 active:bg-red-800 text-white p-8 rounded-[2rem] flex items-center justify-center gap-6 shadow-[0_10px_30px_rgba(220,38,38,0.4)] transition-all active:scale-95 active:translate-y-2 border-b-8 border-red-800"
+            className="w-full bg-white border-4 border-orange-200 hover:border-orange-500 active:bg-orange-50 p-8 rounded-[2rem] flex items-center justify-center gap-6 transition-all shadow-sm active:scale-95 mt-6"
           >
-            <AlertCircle className="h-14 w-14" />
-            <span className="text-4xl font-black tracking-widest uppercase">Emergência</span>
+            <div className="bg-orange-100 p-5 rounded-full">
+              <BellRing className="h-12 w-12 text-orange-600" />
+            </div>
+            <span className="text-4xl font-bold text-stone-800">Preciso de Ajuda</span>
           </button>
-        </div>
+        )}
       </div>
+
+      {/* Emergency Button - Fixed Bottom (Only if enabled) */}
+      {enabledModules.has('checkin_btn_emergency') && (
+        <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white to-transparent">
+          <div className="max-w-2xl mx-auto">
+            <button 
+              disabled={loading}
+              onClick={() => {
+                if(window.confirm('ALERTA DE EMERGÊNCIA! Deseja enviar um alerta para todos os familiares agora?')) {
+                  handleAction('emergency', 'EMERGÊNCIA! Preciso de ajuda imediata', 'emergency_events', { reported_by: personInfo.userId, description: 'Emergência acionada pela tela do idoso', severity: 'critical' });
+                }
+              }}
+              className="w-full bg-red-600 hover:bg-red-700 active:bg-red-800 text-white p-8 rounded-[2rem] flex items-center justify-center gap-6 shadow-[0_10px_30px_rgba(220,38,38,0.4)] transition-all active:scale-95 active:translate-y-2 border-b-8 border-red-800"
+            >
+              <AlertCircle className="h-14 w-14" />
+              <span className="text-4xl font-black tracking-widest uppercase">Emergência</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

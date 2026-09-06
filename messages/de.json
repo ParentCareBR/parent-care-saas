@@ -131,6 +131,30 @@
     "email_confirm_notice_spam": "Nicht erhalten? Überprüfen Sie Ihren Spam-Ordner.",
     "signup_success_title": "Konto erfolgreich erstellt!"
   },
+  "Monitoring": {
+    "title": "Individuelle Betreuungsbegleitung",
+    "subtitle": "Legen Sie für jede betreute Person einzeln fest, was erfasst werden soll.",
+    "categories": {
+      "daily_routine": "Tagesablauf & Routine",
+      "medications": "Medikamente",
+      "observed_wellbeing": "Beobachtetes Wohlbefinden",
+      "physical_safety": "Körperliche Sicherheit",
+      "vital_signs": "Vitalwerte & Basismessungen",
+      "appointments_exams": "Termine & Untersuchungen",
+      "medical_history": "Historie & Dokumente",
+      "social_family": "Soziales & Familie",
+      "financial_expenses": "Finanzen & Ausgaben",
+      "custom_notes": "Freie Notizen & Beobachtungen",
+      "caregivers_shifts": "Pflegekräfte & Schichtübergabe",
+      "cared_person_checkins": "Tasten des vereinfachten Bildschirms"
+    },
+    "reports": {
+      "title": "Berichte & Beobachtete Muster",
+      "subtitle": "Konsolidierte Routineübersicht und wöchentlicher Mustervergleich.",
+      "observed_changes": "Beobachtete Veränderungen",
+      "disclaimer": "Rein beschreibender und organisatorischer Vergleich. Keine medizinische Diagnose, klinische Bewertung oder Verordnung."
+    }
+  },
   "CookieBanner": {
     "text": "Wir verwenden Cookies, um Ihre Erfahrung auf unserer Plattform zu verbessern, Inhalte anzupassen und unseren Datenverkehr zu analysieren. Durch die weitere Nutzung stimmen Sie unserer ",
     "privacy": "Datenschutzrichtlinie",

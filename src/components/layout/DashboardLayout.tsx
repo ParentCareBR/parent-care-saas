@@ -24,7 +24,9 @@ import {
   Menu,
   X,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  BarChart3,
+  Sliders
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -45,6 +47,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const navigation = [
     { name: 'Visão Geral', href: `/${locale}/dashboard`, exact: true, icon: LayoutDashboard },
+    { name: 'Relatórios & Padrões', href: `/${locale}/dashboard/reports`, icon: BarChart3 },
     { name: 'Medicamentos', href: `/${locale}/dashboard/medications`, icon: Pill },
     { name: 'Alimentação', href: `/${locale}/dashboard/meals`, icon: Utensils },
     { name: 'Agenda', href: `/${locale}/dashboard/appointments`, icon: Calendar },
@@ -124,10 +127,22 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             Família
           </Link>
           <Link
+            href={`/${locale}/dashboard/settings/monitoring`}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
+              pathname.includes('/dashboard/settings/monitoring')
+                ? "bg-brand-soft dark:bg-emerald-950/40 text-brand-green dark:text-emerald-400 font-semibold"
+                : "text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800"
+            )}
+          >
+            <Sliders className="h-5 w-5" />
+            Acompanhamentos
+          </Link>
+          <Link
             href={`/${locale}/dashboard/settings`}
             className={cn(
               "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
-              pathname.includes('/dashboard/settings')
+              pathname === `/${locale}/dashboard/settings`
                 ? "bg-brand-soft dark:bg-emerald-950/40 text-brand-green dark:text-emerald-400 font-semibold"
                 : "text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800"
             )}
@@ -216,6 +231,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 >
                   <Users className="h-5 w-5" />
                   Família
+                </Link>
+                <Link
+                  href={`/${locale}/dashboard/settings/monitoring`}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
+                >
+                  <Sliders className="h-5 w-5" />
+                  Acompanhamentos
                 </Link>
                 <Link
                   href={`/${locale}/dashboard/settings`}

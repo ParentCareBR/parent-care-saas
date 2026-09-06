@@ -131,6 +131,30 @@
     "email_confirm_notice_spam": "Didn't receive it? Check your spam folder.",
     "signup_success_title": "Account created successfully!"
   },
+  "Monitoring": {
+    "title": "Personalized Monitoring",
+    "subtitle": "Define individually for each cared person what should or shouldn't be tracked.",
+    "categories": {
+      "daily_routine": "Daily Routine",
+      "medications": "Medications",
+      "observed_wellbeing": "Observed Wellbeing",
+      "physical_safety": "Physical Safety",
+      "vital_signs": "Vital Signs & Measurements",
+      "appointments_exams": "Appointments & Exams",
+      "medical_history": "History & Documents",
+      "social_family": "Social & Family",
+      "financial_expenses": "Financial & Expenses",
+      "custom_notes": "Free Notes & Observations",
+      "caregivers_shifts": "Caregivers & Shift Handover",
+      "cared_person_checkins": "Simplified Screen Buttons"
+    },
+    "reports": {
+      "title": "Reports & Observed Patterns",
+      "subtitle": "Consolidated routine insights and week-over-week pattern comparison.",
+      "observed_changes": "Observed Pattern Changes",
+      "disclaimer": "Descriptive and organizational comparison only. Does not constitute clinical evaluation, diagnosis or prescription."
+    }
+  },
   "CookieBanner": {
     "text": "We use cookies to improve your experience on our platform, customize content and analyze our traffic. By continuing to browse, you agree to our ",
     "privacy": "Privacy Policy",

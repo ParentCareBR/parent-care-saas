@@ -131,6 +131,30 @@
     "email_confirm_notice_spam": "¿No lo recibiste? Revisa tu carpeta de spam.",
     "signup_success_title": "¡Cuenta creada con éxito!"
   },
+  "Monitoring": {
+    "title": "Seguimiento Personalizado",
+    "subtitle": "Defina individualmente para cada persona cuidada lo que debe o no ser acompañado.",
+    "categories": {
+      "daily_routine": "Rutina diaria",
+      "medications": "Medicamentos",
+      "observed_wellbeing": "Bienestar observado",
+      "physical_safety": "Seguridad física",
+      "vital_signs": "Signos y mediciones básicas",
+      "appointments_exams": "Citas y exámenes",
+      "medical_history": "Historial y documentos",
+      "social_family": "Social y familia",
+      "financial_expenses": "Financiero y gastos",
+      "custom_notes": "Notas libres y observaciones",
+      "caregivers_shifts": "Cuidadores y cambio de turno",
+      "cared_person_checkins": "Botones de pantalla simplificada"
+    },
+    "reports": {
+      "title": "Informes y Cambios Observados",
+      "subtitle": "Visión consolidada de la rutina y comparativa de variaciones entre semanas.",
+      "observed_changes": "Cambios Observados",
+      "disclaimer": "Comparación meramente descriptiva y organizativa. No constituye evaluación clínica, diagnóstico ni prescripción médica."
+    }
+  },
   "CookieBanner": {
     "text": "Utilizamos cookies para mejorar su experiencia en nuestra plataforma, personalizar contenido y analizar nuestro tráfico. Al continuar navegando, usted acepta nuestra ",
     "privacy": "Política de Privacidad",

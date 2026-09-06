@@ -184,6 +184,42 @@ export type Database = {
         Update: { id?: string; medication_id?: string; cared_person_id?: string; organization_id?: string; time_of_day?: string; days_of_week?: string[] | null; };
         Relationships: [];
       };
+      monitoring_categories: {
+        Row: { id: string; code: string; translation_key: string; icon: string; display_order: number; status: string; created_at: string; };
+        Insert: { id?: string; code: string; translation_key: string; icon: string; display_order?: number; status?: string; created_at?: string; };
+        Update: { id?: string; code?: string; translation_key?: string; icon?: string; display_order?: number; status?: string; };
+        Relationships: [];
+      };
+      monitoring_definitions: {
+        Row: { id: string; category_id: string; code: string; translation_key: string; description_translation_key: string; field_type: string; dependency_code: string | null; allows_reminder: boolean; allows_attachment: boolean; display_order: number; status: string; created_at: string; };
+        Insert: { id?: string; category_id: string; code: string; translation_key: string; description_translation_key: string; field_type?: string; dependency_code?: string | null; allows_reminder?: boolean; allows_attachment?: boolean; display_order?: number; status?: string; created_at?: string; };
+        Update: { id?: string; category_id?: string; code?: string; translation_key?: string; description_translation_key?: string; field_type?: string; dependency_code?: string | null; allows_reminder?: boolean; allows_attachment?: boolean; display_order?: number; status?: string; };
+        Relationships: [];
+      };
+      cared_person_monitoring_settings: {
+        Row: { id: string; organization_id: string; cared_person_id: string; monitoring_definition_id: string; enabled: boolean; enabled_at: string; disabled_at: string | null; configured_by: string | null; settings_json: Json; display_order: number; created_at: string; updated_at: string; };
+        Insert: { id?: string; organization_id: string; cared_person_id: string; monitoring_definition_id: string; enabled?: boolean; enabled_at?: string; disabled_at?: string | null; configured_by?: string | null; settings_json?: Json; display_order?: number; created_at?: string; updated_at?: string; };
+        Update: { id?: string; organization_id?: string; cared_person_id?: string; monitoring_definition_id?: string; enabled?: boolean; enabled_at?: string; disabled_at?: string | null; configured_by?: string | null; settings_json?: Json; display_order?: number; updated_at?: string; };
+        Relationships: [];
+      };
+      custom_monitoring_fields: {
+        Row: { id: string; organization_id: string; cared_person_id: string; category_id: string | null; label: string; description: string | null; field_type: string; options_json: Json; required: boolean; frequency_json: Json; reminder_settings_json: Json; visibility_json: Json; include_daily_summary: boolean; include_weekly_report: boolean; enabled: boolean; created_by: string | null; created_at: string; updated_at: string; archived_at: string | null; };
+        Insert: { id?: string; organization_id: string; cared_person_id: string; category_id?: string | null; label: string; description?: string | null; field_type: string; options_json?: Json; required?: boolean; frequency_json?: Json; reminder_settings_json?: Json; visibility_json?: Json; include_daily_summary?: boolean; include_weekly_report?: boolean; enabled?: boolean; created_by?: string | null; created_at?: string; updated_at?: string; archived_at?: string | null; };
+        Update: { id?: string; organization_id?: string; cared_person_id?: string; category_id?: string | null; label?: string; description?: string | null; field_type?: string; options_json?: Json; required?: boolean; frequency_json?: Json; reminder_settings_json?: Json; visibility_json?: Json; include_daily_summary?: boolean; include_weekly_report?: boolean; enabled?: boolean; updated_at?: string; archived_at?: string | null; };
+        Relationships: [];
+      };
+      monitoring_records: {
+        Row: { id: string; organization_id: string; cared_person_id: string; monitoring_definition_id: string | null; custom_field_id: string | null; recorded_by: string | null; occurred_at: string; value_json: Json; notes: string | null; source: string; created_at: string; updated_at: string; archived_at: string | null; };
+        Insert: { id?: string; organization_id: string; cared_person_id: string; monitoring_definition_id?: string | null; custom_field_id?: string | null; recorded_by?: string | null; occurred_at?: string; value_json?: Json; notes?: string | null; source?: string; created_at?: string; updated_at?: string; archived_at?: string | null; };
+        Update: { id?: string; organization_id?: string; cared_person_id?: string; monitoring_definition_id?: string | null; custom_field_id?: string | null; recorded_by?: string | null; occurred_at?: string; value_json?: Json; notes?: string | null; source?: string; updated_at?: string; archived_at?: string | null; };
+        Relationships: [];
+      };
+      monitoring_configuration_audit: {
+        Row: { id: string; organization_id: string; cared_person_id: string; action: string; monitoring_definition_id: string | null; custom_field_id: string | null; previous_value: Json | null; new_value: Json | null; performed_by: string | null; created_at: string; };
+        Insert: { id?: string; organization_id: string; cared_person_id: string; action: string; monitoring_definition_id?: string | null; custom_field_id?: string | null; previous_value?: Json | null; new_value?: Json | null; performed_by?: string | null; created_at?: string; };
+        Update: { id?: string; organization_id?: string; cared_person_id?: string; action?: string; monitoring_definition_id?: string | null; custom_field_id?: string | null; previous_value?: Json | null; new_value?: Json | null; performed_by?: string | null; };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
