@@ -34,13 +34,7 @@ export default function Home({ params: { locale } }: { params: { locale: string 
       {/* Hero Section */}
       <section className="pt-32 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="text-center max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-sm font-medium mb-6">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            SaaS Familiar V1
-          </div>
+
           <h1 className="text-5xl md:text-7xl font-extrabold text-gray-900 tracking-tight mb-6">
             {t('hero_title')} <span className="text-emerald-600">{t('hero_subtitle')}</span>
           </h1>

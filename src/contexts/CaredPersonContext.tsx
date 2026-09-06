@@ -5,7 +5,17 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from './AuthContext';
 import type { Tables } from '@/types';
 
-type CaredPerson = Tables<'cared_people'>;
+export interface CaredPerson {
+  id: string;
+  organization_id: string;
+  full_name: string;
+  nickname: string | null;
+  birth_date: string | null;
+  gender: string | null;
+  blood_type: string | null;
+  avatar_url: string | null;
+  notes: string | null;
+}
 
 interface CaredPersonContextValue {
   caredPeople: CaredPerson[];
