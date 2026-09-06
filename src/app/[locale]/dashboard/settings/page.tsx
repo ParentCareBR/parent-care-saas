@@ -14,6 +14,7 @@ import { Settings, User, Lock, Bell, CreditCard, Sun, Moon } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeContext';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 
 export default function SettingsPage() {
   const params = useParams();
@@ -337,6 +338,17 @@ export default function SettingsPage() {
                     Tons escuros para reduzir o cansaço visual em ambientes de pouca luz.
                   </p>
                 </div>
+              </div>
+
+              {/* Language Selection */}
+              <div className="pt-4 border-t border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="font-bold text-stone-900 dark:text-stone-100 text-sm">Idioma da Plataforma</h4>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    Alterne o idioma entre Português, Inglês, Espanhol, Francês e Alemão.
+                  </p>
+                </div>
+                <LanguageSwitcher />
               </div>
             </CardContent>
           </Card>

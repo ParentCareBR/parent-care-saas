@@ -65,7 +65,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <Link href={`/${locale}/dashboard`} className="block">
               <h1 className="text-xl font-bold text-brand-green">Parent Care</h1>
             </Link>
-            <ThemeToggle />
+            <div className="flex items-center gap-1.5">
+              <LanguageSwitcher />
+              <ThemeToggle />
+            </div>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -227,7 +230,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
             {/* Bottom Actions */}
             <div className="pt-4 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between">
-              <ThemeToggle />
+              <div className="flex items-center gap-2">
+                <LanguageSwitcher />
+                <ThemeToggle />
+              </div>
               <button
                 onClick={() => { setMobileMenuOpen(false); signOut(); }}
                 className="flex items-center gap-2 text-sm font-semibold text-rose-600 dark:text-rose-400 hover:underline"
@@ -272,8 +278,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
 
           {/* Right: Actions */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <LanguageSwitcher className="hidden sm:inline-flex" />
+          <div className="flex items-center gap-1.5 sm:gap-3">
+            <LanguageSwitcher />
             <ThemeToggle className="hidden sm:inline-flex" />
 
             {/* Desktop Cared Person button */}
