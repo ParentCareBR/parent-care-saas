@@ -34,7 +34,8 @@ import {
   Trash2,
   AlertTriangle,
   UploadCloud,
-  Sparkles
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { MONITORING_CATALOG, validateDependencies } from '@/lib/monitoring/catalog';
 import type { OnboardingWizardState } from '@/types/cared-person';

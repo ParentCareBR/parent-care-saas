@@ -9,6 +9,17 @@ function isValidUuid(id?: string | null): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 }
 
+function getDbClient(authenticatedSupabase: any) {
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      return createAdminClient();
+    } catch {
+      return authenticatedSupabase;
+    }
+  }
+  return authenticatedSupabase;
+}
+
 // GET /api/cared-people/[id] - Full profile with sub-tables and metadata
 export async function GET(
   req: NextRequest,
@@ -27,10 +38,10 @@ export async function GET(
       return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
     }
 
-    const adminSupabase = createAdminClient();
+    const dbClient = getDbClient(supabase);
 
     // 1. Fetch person
-    const { data: person, error: pError } = await adminSupabase
+    const { data: person, error: pError } = await dbClient
       .from('cared_people')
       .select('*')
       .eq('id', id)
@@ -41,7 +52,7 @@ export async function GET(
     }
 
     // 2. Fetch metadata from organizations.settings
-    const { data: org } = await adminSupabase
+    const { data: org } = await dbClient
       .from('organizations')
       .select('settings')
       .eq('id', person.organization_id)
@@ -60,7 +71,7 @@ export async function GET(
     let auditLogs: any[] = [];
 
     try {
-      const { data: cData } = await adminSupabase
+      const { data: cData } = await dbClient
         .from('cared_person_contacts')
         .select('*')
         .eq('cared_person_id', id)
@@ -71,7 +82,7 @@ export async function GET(
     }
 
     try {
-      const { data: aData } = await adminSupabase
+      const { data: aData } = await dbClient
         .from('cared_person_addresses')
         .select('*')
         .eq('cared_person_id', id);
@@ -81,7 +92,7 @@ export async function GET(
     }
 
     try {
-      const { data: iData } = await adminSupabase
+      const { data: iData } = await dbClient
         .from('cared_person_important_information')
         .select('*')
         .eq('cared_person_id', id);
@@ -91,7 +102,7 @@ export async function GET(
     }
 
     try {
-      const { data: prData } = await adminSupabase
+      const { data: prData } = await dbClient
         .from('cared_person_preferences')
         .select('*')
         .eq('cared_person_id', id);
@@ -101,7 +112,7 @@ export async function GET(
     }
 
     try {
-      const { data: pfData } = await adminSupabase
+      const { data: pfData } = await dbClient
         .from('cared_person_professionals')
         .select('*')
         .eq('cared_person_id', id);
@@ -111,7 +122,7 @@ export async function GET(
     }
 
     try {
-      const { data: csData } = await adminSupabase
+      const { data: csData } = await dbClient
         .from('cared_person_consents')
         .select('*')
         .eq('cared_person_id', id);
@@ -121,7 +132,7 @@ export async function GET(
     }
 
     try {
-      const { data: lData } = await adminSupabase
+      const { data: lData } = await dbClient
         .from('cared_person_audit_logs')
         .select('*')
         .eq('cared_person_id', id)
@@ -175,10 +186,10 @@ export async function PUT(
     }
 
     const payload = await req.json();
-    const adminSupabase = createAdminClient();
+    const dbClient = getDbClient(supabase);
 
     // 1. Fetch current person
-    const { data: currentPerson } = await adminSupabase
+    const { data: currentPerson } = await dbClient
       .from('cared_people')
       .select('*')
       .eq('id', id)
@@ -213,7 +224,7 @@ export async function PUT(
     });
 
     // 2. Update DB row
-    const { error: updateError } = await adminSupabase
+    const { error: updateError } = await dbClient
       .from('cared_people')
       .update(updateFields as any)
       .eq('id', id);
@@ -224,12 +235,12 @@ export async function PUT(
       ['full_name', 'birth_date', 'blood_type', 'notes'].forEach((k) => {
         if (updateFields[k] !== undefined) legacyUpdate[k] = updateFields[k];
       });
-      await adminSupabase.from('cared_people').update(legacyUpdate as any).eq('id', id);
+      await dbClient.from('cared_people').update(legacyUpdate as any).eq('id', id);
     }
 
     // 3. Update in org settings metadata
     try {
-      const { data: orgRecord } = await adminSupabase
+      const { data: orgRecord } = await dbClient
         .from('organizations')
         .select('settings')
         .eq('id', currentPerson.organization_id)
@@ -245,7 +256,7 @@ export async function PUT(
         updated_at: new Date().toISOString(),
       };
 
-      await adminSupabase
+      await dbClient
         .from('organizations')
         .update({
           settings: {
@@ -260,7 +271,7 @@ export async function PUT(
 
     // 4. Record Audit Log
     try {
-      await adminSupabase.from('cared_person_audit_logs').insert({
+      await dbClient.from('cared_person_audit_logs').insert({
         id: crypto.randomUUID(),
         organization_id: currentPerson.organization_id,
         cared_person_id: id,
@@ -300,19 +311,19 @@ export async function PATCH(
     }
 
     const { action } = await req.json();
-    const adminSupabase = createAdminClient();
+    const dbClient = getDbClient(supabase);
 
     const isArchive = action === 'archive';
     const archivedAt = isArchive ? new Date().toISOString() : null;
     const status = isArchive ? 'archived' : 'active';
 
-    await adminSupabase
+    await dbClient
       .from('cared_people')
       .update({ archived_at: archivedAt, status })
       .eq('id', id);
 
     // Also record audit log
-    const { data: person } = await adminSupabase
+    const { data: person } = await dbClient
       .from('cared_people')
       .select('organization_id')
       .eq('id', id)
@@ -320,7 +331,7 @@ export async function PATCH(
 
     if (person) {
       try {
-        await adminSupabase.from('cared_person_audit_logs').insert({
+        await dbClient.from('cared_person_audit_logs').insert({
           id: crypto.randomUUID(),
           organization_id: person.organization_id,
           cared_person_id: id,
@@ -361,10 +372,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
     }
 
-    const adminSupabase = createAdminClient();
+    const dbClient = getDbClient(supabase);
 
     // Soft delete rule: set archived_at rather than hard delete to preserve care history
-    await adminSupabase
+    await dbClient
       .from('cared_people')
       .update({
         archived_at: new Date().toISOString(),

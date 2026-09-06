@@ -9,6 +9,18 @@ function isValidUuid(id?: string | null): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 }
 
+// Helper to choose authenticated client vs service role
+function getDbClient(authenticatedSupabase: any) {
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      return createAdminClient();
+    } catch {
+      return authenticatedSupabase;
+    }
+  }
+  return authenticatedSupabase;
+}
+
 // GET /api/cared-people - List cared people and entitlement status
 export async function GET(req: NextRequest) {
   try {
@@ -22,11 +34,11 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     let organizationId = searchParams.get('organizationId');
 
-    const adminSupabase = createAdminClient();
+    const dbClient = getDbClient(supabase);
 
     // If org not provided, find user's active organization
     if (!organizationId || !isValidUuid(organizationId)) {
-      const { data: membership } = await adminSupabase
+      const { data: membership } = await dbClient
         .from('organization_members')
         .select('organization_id')
         .eq('user_id', user.id)
@@ -37,7 +49,7 @@ export async function GET(req: NextRequest) {
       if (membership) {
         organizationId = membership.organization_id;
       } else {
-        const { data: ownedOrg } = await adminSupabase
+        const { data: ownedOrg } = await dbClient
           .from('organizations')
           .select('id')
           .eq('owner_id', user.id)
@@ -52,7 +64,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 1. Fetch people from DB
-    const { data: people, error: fetchError } = await adminSupabase
+    const { data: people, error: fetchError } = await dbClient
       .from('cared_people')
       .select('*')
       .eq('organization_id', organizationId)
@@ -63,7 +75,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 2. Fetch metadata from organizations.settings if any
-    const { data: org } = await adminSupabase
+    const { data: org } = await dbClient
       .from('organizations')
       .select('settings')
       .eq('id', organizationId)
@@ -88,7 +100,7 @@ export async function GET(req: NextRequest) {
     });
 
     // 3. Entitlement limit check
-    const { data: entitlement } = await adminSupabase
+    const { data: entitlement } = await dbClient
       .from('organization_entitlements')
       .select('cared_people_limit')
       .eq('organization_id', organizationId)
@@ -149,12 +161,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'O nome completo é obrigatório.' }, { status: 400 });
     }
 
-    const adminSupabase = createAdminClient();
+    const dbClient = getDbClient(supabase);
 
     // Verify or resolve organization
     let orgId = organizationId;
     if (!orgId || !isValidUuid(orgId)) {
-      const { data: membership } = await adminSupabase
+      const { data: membership } = await dbClient
         .from('organization_members')
         .select('organization_id')
         .eq('user_id', user.id)
@@ -166,96 +178,155 @@ export async function POST(req: NextRequest) {
     }
 
     if (!orgId) {
+      const { data: ownedOrg } = await dbClient
+        .from('organizations')
+        .select('id')
+        .eq('owner_id', user.id)
+        .limit(1)
+        .maybeSingle();
+
+      orgId = ownedOrg?.id || null;
+    }
+
+    // Auto-create family organization if user doesn't have one yet
+    if (!orgId) {
+      const newOrgId = crypto.randomUUID();
+      const uniqueSlug = `familia-${user.id.slice(0, 5)}-${Date.now()}`;
+      const orgName = full_name ? `Família de ${full_name.split(' ')[0]}` : 'Minha Família';
+
+      const { data: newOrg, error: orgError } = await dbClient.from('organizations').insert({
+        id: newOrgId,
+        name: orgName,
+        slug: uniqueSlug,
+        owner_id: user.id,
+      }).select('id').single();
+
+      if (!orgError && newOrg) {
+        await dbClient.from('organization_members').insert({
+          organization_id: newOrgId,
+          user_id: user.id,
+          role: 'owner',
+          status: 'active',
+        });
+        orgId = newOrgId;
+      }
+    }
+
+    if (!orgId) {
       return NextResponse.json({ error: 'Organização não encontrada.' }, { status: 400 });
     }
 
     // SERVER-SIDE PLAN LIMIT CHECK
-    const { data: entitlement } = await adminSupabase
-      .from('organization_entitlements')
-      .select('cared_people_limit')
-      .eq('organization_id', orgId)
-      .maybeSingle();
+    try {
+      const { data: entitlement } = await dbClient
+        .from('organization_entitlements')
+        .select('cared_people_limit')
+        .eq('organization_id', orgId)
+        .maybeSingle();
 
-    const limit = entitlement?.cared_people_limit ?? 2;
+      const limit = entitlement?.cared_people_limit ?? 2;
 
-    const { count: currentActiveCount, error: countError } = await adminSupabase
-      .from('cared_people')
-      .select('id', { count: 'exact', head: true })
-      .eq('organization_id', orgId)
-      .is('archived_at', null);
+      const { count: currentActiveCount } = await dbClient
+        .from('cared_people')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+        .is('archived_at', null);
 
-    const activeCount = currentActiveCount ?? 0;
+      const activeCount = currentActiveCount ?? 0;
 
-    if (activeCount >= limit) {
-      return NextResponse.json(
-        {
-          error: `Limite de pessoas cuidadas do plano atingido (${activeCount}/${limit}). Faça um upgrade no plano para cadastrar mais perfis.`,
-          code: 'PLAN_LIMIT_REACHED',
-          limit,
-          used: activeCount,
-        },
-        { status: 403 }
-      );
+      if (activeCount >= limit) {
+        return NextResponse.json(
+          {
+            error: `Limite de pessoas cuidadas do plano atingido (${activeCount}/${limit}). Faça um upgrade no plano para cadastrar mais perfis.`,
+            code: 'PLAN_LIMIT_REACHED',
+            limit,
+            used: activeCount,
+          },
+          { status: 403 }
+        );
+      }
+    } catch (limErr) {
+      console.warn('Plan limit check non-fatal warning:', limErr);
     }
 
     // Insert into cared_people
     const newPersonId = crypto.randomUUID();
-    const caredPersonRow: Record<string, any> = {
+
+    // 1. Prepare core fields guaranteed to be compatible
+    const coreRow: Record<string, any> = {
       id: newPersonId,
       organization_id: orgId,
       full_name: full_name.trim(),
-      preferred_name: preferred_name?.trim() || null,
-      relationship: relationship?.trim() || null,
       birth_date: birth_date || null,
       blood_type: blood_type || null,
+      notes: notes?.trim() || null,
+      created_by: user.id,
+    };
+
+    if (preferred_name?.trim()) {
+      coreRow.nickname = preferred_name.trim();
+    }
+    if (gender_identity) {
+      coreRow.gender = gender_identity;
+    }
+
+    // 2. Prepare full extended fields
+    const extendedRow: Record<string, any> = {
+      ...coreRow,
+      preferred_name: preferred_name?.trim() || null,
+      relationship: relationship?.trim() || null,
       profile_type,
       status: 'active',
       preferred_language,
       timezone,
       country_code,
-      notes: notes?.trim() || null,
       gender_identity: gender_identity || null,
       pronouns: pronouns || null,
       marital_status: marital_status || null,
-      created_by: user.id,
     };
 
     let insertedPerson: any = null;
-    const { data: pData, error: pError } = await adminSupabase
+
+    // First attempt: full extended row
+    const { data: pData, error: pError } = await dbClient
       .from('cared_people')
-      .insert(caredPersonRow as any)
+      .insert(extendedRow as any)
       .select('*')
       .maybeSingle();
 
     if (pError) {
-      // If DB schema doesn't yet have all new columns, retry with legacy core columns
-      const legacyRow = {
-        id: newPersonId,
-        organization_id: orgId,
-        full_name: full_name.trim(),
-        birth_date: birth_date || null,
-        blood_type: blood_type || null,
-        notes: notes?.trim() || null,
-      };
-
-      const { data: retryData, error: retryError } = await adminSupabase
+      console.warn('cared_people extended insert failed, retrying with coreRow:', pError.message);
+      // Retry with core compatible row
+      const { data: retryData, error: retryError } = await dbClient
         .from('cared_people')
-        .insert(legacyRow)
+        .insert(coreRow as any)
         .select('*')
         .single();
 
       if (retryError) {
-        return NextResponse.json({ error: `Erro ao criar pessoa cuidada: ${retryError.message}` }, { status: 500 });
-      }
+        console.warn('cared_people core insert failed, retrying without created_by:', retryError.message);
+        // Retry without created_by in case FK restriction
+        delete coreRow.created_by;
+        const { data: retryData2, error: retryError2 } = await dbClient
+          .from('cared_people')
+          .insert(coreRow as any)
+          .select('*')
+          .single();
 
-      insertedPerson = retryData;
+        if (retryError2) {
+          return NextResponse.json({ error: `Erro ao criar pessoa cuidada: ${retryError2.message}` }, { status: 500 });
+        }
+        insertedPerson = retryData2;
+      } else {
+        insertedPerson = retryData;
+      }
     } else {
       insertedPerson = pData;
     }
 
     // Save extended profile in organizations.settings so nothing is ever lost
     try {
-      const { data: orgRecord } = await adminSupabase
+      const { data: orgRecord } = await dbClient
         .from('organizations')
         .select('settings')
         .eq('id', orgId)
@@ -265,7 +336,7 @@ export async function POST(req: NextRequest) {
       const profiles = existingSettings.cared_people_profiles || {};
 
       profiles[newPersonId] = {
-        ...caredPersonRow,
+        ...extendedRow,
         contacts,
         addresses,
         important_information,
@@ -275,7 +346,7 @@ export async function POST(req: NextRequest) {
         created_at: new Date().toISOString(),
       };
 
-      await adminSupabase
+      await dbClient
         .from('organizations')
         .update({
           settings: {
@@ -309,9 +380,22 @@ export async function POST(req: NextRequest) {
           can_edit_records: Boolean(c.can_edit_records),
         }));
 
-        await adminSupabase.from('cared_person_contacts').insert(contactRows);
+        const { error: cErr } = await dbClient.from('cared_person_contacts').insert(contactRows);
+        if (cErr) {
+          // Fallback to legacy emergency_contacts
+          for (const c of contacts) {
+            await dbClient.from('emergency_contacts').insert({
+              organization_id: orgId,
+              cared_person_id: newPersonId,
+              name: c.name,
+              relationship: c.relationship || 'Familiar',
+              phone: c.phone || c.whatsapp || '',
+              is_primary: Boolean(c.is_primary),
+            });
+          }
+        }
       } catch (cErr) {
-        console.warn('cared_person_contacts insert skipped/failed:', cErr);
+        console.warn('Contacts insert skipped/handled:', cErr);
       }
     }
 
@@ -337,7 +421,7 @@ export async function POST(req: NextRequest) {
           access_notes: a.access_notes || null,
         }));
 
-        await adminSupabase.from('cared_person_addresses').insert(addressRows);
+        await dbClient.from('cared_person_addresses').insert(addressRows);
       } catch (aErr) {
         console.warn('cared_person_addresses insert skipped/failed:', aErr);
       }
@@ -356,54 +440,34 @@ export async function POST(req: NextRequest) {
           granted_at: new Date().toISOString(),
         }));
 
-        await adminSupabase.from('cared_person_consents').insert(consentRows);
+        await dbClient.from('cared_person_consents').insert(consentRows);
       } catch (conErr) {
         console.warn('cared_person_consents insert skipped/failed:', conErr);
       }
     }
 
-    // 4. Audit Log
-    try {
-      await adminSupabase.from('cared_person_audit_logs').insert({
-        id: crypto.randomUUID(),
-        organization_id: orgId,
-        cared_person_id: newPersonId,
-        action: 'CREATE_PROFILE',
-        field_name: null,
-        previous_value: null,
-        new_value: { full_name, relationship, profile_type },
-        performed_by: user.id,
-        occurred_at: new Date().toISOString(),
-      });
-    } catch (audErr) {
-      console.warn('Audit log skipped/failed:', audErr);
-    }
-
-    // 5. Monitoring settings if supplied
+    // 4. Monitoring settings if supplied
     if (enabled_monitoring_codes.length > 0) {
       try {
-        const fetchDefRes = await adminSupabase
+        const { data: defs } = await dbClient
           .from('monitoring_definitions')
           .select('id, code');
 
-        if (fetchDefRes.data && fetchDefRes.data.length > 0) {
-          const defMap = new Map(fetchDefRes.data.map((d: any) => [d.code, d.id]));
-          const settingsRows = enabled_monitoring_codes
-            .filter((c: string) => defMap.has(c))
-            .map((c: string, index: number) => ({
-              organization_id: orgId,
-              cared_person_id: newPersonId,
-              monitoring_definition_id: defMap.get(c)!,
-              enabled: true,
-              enabled_at: new Date().toISOString(),
-              settings_json: {},
-              display_order: index + 1,
-            }));
-
-          if (settingsRows.length > 0) {
-            await adminSupabase.from('cared_person_monitoring_settings').upsert(settingsRows, {
-              onConflict: 'cared_person_id,monitoring_definition_id',
-            });
+        if (defs && defs.length > 0) {
+          const defMap = new Map(defs.map((d: any) => [d.code, d.id]));
+          for (const code of enabled_monitoring_codes) {
+            const defId = defMap.get(code);
+            if (defId) {
+              await dbClient.from('cared_person_monitoring_settings').insert({
+                organization_id: orgId,
+                cared_person_id: newPersonId,
+                monitoring_definition_id: defId,
+                enabled: true,
+                enabled_at: new Date().toISOString(),
+                settings_json: {},
+                display_order: 1,
+              });
+            }
           }
         }
       } catch (mErr) {
