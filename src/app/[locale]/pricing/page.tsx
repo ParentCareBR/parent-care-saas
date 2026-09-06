@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Check, Heart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
+import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
+
 export default function PricingPage() {
   const supabase = createClient();
   const [plans, setPlans] = useState<any[]>([]);
@@ -44,8 +46,9 @@ export default function PricingPage() {
             <Heart className="h-6 w-6 text-brand-green fill-brand-green" />
             <span className="text-xl font-bold text-brand-green">Parent Care</span>
           </Link>
-          <div className="flex gap-4">
-            <Link href="/auth/login" className="text-sm font-medium text-stone-600 hover:text-brand-green transition-colors mt-2">
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher />
+            <Link href="/auth/login" className="text-sm font-medium text-stone-600 hover:text-brand-green transition-colors">
               Entrar
             </Link>
           </div>

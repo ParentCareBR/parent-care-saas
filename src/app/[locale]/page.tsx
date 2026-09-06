@@ -3,6 +3,7 @@ import { setRequestLocale } from 'next-intl/server';
 import Link from 'next/link';
 import { Heart, Activity, CheckCircle2, Shield, Calendar, Users, Smartphone, CreditCard, ChevronRight, PlayCircle } from 'lucide-react';
 import Image from 'next/image';
+import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 
 export default function Home({ params: { locale } }: { params: { locale: string } }) {
   setRequestLocale(locale);
@@ -19,11 +20,15 @@ export default function Home({ params: { locale } }: { params: { locale: string 
               <Heart className="h-8 w-8 text-emerald-600" />
               <span className="text-xl font-bold text-gray-900">Parent Care</span>
             </div>
-            <div className="flex gap-4">
-              <Link href={`/${locale}/auth/login`} className="text-gray-600 hover:text-gray-900 font-medium px-4 py-2">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <LanguageSwitcher />
+              <Link href={`/${locale}/pricing`} className="text-gray-600 hover:text-gray-900 font-medium px-2.5 py-1.5 text-sm">
+                Preços
+              </Link>
+              <Link href={`/${locale}/auth/login`} className="text-gray-600 hover:text-gray-900 font-medium px-2.5 py-1.5 text-sm">
                 {n('login')}
               </Link>
-              <Link href={`/${locale}/auth/register`} className="bg-emerald-600 text-white hover:bg-emerald-700 px-5 py-2 rounded-full font-medium transition-colors">
+              <Link href={`/${locale}/auth/signup`} className="bg-emerald-600 text-white hover:bg-emerald-700 px-4 sm:px-5 py-2 rounded-full font-medium transition-colors text-sm">
                 {n('register')}
               </Link>
             </div>

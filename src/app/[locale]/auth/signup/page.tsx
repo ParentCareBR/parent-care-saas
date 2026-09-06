@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
+import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 
 export default function SignupPage() {
   const [name, setName] = useState('');
@@ -47,7 +48,10 @@ export default function SignupPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-4 relative">
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          <LanguageSwitcher />
+        </div>
         <Card className="w-full max-w-md">
           <CardContent className="pt-6 text-center space-y-4">
             <div className="text-5xl">📧</div>
@@ -71,7 +75,10 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-4 relative">
+      <div className="absolute top-4 right-4 flex items-center gap-2">
+        <LanguageSwitcher />
+      </div>
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold text-brand-green">Criar Conta</CardTitle>
