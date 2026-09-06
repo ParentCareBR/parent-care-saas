@@ -49,7 +49,7 @@ export default function MedicationsPage() {
           <p className="text-stone-500">Controle e horários de {selectedPerson.full_name}</p>
         </div>
         <Button asChild className="bg-brand-green hover:bg-emerald-800">
-          <Link href="/dashboard/medications/new">
+          <Link href="/pt-BR/dashboard/medications/new">
             <Plus className="h-4 w-4 mr-2" />
             Adicionar Medicamento
           </Link>
@@ -68,7 +68,7 @@ export default function MedicationsPage() {
             Adicione os medicamentos de {selectedPerson.full_name} para acompanhar horários e confirmações.
           </p>
           <Button asChild variant="outline">
-            <Link href="/dashboard/medications/new">Adicionar o primeiro</Link>
+            <Link href="/pt-BR/dashboard/medications/new">Adicionar o primeiro</Link>
           </Button>
         </div>
       ) : (

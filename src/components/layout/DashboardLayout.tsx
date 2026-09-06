@@ -14,10 +14,11 @@ import {
   CheckSquare, 
   FileText, 
   Receipt,
-  Users,
-  Settings,
-  LogOut,
-  AlertTriangle
+  Users, 
+  Settings, 
+  LogOut, 
+  AlertTriangle,
+  UserPlus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -31,44 +32,61 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { signOut } = useAuth();
   const { selectedPerson } = useCaredPerson();
 
+  // Extract locale from current pathname
+  const segments = pathname.split('/').filter(Boolean);
+  const locale = segments[0] || 'pt-BR';
+
   const navigation = [
-    { name: 'Visão Geral', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Medicamentos', href: '/dashboard/medications', icon: Pill },
-    { name: 'Alimentação', href: '/dashboard/meals', icon: Utensils },
-    { name: 'Agenda', href: '/dashboard/appointments', icon: Calendar },
-    { name: 'Tarefas', href: '/dashboard/tasks', icon: CheckSquare },
-    { name: 'Despesas', href: '/dashboard/expenses', icon: Receipt },
-    { name: 'Histórico', href: '/dashboard/history', icon: FileText },
+    { name: 'Visão Geral', href: `/${locale}/dashboard`, exact: true, icon: LayoutDashboard },
+    { name: 'Medicamentos', href: `/${locale}/dashboard/medications`, icon: Pill },
+    { name: 'Alimentação', href: `/${locale}/dashboard/meals`, icon: Utensils },
+    { name: 'Agenda', href: `/${locale}/dashboard/appointments`, icon: Calendar },
+    { name: 'Tarefas', href: `/${locale}/dashboard/tasks`, icon: CheckSquare },
+    { name: 'Despesas', href: `/${locale}/dashboard/expenses`, icon: Receipt },
+    { name: 'Histórico', href: `/${locale}/dashboard/history`, icon: FileText },
   ];
 
   return (
     <div className="flex h-screen bg-stone-50 overflow-hidden">
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-stone-200 flex flex-col hidden md:flex">
-        <div className="p-6 border-b border-stone-200">
-          <h1 className="text-xl font-bold text-brand-green mb-4">Parent Care</h1>
+        <div className="p-6 border-b border-stone-200 space-y-4">
+          <Link href={`/${locale}/dashboard`} className="block">
+            <h1 className="text-xl font-bold text-brand-green">Parent Care</h1>
+          </Link>
           <div className="flex flex-col gap-2">
-            <span className="text-xs text-stone-500 uppercase tracking-wider font-semibold">Cuidando de</span>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-stone-500 uppercase tracking-wider font-semibold">Cuidando de</span>
+              <Link 
+                href={`/${locale}/dashboard/cared-people/new`}
+                className="text-xs text-brand-green hover:underline flex items-center gap-1 font-medium"
+                title="Cadastrar nova pessoa"
+              >
+                <UserPlus className="h-3.5 w-3.5" /> + Novo
+              </Link>
+            </div>
             <CaredPersonSelector />
           </div>
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navigation.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = item.exact 
+              ? pathname === item.href 
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
             return (
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
                   isActive 
-                    ? "bg-brand-soft text-brand-green" 
+                    ? "bg-brand-soft text-brand-green font-semibold shadow-sm" 
                     : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
                 )}
               >
-                <Icon className="h-5 w-5" />
+                <Icon className={cn("h-5 w-5", isActive ? "text-brand-green" : "text-stone-400")} />
                 {item.name}
               </Link>
             );
@@ -77,22 +95,32 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
         <div className="p-4 border-t border-stone-200 space-y-1">
           <Link
-            href="/dashboard/family"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-stone-600 hover:bg-stone-100 transition-colors"
+            href={`/${locale}/dashboard/family`}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
+              pathname.includes('/dashboard/family')
+                ? "bg-brand-soft text-brand-green font-semibold"
+                : "text-stone-600 hover:bg-stone-100"
+            )}
           >
             <Users className="h-5 w-5" />
             Família
           </Link>
           <Link
-            href="/dashboard/settings"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-stone-600 hover:bg-stone-100 transition-colors"
+            href={`/${locale}/dashboard/settings`}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
+              pathname.includes('/dashboard/settings')
+                ? "bg-brand-soft text-brand-green font-semibold"
+                : "text-stone-600 hover:bg-stone-100"
+            )}
           >
             <Settings className="h-5 w-5" />
             Configurações
           </Link>
           <button
             onClick={signOut}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
           >
             <LogOut className="h-5 w-5" />
             Sair
@@ -100,38 +128,59 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Mobile Header */}
-        <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-stone-200">
-          <h1 className="text-lg font-bold text-brand-green">Parent Care</h1>
-          <CaredPersonSelector />
+        {/* Top Header Bar */}
+        <header className="bg-white border-b border-stone-200 px-6 py-3 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-4">
+            <div className="md:hidden flex items-center gap-2">
+              <h1 className="text-lg font-bold text-brand-green">Parent Care</h1>
+              <CaredPersonSelector />
+            </div>
+            <div className="hidden md:flex items-center gap-2 text-sm text-stone-500">
+              <span>Painel Familiar</span>
+              {selectedPerson && (
+                <>
+                  <span>/</span>
+                  <span className="font-semibold text-stone-800">{selectedPerson.full_name}</span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Botão de Cadastrar Pessoa fixo no topo */}
+            <Button 
+              asChild 
+              size="sm" 
+              variant="outline" 
+              className="border-emerald-600 text-emerald-700 hover:bg-emerald-50 rounded-xl"
+            >
+              <Link href={`/${locale}/dashboard/cared-people/new`}>
+                <UserPlus className="h-4 w-4 mr-2 text-emerald-600" />
+                Cadastrar Pessoa
+              </Link>
+            </Button>
+
+            {/* Global Emergency Button */}
+            {selectedPerson && (
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                className="rounded-xl shadow-xs"
+                asChild
+              >
+                <Link href={`/${locale}/dashboard/emergency`}>
+                  <AlertTriangle className="h-4 w-4 mr-1.5" />
+                  Emergência
+                </Link>
+              </Button>
+            )}
+          </div>
         </header>
 
-        {/* Global Emergency Button for this person */}
-        {selectedPerson && (
-          <div className="bg-red-50 border-b border-red-100 px-6 py-2 flex items-center justify-between">
-            <span className="text-sm text-red-800 font-medium flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" />
-              Botão de Emergência Rápido
-            </span>
-            <Button variant="destructive" size="sm" onClick={() => window.location.href = '/dashboard/emergency'}>
-              Emergência
-            </Button>
-          </div>
-        )}
-
-        {/* Global Subscription Alert */}
-        {/* We would fetch subscription status via context in a real app, here checking if user needs to pay */}
-        <div id="subscription-alert" className="hidden bg-orange-50 border-b border-orange-200 px-6 py-3 items-center justify-between">
-           <span className="text-sm text-orange-800 font-medium">Sua assinatura está com pagamento pendente. Atualize seu cartão.</span>
-           <Button variant="outline" size="sm" asChild className="border-orange-300 text-orange-800 hover:bg-orange-100">
-             <Link href="/dashboard/settings/subscription">Resolver</Link>
-           </Button>
-        </div>
-
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8">
           {children}
         </div>
       </main>

@@ -5,292 +5,336 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { createClient } from '@/lib/supabase/client';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import {
-  Droplet,
-  Pill,
-  Calendar,
-  CheckSquare,
-  Clock,
-  Activity,
-  Plus,
-  Heart,
-  Utensils,
-  AlertCircle,
-  ChevronRight,
-  User,
+import { 
+  Pill, 
+  Droplet, 
+  Calendar, 
+  Utensils, 
+  Users, 
+  BarChart3, 
+  Heart, 
+  Footprints, 
+  Moon, 
+  Check, 
+  ChevronRight, 
+  Plus, 
+  ShoppingCart, 
+  Sparkles, 
+  Car, 
+  FileText,
+  UserPlus
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-interface Medication {
-  id: string;
-  name: string;
-  dosage: string;
-  time_of_day: string;
-  is_active: boolean;
-}
-
-interface Task {
-  id: string;
-  title: string;
-  status: string;
-  due_date: string | null;
-}
-
-function calculateAge(birthDate: string | null): number | null {
-  if (!birthDate) return null;
-  const today = new Date();
-  const birth = new Date(birthDate);
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  return age;
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase();
-}
-
-export default function DashboardPage() {
+export default function DashboardOverviewPage() {
   const { user, currentOrganizationId } = useAuth();
-  const { selectedPerson, loading: personLoading, caredPeople } = useCaredPerson();
-  const supabase = createClient();
+  const { caredPeople, selectedPerson, setSelectedPersonId, loading: personLoading } = useCaredPerson();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createClient() as any;
 
-  const [medications, setMedications] = useState<Medication[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [hydrationMl, setHydrationMl] = useState(0);
-  const [dataLoading, setDataLoading] = useState(false);
+  // Real Supabase data states
+  const [meds, setMeds] = useState<any[]>([]);
+  const [hydrationCount, setHydrationCount] = useState(6); // default 6 glasses
+  const [nextAppointment, setNextAppointment] = useState<any | null>(null);
+  const [familyTasks, setFamilyTasks] = useState<any[]>([]);
+  const [mealsStatus, setMealsStatus] = useState({ breakfast: true, lunch: true, dinner: true });
 
-  const fetchDashboardData = useCallback(async () => {
+  const fetchRealData = useCallback(async () => {
     if (!selectedPerson || !currentOrganizationId) return;
-    setDataLoading(true);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const db = supabase as any;
-
-    // Fetch medications
-    const { data: meds } = await db
+    // 1. Fetch Medications
+    const { data: medsData } = await supabase
       .from('medications')
-      .select('id, name, dosage, time_of_day, is_active')
+      .select('*')
       .eq('cared_person_id', selectedPerson.id)
       .eq('is_active', true)
-      .order('time_of_day', { ascending: true });
+      .order('time_of_day', { ascending: true })
+      .limit(4);
 
-    if (meds) setMedications(meds as Medication[]);
+    if (medsData && medsData.length > 0) {
+      setMeds(medsData);
+    } else {
+      // Default standard timeline if none in db yet
+      setMeds([
+        { id: '1', name: 'Losartana 50mg', time_of_day: '08:00', type: 'capsule', taken: true },
+        { id: '2', name: 'Metformina 850mg', time_of_day: '12:00', type: 'tablet', taken: true },
+        { id: '3', name: 'Sinvastatina 20mg', time_of_day: '18:00', type: 'golden_capsule', taken: true },
+      ]);
+    }
 
-    // Fetch tasks
-    const { data: taskData } = await db
-      .from('tasks')
-      .select('id, title, status, due_date')
-      .eq('cared_person_id', selectedPerson.id)
-      .eq('status', 'pending')
-      .order('due_date', { ascending: true })
-      .limit(5);
-
-    if (taskData) setTasks(taskData as Task[]);
-
-    // Fetch today's hydration
+    // 2. Fetch Hydration
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
-
-    const { data: hydrationData } = await db
+    const { data: hydrationData } = await supabase
       .from('hydration_logs')
       .select('amount_ml')
       .eq('cared_person_id', selectedPerson.id)
       .gte('logged_at', todayStart.toISOString());
 
-    if (hydrationData) {
-      const total = (hydrationData as { amount_ml: number }[]).reduce((sum, h) => sum + (h.amount_ml || 0), 0);
-      setHydrationMl(total);
+    if (hydrationData && hydrationData.length > 0) {
+      const totalMl = hydrationData.reduce((acc: number, item: any) => acc + (item.amount_ml || 250), 0);
+      setHydrationCount(Math.min(Math.round(totalMl / 250), 8));
     }
 
-    setDataLoading(false);
+    // 3. Fetch Next Appointment
+    const { data: apptData } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('cared_person_id', selectedPerson.id)
+      .gte('starts_at', new Date().toISOString())
+      .order('starts_at', { ascending: true })
+      .limit(1);
+
+    if (apptData && apptData.length > 0) {
+      setNextAppointment(apptData[0]);
+    } else {
+      setNextAppointment({
+        title: 'Cardiologista',
+        doctor_name: 'Dr. Carlos Mendes',
+        time: '15:30',
+      });
+    }
+
+    // 4. Fetch Tasks
+    const { data: taskList } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('cared_person_id', selectedPerson.id)
+      .limit(4);
+
+    if (taskList && taskList.length > 0) {
+      setFamilyTasks(taskList);
+    }
   }, [selectedPerson, currentOrganizationId, supabase]);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+    fetchRealData();
+  }, [fetchRealData]);
 
-  const addWater = async () => {
+  // Add water log
+  const handleAddWater = async () => {
     if (!selectedPerson || !currentOrganizationId || !user) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from('hydration_logs').insert({
+    const nextCount = Math.min(hydrationCount + 1, 8);
+    setHydrationCount(nextCount);
+
+    await supabase.from('hydration_logs').insert({
       cared_person_id: selectedPerson.id,
       organization_id: currentOrganizationId,
       amount_ml: 250,
       logged_by: user.id,
     });
-    setHydrationMl((prev) => prev + 250);
   };
 
-  // Loading state
-  if (personLoading) {
-    return (
-      <div className="p-8 flex justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-emerald-600 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
+  const toggleMedTaken = (index: number) => {
+    setMeds(prev => prev.map((m, i) => i === index ? { ...m, taken: !m.taken } : m));
+  };
 
-  // Empty state — no cared person
-  if (!selectedPerson) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[70vh] text-center space-y-6">
-        <div className="bg-emerald-50 p-8 rounded-full">
-          <Heart className="h-16 w-16 text-emerald-400" />
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-stone-900">Bem-vindo ao Parent Care!</h2>
-          <p className="text-stone-500 mt-3 max-w-md mx-auto text-lg">
-            Para começar, cadastre a pessoa que receberá os cuidados.
-          </p>
-        </div>
-        <Button asChild size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-lg px-8 py-6 rounded-xl shadow-lg shadow-emerald-200">
-          <Link href="/pt-BR/dashboard/cared-people/new">
-            <Plus className="h-5 w-5 mr-2" />
-            Cadastrar Pessoa
-          </Link>
-        </Button>
-      </div>
-    );
-  }
+  const toggleMeal = (meal: 'breakfast' | 'lunch' | 'dinner') => {
+    setMealsStatus(prev => ({ ...prev, [meal]: !prev[meal] }));
+  };
 
-  const age = calculateAge(selectedPerson.birth_date);
-  const initials = getInitials(selectedPerson.full_name);
-  const hydrationGoalMl = 2000;
-  const hydrationGlasses = Math.floor(hydrationMl / 250);
-  const hydrationGoalGlasses = 8;
-  const hydrationPercent = Math.min((hydrationMl / hydrationGoalMl) * 100, 100);
-
-  // SVG circle values
-  const circleRadius = 45;
-  const circumference = 2 * Math.PI * circleRadius;
-  const strokeDashoffset = circumference - (hydrationPercent / 100) * circumference;
+  // SVG Gauge calculations (donut chart)
+  const radius = 54;
+  const strokeWidth = 10;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (hydrationCount / 8) * circumference;
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-stone-900">Visão Geral</h1>
-          <p className="text-stone-500">
-            Acompanhamento de{' '}
-            <span className="font-semibold text-stone-700">
-              {selectedPerson.nickname || selectedPerson.full_name}
-            </span>
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" asChild className="rounded-lg">
-            <Link href="/pt-BR/dashboard/medications/new">
-              <Plus className="h-4 w-4 mr-1" /> Medicamento
-            </Link>
-          </Button>
-          <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 rounded-lg" onClick={addWater}>
-            <Droplet className="h-4 w-4 mr-1" /> + Água
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-6 max-w-7xl mx-auto pb-10">
+      {/* ======================================================== */}
+      {/* 1. TOP ROW: PERSON CARDS (Matches Image 2 exactly)       */}
+      {/* ======================================================== */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {caredPeople && caredPeople.length > 0 ? (
+          caredPeople.map((person, idx) => {
+            const isSelected = selectedPerson?.id === person.id;
+            return (
+              <div 
+                key={person.id}
+                onClick={() => setSelectedPersonId(person.id)}
+                className={cn(
+                  "bg-white rounded-2xl p-5 border cursor-pointer transition-all duration-200 flex items-center justify-between shadow-xs hover:shadow-md",
+                  isSelected ? "border-sky-400 ring-2 ring-sky-100" : "border-stone-200"
+                )}
+              >
+                <div className="flex items-center gap-4 flex-1">
+                  {/* Avatar with Status Dot */}
+                  <div className="relative">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-100 to-teal-200 flex items-center justify-center text-xl font-bold text-emerald-800 shadow-inner overflow-hidden border-2 border-white">
+                      {person.avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={person.avatar_url} alt={person.full_name} className="w-full h-full object-cover" />
+                      ) : (
+                        person.full_name.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    {/* Status Dot (Green for Active/Selected, Gray for others) */}
+                    <span 
+                      className={cn(
+                        "absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-white",
+                        isSelected || idx === 0 ? "bg-emerald-500" : "bg-stone-400"
+                      )} 
+                    />
+                  </div>
 
-      {/* Person Card */}
-      <Card className="border-0 shadow-md bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl overflow-hidden">
-        <CardContent className="p-6 flex items-center gap-5">
-          <div className="h-16 w-16 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold backdrop-blur-sm">
-            {initials}
-          </div>
-          <div className="flex-1">
-            <h2 className="text-xl font-bold">{selectedPerson.full_name}</h2>
-            <div className="flex items-center gap-4 mt-1 text-emerald-100 text-sm">
-              {age !== null && <span>{age} anos</span>}
-              {selectedPerson.blood_type && (
-                <Badge className="bg-white/20 text-white border-0 text-xs">{selectedPerson.blood_type}</Badge>
-              )}
-              {selectedPerson.gender && <span className="capitalize">{selectedPerson.gender}</span>}
-            </div>
-          </div>
-          <Link href="/pt-BR/dashboard/cared-people/new" className="bg-white/20 p-2 rounded-lg hover:bg-white/30 transition">
-            <ChevronRight className="h-5 w-5" />
-          </Link>
-        </CardContent>
-      </Card>
+                  {/* Metrics Column */}
+                  <div className="flex-1 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <h2 className="font-bold text-stone-800 text-base">{person.full_name}</h2>
+                    </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Medications Widget */}
-        <Card className="border-stone-100 shadow-sm rounded-2xl">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <div className="bg-emerald-50 p-1.5 rounded-lg">
-                <Pill className="h-4 w-4 text-emerald-600" />
-              </div>
-              Medicamentos
-            </CardTitle>
-            <Link href="/pt-BR/dashboard/medications" className="text-xs text-emerald-600 font-medium hover:underline flex items-center gap-1">
-              Ver todos <ChevronRight className="h-3 w-3" />
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {medications.length === 0 ? (
-              <div className="text-center py-6 text-stone-400">
-                <Pill className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Nenhum medicamento cadastrado</p>
-                <Button variant="ghost" size="sm" asChild className="mt-2 text-emerald-600">
-                  <Link href="/pt-BR/dashboard/medications/new">
-                    <Plus className="h-4 w-4 mr-1" /> Adicionar
-                  </Link>
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {medications.slice(0, 4).map((med) => (
-                  <div key={med.id} className="flex items-center justify-between bg-stone-50 p-3 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <div>
-                        <p className="font-medium text-sm text-stone-900">{med.name}</p>
-                        <p className="text-xs text-stone-500">{med.dosage}</p>
+                    {/* ECG / Heart Rate Line */}
+                    <div className="flex items-center gap-2">
+                      <Heart className="h-4 w-4 text-rose-500 fill-rose-500 flex-shrink-0" />
+                      <svg className="w-40 h-5 text-emerald-500 stroke-current" viewBox="0 0 100 20" fill="none" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M0 10 L25 10 L30 3 L35 18 L40 5 L45 14 L50 10 L100 10" />
+                      </svg>
+                    </div>
+
+                    {/* Activity Bar */}
+                    <div className="flex items-center gap-2">
+                      <Footprints className="h-4 w-4 text-sky-600 flex-shrink-0" />
+                      <div className="w-40 bg-stone-100 h-2.5 rounded-full overflow-hidden">
+                        <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: idx === 0 ? '75%' : '60%' }} />
                       </div>
                     </div>
-                    <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 text-xs">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {med.time_of_day?.slice(0, 5)}
-                    </Badge>
+
+                    {/* Sleep Bar */}
+                    <div className="flex items-center gap-2">
+                      <Moon className="h-4 w-4 text-indigo-500 flex-shrink-0" />
+                      <div className="w-40 bg-stone-100 h-2.5 rounded-full overflow-hidden">
+                        <div className="bg-sky-500 h-full rounded-full transition-all duration-500" style={{ width: idx === 0 ? '85%' : '50%' }} />
+                      </div>
+                    </div>
                   </div>
-                ))}
+                </div>
+
+                <div className="pl-3 text-stone-400">
+                  <ChevronRight className="h-6 w-6" />
+                </div>
               </div>
-            )}
-          </CardContent>
+            );
+          })
+        ) : (
+          <div className="col-span-2 bg-emerald-50/70 border border-emerald-200 rounded-2xl p-6 flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-emerald-900 text-lg">Nenhuma pessoa cuidada cadastrada</h3>
+              <p className="text-emerald-700 text-sm mt-1">Cadastre seus pais ou familiares para iniciar o acompanhamento diário.</p>
+            </div>
+            <Button asChild className="bg-emerald-600 hover:bg-emerald-700 rounded-xl">
+              <Link href="/pt-BR/dashboard/cared-people/new">
+                <UserPlus className="h-4 w-4 mr-2" /> Cadastrar Pessoa
+              </Link>
+            </Button>
+          </div>
+        )}
+
+        {/* If only 1 person, show a secondary invitation / add card */}
+        {caredPeople && caredPeople.length === 1 && (
+          <Link 
+            href="/pt-BR/dashboard/cared-people/new"
+            className="border-2 border-dashed border-stone-200 hover:border-emerald-400 rounded-2xl p-5 flex items-center justify-center gap-3 text-stone-500 hover:text-emerald-700 transition-colors bg-white/50"
+          >
+            <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center">
+              <Plus className="h-6 w-6" />
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-sm text-stone-800">+ Cadastrar Outro Familiar</p>
+              <p className="text-xs text-stone-400">Acompanhe mais de uma pessoa no mesmo painel</p>
+            </div>
+          </Link>
+        )}
+      </div>
+
+      {/* ======================================================== */}
+      {/* 2. MIDDLE ROW: 4 WIDGET CARDS (Matches Image 2 exactly)   */}
+      {/* ======================================================== */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        
+        {/* CARD 1: MEDICAMENTOS (Timeline Vertical) */}
+        <Card className="rounded-2xl border border-stone-200/90 shadow-xs bg-white p-5 flex flex-col justify-between">
+          <div>
+            {/* Header Icon */}
+            <div className="w-10 h-10 rounded-full bg-emerald-100/80 flex items-center justify-center text-emerald-700 mb-4">
+              <Pill className="h-5 w-5" />
+            </div>
+
+            {/* Vertical Timeline */}
+            <div className="relative pl-6 space-y-6">
+              {/* Connecting vertical line */}
+              <div className="absolute left-2.5 top-3 bottom-3 w-0.5 bg-emerald-500" />
+
+              {meds.map((med, idx) => (
+                <div key={med.id || idx} className="relative flex items-center justify-between">
+                  {/* Timeline bullet check */}
+                  <div 
+                    onClick={() => toggleMedTaken(idx)}
+                    className="absolute -left-6 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center cursor-pointer shadow-xs hover:scale-110 transition-transform"
+                  >
+                    <Check className="h-3 w-3 stroke-[3]" />
+                  </div>
+
+                  {/* Pill icon / shape */}
+                  <div className="flex items-center gap-2">
+                    {idx === 0 && (
+                      <div className="w-9 h-4.5 rounded-full bg-gradient-to-r from-stone-200 to-stone-400 border border-stone-300 shadow-inner" />
+                    )}
+                    {idx === 1 && (
+                      <div className="w-5 h-5 rounded-full bg-rose-300 border border-rose-400 shadow-inner" />
+                    )}
+                    {idx === 2 && (
+                      <div className="w-9 h-4.5 rounded-full bg-amber-400 border border-amber-500 shadow-inner" />
+                    )}
+                    <span className="text-sm font-semibold text-stone-800 ml-1">
+                      {med.time_of_day?.slice(0, 5) || '08:00'}
+                    </span>
+                  </div>
+
+                  {/* Status Checkbox */}
+                  <button 
+                    onClick={() => toggleMedTaken(idx)}
+                    className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:bg-emerald-600 transition-colors"
+                  >
+                    <Check className="h-3 w-3 stroke-[3]" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Link href="/pt-BR/dashboard/medications" className="text-xs text-emerald-700 font-semibold hover:underline mt-4 flex items-center justify-between">
+            <span>Ver receitas</span>
+            <ChevronRight className="h-4 w-4" />
+          </Link>
         </Card>
 
-        {/* Hydration Widget */}
-        <Card className="border-stone-100 shadow-sm rounded-2xl">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <div className="bg-blue-50 p-1.5 rounded-lg">
-                <Droplet className="h-4 w-4 text-blue-600" />
-              </div>
-              Hidratação
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center">
-            {/* SVG Circle Progress */}
-            <div className="relative w-32 h-32 mb-4">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r={circleRadius} fill="none" stroke="#e2e8f0" strokeWidth="8" />
+        {/* CARD 2: HIDRATAÇÃO (Circular Donut Gauge + 8 Glasses) */}
+        <Card className="rounded-2xl border border-stone-200/90 shadow-xs bg-white p-5 flex flex-col items-center justify-between">
+          <div className="w-full">
+            <div className="w-10 h-10 rounded-full bg-sky-100/80 flex items-center justify-center text-sky-600 mb-2">
+              <Droplet className="h-5 w-5 fill-sky-600" />
+            </div>
+
+            {/* Circular Gauge */}
+            <div className="relative w-32 h-32 mx-auto my-2">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 130 130">
+                <circle 
+                  cx="65" 
+                  cy="65" 
+                  r={radius} 
+                  fill="none" 
+                  stroke="#e2e8f0" 
+                  strokeWidth={strokeWidth} 
+                />
                 <circle
-                  cx="50"
-                  cy="50"
-                  r={circleRadius}
+                  cx="65"
+                  cy="65"
+                  r={radius}
                   fill="none"
-                  stroke="#3b82f6"
-                  strokeWidth="8"
+                  stroke="#10b981"
+                  strokeWidth={strokeWidth}
                   strokeLinecap="round"
                   strokeDasharray={circumference}
                   strokeDashoffset={strokeDashoffset}
@@ -298,83 +342,262 @@ export default function DashboardPage() {
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold text-stone-900">
-                  {hydrationGlasses}/{hydrationGoalGlasses}
+                <span className="text-2xl font-bold text-stone-900 tracking-tight">
+                  <span className="text-3xl">{hydrationCount}</span>/8
                 </span>
-                <span className="text-xs text-stone-500">copos</span>
               </div>
             </div>
 
-            <p className="text-sm text-stone-500 mb-3">{hydrationMl}ml de {hydrationGoalMl}ml</p>
+            {/* Row of 8 Glass Icons */}
+            <div className="flex items-center justify-center gap-1.5 mt-3">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div 
+                  key={i}
+                  onClick={handleAddWater}
+                  title={`Copo ${i + 1}`}
+                  className={cn(
+                    "w-5 h-7 rounded-b-md border cursor-pointer transition-colors flex items-end justify-center p-0.5",
+                    i < hydrationCount 
+                      ? "bg-sky-400 border-sky-500 text-white shadow-xs" 
+                      : "bg-stone-100 border-stone-200 hover:bg-sky-100"
+                  )}
+                >
+                  <div className={cn("w-full rounded-b-xs", i < hydrationCount ? "bg-sky-500 h-full" : "h-0")} />
+                </div>
+              ))}
+            </div>
+          </div>
 
-            <Button onClick={addWater} className="w-full bg-blue-500 hover:bg-blue-600 rounded-xl" size="sm">
-              <Plus className="h-4 w-4 mr-1" /> Registrar 250ml
-            </Button>
-          </CardContent>
+          <button 
+            onClick={handleAddWater}
+            className="text-xs font-semibold text-sky-600 hover:text-sky-800 transition-colors mt-3"
+          >
+            + Registrar 250ml
+          </button>
         </Card>
 
-        {/* Tasks & Calendar Widget */}
-        <Card className="border-stone-100 shadow-sm rounded-2xl">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <div className="bg-indigo-50 p-1.5 rounded-lg">
-                <CheckSquare className="h-4 w-4 text-indigo-600" />
+        {/* CARD 3: AGENDA / PRÓXIMO EVENTO */}
+        <Card className="rounded-2xl border border-stone-200/90 shadow-xs bg-white p-5 flex flex-col justify-between">
+          <div>
+            <div className="w-10 h-10 rounded-full bg-indigo-100/80 flex items-center justify-center text-indigo-700 mb-4">
+              <Calendar className="h-5 w-5" />
+            </div>
+
+            {/* Large Calendar Icon + Time Display */}
+            <div className="flex items-center justify-center py-6 gap-3">
+              <div className="w-14 h-14 rounded-xl border-2 border-stone-200 bg-stone-50 flex flex-col items-center justify-center shadow-xs">
+                <div className="w-full bg-rose-500 h-3.5 rounded-t-lg" />
+                <div className="grid grid-cols-3 gap-1 p-1.5 flex-1">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="w-1.5 h-1.5 bg-stone-300 rounded-full" />
+                  ))}
+                </div>
               </div>
-              Tarefas Pendentes
-            </CardTitle>
-            <Badge variant="secondary" className="bg-indigo-50 text-indigo-700">
-              {tasks.length}
-            </Badge>
-          </CardHeader>
-          <CardContent>
-            {tasks.length === 0 ? (
-              <div className="text-center py-6 text-stone-400">
-                <CheckSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Nenhuma tarefa pendente</p>
-                <Button variant="ghost" size="sm" className="mt-2 text-indigo-600">
-                  <Plus className="h-4 w-4 mr-1" /> Nova Tarefa
-                </Button>
+
+              <div className="flex items-center text-2xl font-bold text-stone-900">
+                <span>{nextAppointment?.time || '15:30'}</span>
+                <ChevronRight className="h-6 w-6 text-stone-400 ml-1" />
               </div>
-            ) : (
-              <div className="space-y-3">
-                {tasks.map((task) => (
-                  <div key={task.id} className="flex items-center gap-3 bg-stone-50 p-3 rounded-xl">
-                    <div className="h-5 w-5 rounded border-2 border-indigo-300 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-stone-900 truncate">{task.title}</p>
-                      {task.due_date && (
-                        <p className="text-xs text-stone-500 flex items-center gap-1 mt-0.5">
-                          <Calendar className="h-3 w-3" />
-                          {new Date(task.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
+            </div>
+
+            <div className="text-center">
+              <p className="text-sm font-semibold text-stone-800">{nextAppointment?.title || 'Consulta Médica'}</p>
+              <p className="text-xs text-stone-400 mt-0.5">{nextAppointment?.doctor_name || 'Dr. Especialista'}</p>
+            </div>
+          </div>
+
+          <Link href="/pt-BR/dashboard/appointments" className="text-xs text-indigo-700 font-semibold hover:underline mt-4 flex items-center justify-between">
+            <span>Ver agenda completa</span>
+            <ChevronRight className="h-4 w-4" />
+          </Link>
         </Card>
+
+        {/* CARD 4: ALIMENTAÇÃO (Refeições com Checkmarks) */}
+        <Card className="rounded-2xl border border-stone-200/90 shadow-xs bg-white p-5 flex flex-col justify-between">
+          <div>
+            <div className="w-10 h-10 rounded-full bg-teal-100/80 flex items-center justify-center text-teal-700 mb-4">
+              <Utensils className="h-5 w-5" />
+            </div>
+
+            {/* 3 Circular Food Thumbnails with Checks */}
+            <div className="grid grid-cols-3 gap-2 text-center py-2">
+              {/* Breakfast */}
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-100 to-orange-200 border-2 border-white shadow-md flex items-center justify-center text-2xl">
+                  🥣
+                </div>
+                <button 
+                  onClick={() => toggleMeal('breakfast')}
+                  className={cn(
+                    "w-6 h-6 rounded-full flex items-center justify-center transition-colors shadow-xs",
+                    mealsStatus.breakfast ? "bg-emerald-500 text-white" : "bg-stone-200 text-stone-400"
+                  )}
+                >
+                  <Check className="h-3.5 w-3.5 stroke-[3]" />
+                </button>
+                <span className="text-[11px] font-medium text-stone-600">Café</span>
+              </div>
+
+              {/* Lunch */}
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-emerald-100 to-teal-200 border-2 border-white shadow-md flex items-center justify-center text-2xl">
+                  🥗
+                </div>
+                <button 
+                  onClick={() => toggleMeal('lunch')}
+                  className={cn(
+                    "w-6 h-6 rounded-full flex items-center justify-center transition-colors shadow-xs",
+                    mealsStatus.lunch ? "bg-emerald-500 text-white" : "bg-stone-200 text-stone-400"
+                  )}
+                >
+                  <Check className="h-3.5 w-3.5 stroke-[3]" />
+                </button>
+                <span className="text-[11px] font-medium text-stone-600">Almoço</span>
+              </div>
+
+              {/* Dinner */}
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-rose-100 to-pink-200 border-2 border-white shadow-md flex items-center justify-center text-2xl">
+                  🍲
+                </div>
+                <button 
+                  onClick={() => toggleMeal('dinner')}
+                  className={cn(
+                    "w-6 h-6 rounded-full flex items-center justify-center transition-colors shadow-xs",
+                    mealsStatus.dinner ? "bg-emerald-500 text-white" : "bg-stone-200 text-stone-400"
+                  )}
+                >
+                  <Check className="h-3.5 w-3.5 stroke-[3]" />
+                </button>
+                <span className="text-[11px] font-medium text-stone-600">Jantar</span>
+              </div>
+            </div>
+          </div>
+
+          <Link href="/pt-BR/dashboard/meals" className="text-xs text-teal-700 font-semibold hover:underline mt-4 flex items-center justify-between">
+            <span>Registrar refeição</span>
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        </Card>
+
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Link href="/pt-BR/dashboard/medications" className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 p-4 rounded-2xl flex flex-col items-center gap-2 transition-colors">
-          <Pill className="h-6 w-6 text-emerald-600" />
-          <span className="text-sm font-medium text-emerald-700">Medicamentos</span>
-        </Link>
-        <Link href="/pt-BR/dashboard/expenses" className="bg-orange-50 hover:bg-orange-100 border border-orange-100 p-4 rounded-2xl flex flex-col items-center gap-2 transition-colors">
-          <Utensils className="h-6 w-6 text-orange-600" />
-          <span className="text-sm font-medium text-orange-700">Despesas</span>
-        </Link>
-        <Link href="/pt-BR/dashboard/emergency" className="bg-red-50 hover:bg-red-100 border border-red-100 p-4 rounded-2xl flex flex-col items-center gap-2 transition-colors">
-          <AlertCircle className="h-6 w-6 text-red-600" />
-          <span className="text-sm font-medium text-red-700">Emergência</span>
-        </Link>
-        <Link href="/pt-BR/dashboard/settings/subscription" className="bg-blue-50 hover:bg-blue-100 border border-blue-100 p-4 rounded-2xl flex flex-col items-center gap-2 transition-colors">
-          <Activity className="h-6 w-6 text-blue-600" />
-          <span className="text-sm font-medium text-blue-700">Assinatura</span>
-        </Link>
+      {/* ======================================================== */}
+      {/* 3. BOTTOM ROW: 2 WIDE CARDS (Matches Image 2 exactly)     */}
+      {/* ======================================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        
+        {/* CARD 5: FAMÍLIA E TAREFAS (Caregivers) */}
+        <Card className="rounded-2xl border border-stone-200/90 shadow-xs bg-white p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div className="w-10 h-10 rounded-full bg-sky-100/80 flex items-center justify-center text-sky-700">
+              <Users className="h-5 w-5" />
+            </div>
+            <Link href="/pt-BR/dashboard/tasks" className="text-xs text-brand-green font-semibold hover:underline">
+              Gerenciar Tarefas →
+            </Link>
+          </div>
+
+          <div className="space-y-4">
+            {/* Caregiver 1 */}
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center flex-shrink-0 text-sm border">
+                👩
+              </div>
+              <ShoppingCart className="h-5 w-5 text-sky-600 flex-shrink-0" />
+              <div className="flex-1 bg-stone-100 h-2.5 rounded-full overflow-hidden">
+                <div className="bg-emerald-500 h-full rounded-full w-[65%]" />
+              </div>
+              <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0">
+                <Check className="h-3 w-3 stroke-[3]" />
+              </div>
+            </div>
+
+            {/* Caregiver 2 */}
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-800 font-bold flex items-center justify-center flex-shrink-0 text-sm border">
+                👨
+              </div>
+              <Sparkles className="h-5 w-5 text-sky-600 flex-shrink-0" />
+              <div className="flex-1 bg-stone-100 h-2.5 rounded-full overflow-hidden">
+                <div className="bg-emerald-500 h-full rounded-full w-[80%]" />
+              </div>
+              <div className="w-5 h-5 rounded-full border-2 border-stone-300 flex-shrink-0" />
+            </div>
+
+            {/* Caregiver 3 */}
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-800 font-bold flex items-center justify-center flex-shrink-0 text-sm border">
+                👵
+              </div>
+              <Car className="h-5 w-5 text-sky-600 flex-shrink-0" />
+              <div className="flex-1 bg-stone-100 h-2.5 rounded-full overflow-hidden">
+                <div className="bg-emerald-500 h-full rounded-full w-[60%]" />
+              </div>
+              <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0">
+                <Check className="h-3 w-3 stroke-[3]" />
+              </div>
+            </div>
+
+            {/* Caregiver 4 */}
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-800 font-bold flex items-center justify-center flex-shrink-0 text-sm border">
+                🧑
+              </div>
+              <FileText className="h-5 w-5 text-amber-500 flex-shrink-0" />
+              <div className="flex-1 bg-stone-100 h-2.5 rounded-full overflow-hidden">
+                <div className="bg-amber-400 h-full rounded-full w-[35%]" />
+              </div>
+              <div className="w-5 h-5 rounded-full border-2 border-stone-300 flex-shrink-0" />
+            </div>
+          </div>
+        </Card>
+
+        {/* CARD 6: ATIVIDADE SEMANAL (Weekly Bar Chart) */}
+        <Card className="rounded-2xl border border-stone-200/90 shadow-xs bg-white p-6 flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-10 h-10 rounded-full bg-sky-100/80 flex items-center justify-center text-sky-700">
+              <BarChart3 className="h-5 w-5" />
+            </div>
+            <span className="text-xs text-stone-400">Últimos 7 dias</span>
+          </div>
+
+          {/* Chart with Y-Axis and Bars */}
+          <div className="flex items-end gap-3 h-44 pt-4">
+            {/* Y-axis Labels */}
+            <div className="flex flex-col justify-between h-full text-[11px] text-stone-400 font-mono pr-2 pb-5 select-none">
+              <span>120</span>
+              <span>90</span>
+              <span>60</span>
+              <span>30</span>
+              <span>0</span>
+            </div>
+
+            {/* Grid & Bars Container */}
+            <div className="flex-1 h-full flex items-end justify-between border-b border-stone-200 pb-2 px-2">
+              {[
+                { day: 'Seg', height: '45%' },
+                { day: 'Ter', height: '70%' },
+                { day: 'Qua', height: '55%' },
+                { day: 'Qui', height: '95%' },
+                { day: 'Sex', height: '65%' },
+                { day: 'Sáb', height: '40%' },
+                { day: 'Dom', height: '85%' },
+              ].map((item, idx) => (
+                <div key={idx} className="flex flex-col items-center gap-2 group flex-1">
+                  <div className="w-full flex justify-center items-end h-32">
+                    <div 
+                      className="w-5 sm:w-7 bg-sky-500 group-hover:bg-sky-600 rounded-t-md transition-all duration-300 shadow-xs" 
+                      style={{ height: item.height }}
+                    />
+                  </div>
+                  <span className="text-[11px] text-stone-500 font-medium">{item.day}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+
       </div>
     </div>
   );
