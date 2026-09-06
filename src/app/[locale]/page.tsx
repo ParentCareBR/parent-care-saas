@@ -47,7 +47,7 @@ export default function Home({ params: { locale } }: { params: { locale: string 
             {t('hero_description')}
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link href={`/${locale}/auth/register`} className="bg-emerald-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2">
+            <Link href={`/${locale}/auth/signup`} className="bg-emerald-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2">
               {t('cta_primary')} <ChevronRight className="h-5 w-5" />
             </Link>
             <Link href="#demo" className="bg-white text-gray-700 border-2 border-gray-200 px-8 py-4 rounded-full font-bold text-lg hover:border-gray-300 hover:bg-gray-50 transition-all flex items-center justify-center gap-2">
