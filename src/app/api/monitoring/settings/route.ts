@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { validateDependencies, MONITORING_CATALOG } from '@/lib/monitoring/catalog';
+import { validateDependencies, autoResolveDependencies, MONITORING_CATALOG } from '@/lib/monitoring/catalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -106,6 +106,7 @@ export async function GET(req: NextRequest) {
         'meds_scheduled',
         'schedule_appointments',
         'safety_help_requests',
+        'safety_emergency_button',
         'checkin_btn_im_well',
         'checkin_btn_need_help',
         'checkin_btn_took_med',
@@ -193,14 +194,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Permissão insuficiente para alterar configurações de acompanhamento.' }, { status: 403 });
     }
 
-    // Validate dependencies
-    const depCheck = validateDependencies(enabledCodes);
-    if (!depCheck.valid) {
-      return NextResponse.json({
-        error: 'Existem dependências não atendidas para os itens selecionados.',
-        missingDependencies: depCheck.missingDependencies,
-      }, { status: 422 });
-    }
+    // Auto-resolve any missing prerequisite dependencies seamlessly
+    const finalEnabledCodes = autoResolveDependencies(enabledCodes);
 
     const now = new Date().toISOString();
 
@@ -216,7 +211,7 @@ export async function POST(req: NextRequest) {
     const prevPersonSettings = monitoringMap[caredPersonId] || null;
 
     monitoringMap[caredPersonId] = {
-      enabled_codes: enabledCodes,
+      enabled_codes: finalEnabledCodes,
       settings_payload: settingsPayload || {},
       updated_at: now,
       configured_by: user.id,
@@ -250,7 +245,7 @@ export async function POST(req: NextRequest) {
         table_name: 'organizations',
         record_id: person.organization_id,
         old_data: prevPersonSettings || {},
-        new_data: { cared_person_id: caredPersonId, enabled_codes: enabledCodes },
+        new_data: { cared_person_id: caredPersonId, enabled_codes: finalEnabledCodes },
       });
     } catch (auditErr) {
       console.warn('Audit log note:', auditErr);
@@ -267,7 +262,7 @@ export async function POST(req: NextRequest) {
         const defMap = new Map<string, string>();
         dbDefinitions.forEach((d: any) => defMap.set(d.code, d.id));
 
-        const enabledSet = new Set(enabledCodes);
+        const enabledSet = new Set(finalEnabledCodes);
         const upsertRows: any[] = [];
 
         defMap.forEach((defId, code) => {

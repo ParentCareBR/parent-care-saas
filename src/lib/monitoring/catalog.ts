@@ -829,6 +829,22 @@ export function getDefinitionByCode(code: string): CatalogDefinition | null {
   return null;
 }
 
+export function autoResolveDependencies(enabledCodes: string[]): string[] {
+  const resolved = new Set(enabledCodes);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const code of Array.from(resolved)) {
+      const def = getDefinitionByCode(code);
+      if (def?.dependencyCode && !resolved.has(def.dependencyCode)) {
+        resolved.add(def.dependencyCode);
+        changed = true;
+      }
+    }
+  }
+  return Array.from(resolved);
+}
+
 export function validateDependencies(enabledCodes: string[]): { valid: boolean; missingDependencies: { itemCode: string; requiredCode: string }[] } {
   const missing: { itemCode: string; requiredCode: string }[] = [];
   const enabledSet = new Set(enabledCodes);

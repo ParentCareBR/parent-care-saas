@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { useMonitoring } from '@/hooks/useMonitoring';
-import { MONITORING_CATALOG } from '@/lib/monitoring/catalog';
+import { MONITORING_CATALOG, getDefinitionByCode, autoResolveDependencies } from '@/lib/monitoring/catalog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -89,8 +89,21 @@ export default function MonitoringSettingsPage() {
       const next = new Set(prev);
       if (next.has(code)) {
         next.delete(code);
+        // Cascade disable: also turn off sub-items that depend on this code
+        MONITORING_CATALOG.forEach((cat) => {
+          cat.definitions.forEach((d) => {
+            if (d.dependencyCode === code) {
+              next.delete(d.code);
+            }
+          });
+        });
       } else {
         next.add(code);
+        // Cascade enable: also turn on required prerequisite
+        const def = getDefinitionByCode(code);
+        if (def?.dependencyCode) {
+          next.add(def.dependencyCode);
+        }
       }
       return next;
     });
@@ -100,7 +113,10 @@ export default function MonitoringSettingsPage() {
   const handleSave = async () => {
     if (!selectedPerson) return;
     setSaving(true);
-    const res = await saveSettings(Array.from(localCodes));
+    // Auto-resolve any missing dependencies before sending
+    const resolvedCodes = autoResolveDependencies(Array.from(localCodes));
+    setLocalCodes(new Set(resolvedCodes));
+    const res = await saveSettings(resolvedCodes);
     setSaving(false);
     if (res.success) {
       setDirty(false);
@@ -430,7 +446,10 @@ export default function MonitoringSettingsPage() {
                           onClick={() => {
                             setLocalCodes((prev) => {
                               const next = new Set(prev);
-                              category.definitions.forEach((d) => next.add(d.code));
+                              category.definitions.forEach((d) => {
+                                next.add(d.code);
+                                if (d.dependencyCode) next.add(d.dependencyCode);
+                              });
                               return next;
                             });
                             setDirty(true);
@@ -445,7 +464,16 @@ export default function MonitoringSettingsPage() {
                           onClick={() => {
                             setLocalCodes((prev) => {
                               const next = new Set(prev);
-                              category.definitions.forEach((d) => next.delete(d.code));
+                              category.definitions.forEach((d) => {
+                                next.delete(d.code);
+                                MONITORING_CATALOG.forEach((cat) => {
+                                  cat.definitions.forEach((subD) => {
+                                    if (subD.dependencyCode === d.code) {
+                                      next.delete(subD.code);
+                                    }
+                                  });
+                                });
+                              });
                               return next;
                             });
                             setDirty(true);
