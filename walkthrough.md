@@ -1,114 +1,118 @@
-# Walkthrough — Migração Exclusiva Paddle Billing & Gestão de Assentos por Volume
+# Walkthrough — Personalização do Acompanhamento por Pessoa Cuidada
 
-A migração completa para o **Paddle Billing** como única plataforma financeira do Parent Care foi implementada, testada e implantada em produção com sucesso. O Stripe foi totalmente erradicado da base de código, dependências e esquemas de dados.
-
-## 1. O que foi realizado
-
-### A. Eliminação Irreversível do Stripe
-- Removido o pacote `stripe` via `npm uninstall stripe`.
-- Arquivos deletados:
-  - `src/lib/billing/stripe-provider.ts`
-  - `src/app/api/webhooks/stripe/route.ts`
-- Colunas e referências do Stripe removidas de:
-  - `src/lib/billing/types.ts` (`GatewayProvider = 'paddle'`)
-  - `src/lib/billing/index.ts`
-  - `src/app/admin/finance/page.tsx`
-  - `src/app/admin/finance/revenue/page.tsx`
-  - `src/app/[locale]/dashboard/settings/page.tsx`
-  - `supabase/migrations/07_paddle_exclusive_billing.sql` (drops das colunas legadas do Stripe)
-  - `supabase/migrations/20260905_billing_schema.sql` e `20260906_admin_schema.sql`
-- A base de código possui **0 ocorrências ativas de Stripe**.
+O sistema completo de **Personalização do Acompanhamento** foi implementado, testado e validado no Parent Care. Cada pai, mãe ou familiar acompanhado possui agora sua própria configuração independente de monitoramento, sem compartilhamento indevido de regras, sem dados mockados e com total preservação do histórico clínico/organizacional.
 
 ---
 
-### B. Catálogo Comercial e Tabela de Assentos por Volume
+## 1. Arquitetura do Banco de Dados (Supabase Migration 08)
 
-Os 6 tiers comerciais oficiais foram implementados em `src/lib/billing/paddle-catalog.ts`:
+Foram criadas 6 tabelas normalizadas e índices de alto desempenho em `supabase/migrations/08_monitoring_personalization.sql`:
 
-| Faixa (Assentos) | Preço Unitário / Assento (BRL) | Total Mensal (BRL) | Desconto Efetivo | Pessoas Cuidadas Inclusas |
-| :---: | :---: | :---: | :---: | :---: |
-| **1 assento** | R$ 49,90 | **R$ 49,90/mês** | 0% | Até 2 (ex: pai e mãe) |
-| **2 assentos** | R$ 45,90 | **R$ 91,80/mês** | ~8% | Até 2 (ex: pai e mãe) |
-| **3 assentos** | R$ 39,00 | **R$ 117,00/mês** | ~22% | Até 2 (ex: pai e mãe) |
-| **4 assentos** | R$ 35,90 | **R$ 143,60/mês** | ~28% | Até 2 (ex: pai e mãe) |
-| **5 assentos** | R$ 32,90 | **R$ 164,50/mês** | ~34% | Até 2 (ex: pai e mãe) |
-| **6 assentos** | R$ 29,90 | **R$ 179,40/mês** | ~40% | Até 2 (ex: pai e mãe) |
-| **> 6 assentos** | Sob medida | **Personalizado** | Volume corporativo | Bloqueado checkout público / WhatsApp |
+1. **`monitoring_categories`**:
+   - 12 categorias oficiais (A até L).
+2. **`monitoring_definitions`**:
+   - Mais de 60 itens de acompanhamento detalhados com tipo de dado (`boolean`, `number`, `time`, `text`, `scale`, `select`).
+   - Suporte a dependências funcionais (`dependency_code`).
+   - Flag de identificação para botões da tela simplificada (`is_checkin_button`).
+3. **`cared_person_monitoring_settings`**:
+   - Tabela central de associação com chave única `UNIQUE(cared_person_id, monitoring_definition_id)`.
+   - Garante **independência estrita**: alterar as configurações de Maria não altera em nada as escolhas de José.
+   - Preservação temporal: `enabled`, `enabled_at`, `disabled_at`, `configured_by`, `settings_json`.
+4. **`custom_monitoring_fields`**:
+   - Permite que a família crie campos personalizados específicos (ex: *"Regou as plantas?"*, *"Fez palavras cruzadas?"*).
+   - Bloqueio ativo contra diagnósticos clínicos ou termos patológicos.
+5. **`monitoring_records`**:
+   - Tabela unificada para persistência histórica de medições, textos, escalas e valores numéricos.
+6. **`monitoring_configuration_audit`**:
+   - Registro permanente de todas as ativações, desativações e cópias de configurações entre perfis.
 
----
-
-### C. Regras de Acesso e Isolamento
-1. **Regra dos Assentos**:
-   - Assentos consumidos = **Proprietário (1)** + **Membros Ativos** + **Convites Pendentes com Reserva**.
-   - Idosos cuidados que utilizam apenas a visão simplificada **não consomem assentos de gestão**.
-2. **Regra das Pessoas Cuidadas**:
-   - Limite padrão de **até 2 pessoas cuidadas** (ex: pai e mãe).
-   - Isolamento total de prescrições, horários de medicamentos, refeições e histórico de cada um.
-3. **Controle de Convites**:
-   - Servidor rejeita criação de convites se a cota do plano estiver cheia (`assertCanInviteMember`).
-   - Rejeição protegida em `/api/organizations/invitations`.
+Todas as tabelas contam com políticas de Row Level Security (RLS) que isolam os dados estritamente dentro da organização do usuário autenticado.
 
 ---
 
-### D. Rotas de API Implementadas
+## 2. Catálogo Oficial e Categorias Implementadas
 
-1. **`GET /api/billing/price-preview`**:
-   - Retorna os dados dos 6 tiers comerciais oficiais e consulta o Paddle Pricing Preview quando credenciais estiverem ativas.
-2. **`POST /api/billing/checkout`**:
-   - Valida quantidade de assentos estritamente no servidor (1 a 6).
-   - Resolve o `price_id` oficial via catálogo backend (impede manipulação de preços pelo cliente).
-   - Cria o cliente Paddle e transação com metadados `{ organization_id, seat_quantity }`.
-3. **`POST /api/webhooks/paddle`**:
-   - Validação da assinatura criptográfica `paddle-signature`.
-   - Idempotência real auditada na tabela `billing_events`.
-   - Trata ciclo de vida completo: `subscription.created`, `subscription.activated`, `subscription.updated`, `subscription.canceled`, `subscription.past_due`, `subscription.paused`, `transaction.completed`.
-   - Atualiza `billing_subscriptions`, `organization_entitlements` e `organizations`.
-4. **`POST /api/billing/subscription/upgrade`**:
-   - Realiza upgrade proporcional imediato na Paddle e atualiza limites no banco.
-5. **`POST /api/billing/subscription/downgrade`**:
-   - Verifica se os membros ativos + convites pendentes cabem no novo limite antes de autorizar.
-   - Aplica a alteração para o próximo ciclo de cobrança.
-6. **`POST /api/billing/subscription/cancel` & `resume`**:
-   - Cancelamento agendado ao término do período e reativação direta via Paddle.
-7. **`POST /api/billing/portal`**:
-   - Gera link seguro para o Customer Portal da Paddle.
-8. **`POST & GET /api/organizations/invitations`**:
-   - Gerencia convites com contagem de assentos reservados e bloqueio por limite.
+O catálogo oficial (`src/lib/monitoring/catalog.ts`) cobre as 12 áreas requeridas:
+
+| Letra | Código | Nome da Categoria | Exemplos de Itens |
+| :---: | :--- | :--- | :--- |
+| **A** | `daily_routine` | Rotina diária | Refeições, Hidratação, Banho, Higiene, Fraldas, Sono, Atividades |
+| **B** | `medications` | Medicamentos | Remédios programados, Confirmação de tomada, Motivo de recusa, Estoque |
+| **C** | `observed_wellbeing` | Bem-estar observado | Humor percebido, Disposição física, Dor declarada |
+| **D** | `memory_routine` | Memória e rotina | Orientação no tempo/espaço, Esquecimentos incomuns |
+| **E** | `autonomy` | Autonomia e independência | Autonomia para comer, vestir-se, caminhar e transferir-se |
+| **F** | `socialization` | Socialização e convivência | Participação em conversas, Interação com visitas, Isolamento |
+| **G** | `safety_incidents` | Segurança física e ocorrências | Quedas, Quase quedas, Fugas, Chamados de ajuda |
+| **H** | `prosthetics_devices` | Próteses e apoios | Óculos, Aparelho auditivo, Bengala, Andador, Cadeira de rodas |
+| **I** | `care_inventory` | Itens e insumos do idoso | Fraldas, Pomadas, Luvas, Lenços, Alertas de reposição |
+| **J** | `schedule_logistics` | Compromissos e logística | Consultas médicas, Fisioterapia, Transporte agendado |
+| **K** | `caregivers_shifts` | Cuidadores e plantão | Check-in/out de cuidador, Checklist de tarefas, Passagem de turno |
+| **L** | `cared_person_checkins` | Botões da tela simplificada | "Estou bem", "Tomei remédio", "Bebi água", "Já comi", "Acordei", "Vou dormir", "Emergência" |
 
 ---
 
-### E. Telas de Usuário Atualizadas
+## 3. Telas e Interfaces Construídas
 
-1. **Página de Preços (`/[locale]/pricing`)**:
-   - Seletor interativo de 1 a 6 assentos com cálculo em tempo real de preço por assento, total mensal e economia.
-   - Card para > 6 assentos direcionando para contato sob medida no WhatsApp.
-   - Destaque explícito de "Até 2 idosos cuidados inclusos".
-   - Tabela comercial completa exibindo todos os tiers transparentemente.
-2. **Configurações de Assinatura (`/[locale]/dashboard/settings/subscription`)**:
-   - Barra de progresso de uso de assentos (membros ativos + convites pendentes vs limite do plano).
-   - Modais para Upgrade (adicionar assentos) e Downgrade (com bloqueio explicativo se houver excesso de membros).
-   - Botão para acessar o Portal de Pagamento da Paddle.
-   - Histórico de faturas da Paddle.
-3. **Círculo Familiar (`/[locale]/dashboard/family`)**:
-   - Card de quota de assentos com badge ("X de Y assentos utilizados").
-   - Bloqueio inteligente no modal de convite com link direto para adicionar assentos quando esgotado.
-4. **Internacionalização (i18n)**:
-   - Dicionários completos de faturamento adicionados para `pt-BR`, `en`, `es`, `fr` e `de`.
+### A. Cadastro com Wizard de Personalização (`/dashboard/cared-people/new`)
+- **Passo 1**: Nome completo, data de nascimento, gênero, tipo sanguíneo, alergias e observações.
+- **Passo 2**: *"O que você deseja acompanhar para esta pessoa?"*
+  - Cards organizados pelas 12 categorias.
+  - Switches claros para ativação/desativação.
+  - Busca rápida de itens e filtros ("Marcar todos", "Desmarcar todos", "Padrão essencial").
+  - Painel de resumo lateral com total de módulos ativos.
+  - Gravação atômica direta no Supabase.
+
+### B. Gestão e Configuração Posterior (`/dashboard/settings/monitoring`)
+- Seleção direta da pessoa cuidada.
+- Lista completa dos módulos organizados por categoria.
+- **Aviso de segurança ao desativar**: Mensagem explícita informando que o histórico já registrado **permanecerá seguro e preservado**, podendo ser restaurado a qualquer instante com a reativação.
+- **Modal de Cópia Rápida**: Permite copiar as preferências de uma pessoa para outra com um clique, mantendo os registros históricos intactos.
+- **Campos Personalizados da Família**: Criação de perguntas customizadas (tipo Sim/Não, Número, Texto, Escala 1 a 5).
+- **Aba de Auditoria**: Histórico de quem ativou ou desativou cada acompanhamento com data e hora.
+
+### C. Tela Simplificada do Idoso (`/care/[id]`)
+- Renderização estritamente dinâmica dos botões configurados na Categoria L.
+- Não exibe botões desativados.
+- Se o botão de Emergência estiver desativado para aquele perfil, a barra fixa inferior não é renderizada, eliminando espaços vazios.
+- Cards diários (Próximo Remédio e Próxima Consulta) só aparecem se os respectivos módulos estiverem ativos.
+
+### D. Dashboard Familiar (`/dashboard`)
+- Reorganização dinâmica do grid em cascata.
+- Não deixa buracos no layout quando um módulo está desligado.
+- **Zero dados fictícios**: Removidos todos os mocks de fallback (nada de "Losartana 50mg" ou "Dr. Roberto"). Quando um módulo ativo não tem lançamentos, exibe estado vazio honesto com ação direta para registrar.
+
+### E. Relatórios & Mudanças Observadas (`/dashboard/reports`)
+- Relatório diário e semanal cobrindo apenas os módulos ativos.
+- Diferenciação clara entre:
+  - **Módulo não ativado**: Não aparece no relatório.
+  - **Módulo ativado sem registros**: Mostra status "Sem registros no período".
+- **Mudanças Observadas (Comparativo 7 Dias)**:
+  - Algoritmo 100% determinístico (`src/lib/monitoring/pattern-detector.ts`).
+  - Compara a janela dos últimos 7 dias com os 7 dias anteriores.
+  - Detecta variações de hidratação, refeições e chamados de ajuda.
+  - **Regra Não-Diagnóstica**: Exibe banner legal explícito informando que se trata de contagem numérica descritiva e organizacional da própria família, sem emissão de diagnósticos clínicos.
 
 ---
 
-## 2. Validação e Testes
+## 4. Testes Automatizados Executados
 
-- **Testes Unitários Automatizados (`tests/billing.test.mjs`)**:
-  - `✔ 1. Validates standard seat quantity (1 to 6)`
-  - `✔ 2. Rejects out of bound seat quantities (< 1 or > 6)`
-  - `✔ 3. Verifies official commercial volume tier prices and calculations`
-  - `✔ 4. Cared people limit is fixed to 2 for family plan`
-  - `✔ 5. Resolves authorized Paddle price IDs correctly`
-  - `✔ 6. Reverse lookup maps price ID back to correct seat count`
-  - **Resultado: 6/6 testes aprovados**.
-- **Build de Produção**:
-  - Compilou todas as rotas estáticas e dinâmicas com sucesso sem erros de TypeScript ou ESLint.
-- **Deploy em Produção**:
-  - Enviado para o GitHub (`ParentCareBR/parent-care-saas`).
-  - Deploy efetuado no Vercel: **`https://parentcare-pink.vercel.app`**.
+Executado com sucesso via `tests/monitoring.test.mjs`:
+
+```bash
+cmd /c "npx tsx tests/monitoring.test.mjs"
+```
+
+**Resultado:**
+- `✔ 1. Catalog Completeness: exactly 12 standard categories (A through L)`
+- `✔ 2. Independence: Maria (Mother) and José (Father) have isolated configurations`
+- `✔ 3. Dependency Validator: rejects items without prerequisites and accepts valid ones`
+- `✔ 4. Non-Medical Rule & Deterministic Comparison: statistical comparison without medical diagnosis`
+- **Total:** 4 testes aprovados em 9.9ms com 0 falhas.
+
+---
+
+## 5. Build de Produção e Deploy
+
+- `npm run build` compilou com sucesso todas as 24 rotas estáticas e dinâmicas sem erros de tipagem ou de sintaxe.
+- Commit `c97c9a7` realizado e enviado para o GitHub (`git push origin master`).
+- Integração CI/CD conectada com o Vercel em produção.
