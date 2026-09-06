@@ -18,7 +18,7 @@ export function CaredPersonSelector() {
 
   return (
     <Select value={selectedPersonId || undefined} onValueChange={setSelectedPersonId}>
-      <SelectTrigger className="w-[240px] bg-white border-stone-200 focus:ring-brand-green">
+      <SelectTrigger className="w-full max-w-[210px] sm:w-[240px] bg-white border-stone-200 focus:ring-brand-green truncate text-xs sm:text-sm">
         <SelectValue placeholder="Selecione..." />
       </SelectTrigger>
       <SelectContent>

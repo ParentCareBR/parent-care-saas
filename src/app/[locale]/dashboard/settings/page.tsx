@@ -10,11 +10,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Settings, User, Lock, Bell, CreditCard, Check, AlertCircle } from 'lucide-react';
+import { Settings, User, Lock, Bell, CreditCard, Sun, Moon } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
 import Link from 'next/link';
 
 export default function SettingsPage() {
   const { user, profile, refreshProfile } = useAuth();
+  const { theme, setTheme } = useTheme();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createClient() as any;
   const { toast } = useToast();
@@ -128,6 +130,9 @@ export default function SettingsPage() {
           </TabsTrigger>
           <TabsTrigger value="notifications" className="rounded-lg gap-2">
             <Bell className="h-4 w-4" /> Notificações
+          </TabsTrigger>
+          <TabsTrigger value="appearance" className="rounded-lg gap-2">
+            <Sun className="h-4 w-4" /> Aparência
           </TabsTrigger>
           <TabsTrigger value="billing" className="rounded-lg gap-2">
             <CreditCard className="h-4 w-4" /> Assinatura
@@ -275,7 +280,66 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* TAB 4: ASSINATURA */}
+        {/* TAB 4: APARÊNCIA */}
+        <TabsContent value="appearance">
+          <Card className="rounded-2xl border-stone-200">
+            <CardHeader>
+              <CardTitle className="text-lg">Aparência do Aplicativo</CardTitle>
+              <CardDescription>Escolha entre o Modo Claro ou Modo Escuro para a interface.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Light Mode Option */}
+                <div 
+                  onClick={() => setTheme('light')}
+                  className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${
+                    theme === 'light' 
+                      ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/20 ring-2 ring-emerald-500/20' 
+                      : 'border-stone-200 hover:border-stone-300 bg-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2.5 font-bold text-stone-900">
+                      <Sun className="h-5 w-5 text-amber-500" />
+                      <span>Modo Claro</span>
+                    </div>
+                    {theme === 'light' && (
+                      <span className="text-xs bg-emerald-600 text-white font-bold px-2 py-0.5 rounded-full">Ativo</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-stone-500">
+                    Fundo claro com tons suaves e máxima legibilidade para o dia a dia.
+                  </p>
+                </div>
+
+                {/* Dark Mode Option */}
+                <div 
+                  onClick={() => setTheme('dark')}
+                  className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${
+                    theme === 'dark' 
+                      ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/20 ring-2 ring-emerald-500/20' 
+                      : 'border-stone-200 hover:border-stone-300 bg-white dark:bg-stone-900'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2.5 font-bold text-stone-900 dark:text-stone-100">
+                      <Moon className="h-5 w-5 text-indigo-400" />
+                      <span>Modo Escuro</span>
+                    </div>
+                    {theme === 'dark' && (
+                      <span className="text-xs bg-emerald-600 text-white font-bold px-2 py-0.5 rounded-full">Ativo</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    Tons escuros para reduzir o cansaço visual em ambientes de pouca luz.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 5: ASSINATURA */}
         <TabsContent value="billing">
           <Card className="rounded-2xl border-stone-200">
             <CardHeader>

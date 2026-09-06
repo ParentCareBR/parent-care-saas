@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import CookieBanner from '@/components/shared/CookieBanner';
 import { Toaster } from '@/components/ui/toaster';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import '../globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -45,12 +46,14 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale} className="h-full">
-      <body className={`${inter.className} h-full bg-stone-50 text-stone-900 antialiased`}>
-        <NextIntlClientProvider messages={messages}>
-          {children}
-        </NextIntlClientProvider>
-        <CookieBanner />
-        <Toaster />
+      <body className={`${inter.className} h-full bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 antialiased`}>
+        <ThemeProvider>
+          <NextIntlClientProvider messages={messages}>
+            {children}
+          </NextIntlClientProvider>
+          <CookieBanner />
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );
