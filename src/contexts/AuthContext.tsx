@@ -111,8 +111,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, fetchProfile]);
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
-    localStorage.removeItem('parentcare_org');
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error('Erro ao encerrar sessão:', e);
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('parentcare_org');
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      setMemberships([]);
+      setCurrentOrganizationIdState(null);
+      const segments = window.location.pathname.split('/').filter(Boolean);
+      const locale = segments[0] || 'pt-BR';
+      window.location.href = `/${locale}`;
+    }
   }, [supabase]);
 
   return (
