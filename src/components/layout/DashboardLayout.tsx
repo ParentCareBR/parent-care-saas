@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useTranslations } from 'next-intl';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -41,19 +42,22 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { selectedPerson } = useCaredPerson();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const tNav = useTranslations('DashboardNav');
+  const tHeader = useTranslations('DashboardHeader');
+
   // Extract locale from current pathname
   const segments = pathname.split('/').filter(Boolean);
   const locale = segments[0] || 'pt-BR';
 
   const navigation = [
-    { name: 'Visão Geral', href: `/${locale}/dashboard`, exact: true, icon: LayoutDashboard },
-    { name: 'Relatórios & Padrões', href: `/${locale}/dashboard/reports`, icon: BarChart3 },
-    { name: 'Medicamentos', href: `/${locale}/dashboard/medications`, icon: Pill },
-    { name: 'Alimentação', href: `/${locale}/dashboard/meals`, icon: Utensils },
-    { name: 'Agenda', href: `/${locale}/dashboard/appointments`, icon: Calendar },
-    { name: 'Tarefas', href: `/${locale}/dashboard/tasks`, icon: CheckSquare },
-    { name: 'Despesas', href: `/${locale}/dashboard/expenses`, icon: Receipt },
-    { name: 'Histórico', href: `/${locale}/dashboard/history`, icon: FileText },
+    { name: tNav('overview'), href: `/${locale}/dashboard`, exact: true, icon: LayoutDashboard },
+    { name: tNav('reports'), href: `/${locale}/dashboard/reports`, icon: BarChart3 },
+    { name: tNav('medications'), href: `/${locale}/dashboard/medications`, icon: Pill },
+    { name: tNav('meals'), href: `/${locale}/dashboard/meals`, icon: Utensils },
+    { name: tNav('appointments'), href: `/${locale}/dashboard/appointments`, icon: Calendar },
+    { name: tNav('tasks'), href: `/${locale}/dashboard/tasks`, icon: CheckSquare },
+    { name: tNav('expenses'), href: `/${locale}/dashboard/expenses`, icon: Receipt },
+    { name: tNav('history'), href: `/${locale}/dashboard/history`, icon: FileText },
   ];
 
   return (
@@ -76,13 +80,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-stone-500 dark:text-stone-400 uppercase tracking-wider font-semibold">Cuidando de</span>
+              <span className="text-xs text-stone-500 dark:text-stone-400 uppercase tracking-wider font-semibold">{tHeader('caring_for')}</span>
               <Link 
                 href={`/${locale}/dashboard/cared-people/new`}
                 className="text-xs text-brand-green hover:underline flex items-center gap-1 font-medium"
-                title="Cadastrar nova pessoa"
+                title={tHeader('add_person')}
               >
-                <UserPlus className="h-3.5 w-3.5" /> + Novo
+                <UserPlus className="h-3.5 w-3.5" /> {tHeader('new_person')}
               </Link>
             </div>
             <CaredPersonSelector />
@@ -124,7 +128,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             )}
           >
             <Users className="h-5 w-5" />
-            Família
+            {tNav('family')}
           </Link>
           <Link
             href={`/${locale}/dashboard/settings/monitoring`}
@@ -136,7 +140,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             )}
           >
             <Sliders className="h-5 w-5" />
-            Acompanhamentos
+            {tNav('monitoring')}
           </Link>
           <Link
             href={`/${locale}/dashboard/settings`}
@@ -148,14 +152,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             )}
           >
             <Settings className="h-5 w-5" />
-            Configurações
+            {tNav('settings')}
           </Link>
           <button
             onClick={signOut}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
           >
             <LogOut className="h-5 w-5" />
-            Sair
+            {tNav('logout')}
           </button>
         </div>
       </aside>
@@ -186,13 +190,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             {/* Mobile Cared Person Selector */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">Cuidando de</span>
+                <span className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">{tHeader('caring_for')}</span>
                 <Link 
                   href={`/${locale}/dashboard/cared-people/new`}
                   onClick={() => setMobileMenuOpen(false)}
                   className="text-xs text-brand-green font-semibold hover:underline"
                 >
-                  + Cadastrar
+                  {tHeader('new_person')}
                 </Link>
               </div>
               <CaredPersonSelector />
@@ -230,7 +234,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
                 >
                   <Users className="h-5 w-5" />
-                  Família
+                  {tNav('family')}
                 </Link>
                 <Link
                   href={`/${locale}/dashboard/settings/monitoring`}
@@ -238,7 +242,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
                 >
                   <Sliders className="h-5 w-5" />
-                  Acompanhamentos
+                  {tNav('monitoring')}
                 </Link>
                 <Link
                   href={`/${locale}/dashboard/settings`}
@@ -246,7 +250,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
                 >
                   <Settings className="h-5 w-5" />
-                  Configurações
+                  {tNav('settings')}
                 </Link>
               </div>
             </nav>
@@ -261,7 +265,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 onClick={() => { setMobileMenuOpen(false); signOut(); }}
                 className="flex items-center gap-2 text-sm font-semibold text-rose-600 dark:text-rose-400 hover:underline"
               >
-                <LogOut className="h-4 w-4" /> Sair
+                <LogOut className="h-4 w-4" /> {tNav('logout')}
               </button>
             </div>
           </div>
@@ -280,7 +284,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <button
               onClick={() => setMobileMenuOpen(true)}
               className="md:hidden p-1.5 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 focus:outline-none"
-              aria-label="Abrir Menu"
+              aria-label="Menu"
             >
               <Menu className="h-6 w-6" />
             </button>
@@ -290,7 +294,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
             {/* Desktop Breadcrumb */}
             <div className="hidden md:flex items-center gap-2 text-sm text-stone-500 dark:text-stone-400">
-              <span>Painel Familiar</span>
+              <span>{tHeader('family_dashboard')}</span>
               {selectedPerson && (
                 <>
                   <span>/</span>
@@ -314,7 +318,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             >
               <Link href={`/${locale}/dashboard/cared-people/new`}>
                 <UserPlus className="h-4 w-4 mr-1.5 text-emerald-600 dark:text-emerald-400" />
-                Cadastrar Pessoa
+                {tHeader('add_person')}
               </Link>
             </Button>
 
@@ -333,7 +337,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               >
                 <Link href={`/${locale}/dashboard/emergency`}>
                   <AlertTriangle className="h-3.5 w-3.5 sm:mr-1.5" />
-                  <span className="hidden sm:inline">Emergência</span>
+                  <span className="hidden sm:inline">{tHeader('emergency')}</span>
                   <span className="sm:hidden">SOS</span>
                 </Link>
               </Button>
@@ -346,13 +350,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="bg-rose-50 dark:bg-rose-950/40 border-b border-rose-200 dark:border-rose-900/50 px-4 py-1.5 flex items-center justify-between text-xs text-rose-800 dark:text-rose-300">
             <span className="flex items-center gap-1.5 font-medium truncate">
               <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 text-rose-600 dark:text-rose-400" />
-              <span className="truncate">Linha de Emergência de {selectedPerson.full_name}</span>
+              <span className="truncate">{tHeader('emergency_line')} {selectedPerson.full_name}</span>
             </span>
             <Link 
               href={`/${locale}/dashboard/emergency`}
               className="font-bold underline text-rose-700 dark:text-rose-400 hover:text-rose-900 flex-shrink-0 ml-2"
             >
-              Contatos Rápidos →
+              {tHeader('quick_contacts')} →
             </Link>
           </div>
         )}
@@ -361,13 +365,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="bg-emerald-50/70 dark:bg-emerald-950/30 border-b border-emerald-200/50 dark:border-emerald-900/40 px-4 py-1.5 flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-200">
           <span className="flex items-center gap-1.5 font-medium truncate">
             <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
-            <span className="truncate">Teste de 30 dias ativo com cartão. R$ 0,00 cobrado hoje. Primeira fatura somente no 31º dia.</span>
+            <span className="truncate">{tHeader('trial_banner')}</span>
           </span>
           <Link 
             href={`/${locale}/dashboard/settings/subscription`}
             className="font-bold underline text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 flex-shrink-0 ml-2"
           >
-            Ver Plano →
+            {tHeader('view_plan')} →
           </Link>
         </div>
 

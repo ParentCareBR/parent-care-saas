@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { useMonitoring } from '@/hooks/useMonitoring';
@@ -31,6 +32,7 @@ export default function ReportsAndPatternChangesPage() {
   const { user } = useAuth();
   const { selectedPerson } = useCaredPerson();
   const { isModuleEnabled } = useMonitoring();
+  const tR = useTranslations('Monitoring.reports');
 
   const [timeframe, setTimeframe] = useState<'daily' | 'weekly'>('daily');
   const [patternInsights, setPatternInsights] = useState<PatternChangeInsight[]>([]);
@@ -122,11 +124,10 @@ export default function ReportsAndPatternChangesPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-stone-900 dark:text-stone-100">
-              Relatórios & Padrões Observados
+              {tR('title')}
             </h1>
             <p className="text-sm text-stone-500 mt-1">
-              Análise baseada exclusivamente nos acompanhamentos ativados para{' '}
-              <strong className="text-stone-800 dark:text-stone-200">{selectedPerson.full_name}</strong>.
+              {tR('subtitle')}
             </p>
           </div>
           <Tabs value={timeframe} onValueChange={(v) => setTimeframe(v as any)}>
@@ -148,7 +149,7 @@ export default function ReportsAndPatternChangesPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
-              <CardTitle className="text-lg font-bold">Mudanças Observadas (Comparativo 7 Dias)</CardTitle>
+              <CardTitle className="text-lg font-bold">{tR('observed_changes')}</CardTitle>
             </div>
             <Badge variant="outline" className="text-xs font-bold text-emerald-800 border-emerald-300">
               Determinístico

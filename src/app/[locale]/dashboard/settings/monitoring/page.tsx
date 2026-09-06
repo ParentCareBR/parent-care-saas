@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { useMonitoring } from '@/hooks/useMonitoring';
@@ -43,6 +44,8 @@ export default function MonitoringSettingsPage() {
   const { caredPeople, selectedPerson, setSelectedPersonId } = useCaredPerson();
   const { settings, customFields, isModuleEnabled, saveSettings, copyFrom, refetch } = useMonitoring();
   const { toast } = useToast();
+  const tM = useTranslations('MonitoringPage');
+  const tCat = useTranslations('Monitoring.categories');
 
   const [localCodes, setLocalCodes] = useState<Set<string>>(new Set());
   const [dirty, setDirty] = useState(false);
@@ -228,14 +231,14 @@ export default function MonitoringSettingsPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-3xl font-bold text-stone-900 dark:text-stone-100">
-              Personalização do Acompanhamento
+              {tM('title')}
             </h1>
             <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-300 font-bold">
-              {localCodes.size} Ativos
+              {tM('active_badge', { count: localCodes.size })}
             </Badge>
           </div>
           <p className="text-sm text-stone-500 mt-1">
-            Configuração individual para <strong className="text-stone-800 dark:text-stone-200">{selectedPerson.full_name}</strong>. Desativar um item oculta do painel mas preserva todo o histórico.
+            {tM('subtitle', { name: selectedPerson.full_name })}
           </p>
         </div>
 
@@ -264,13 +267,13 @@ export default function MonitoringSettingsPage() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <TabsList className="bg-stone-200/60 dark:bg-stone-800/60 p-1 rounded-xl">
             <TabsTrigger value="modules" className="rounded-lg text-xs font-semibold px-4 py-2">
-              Módulos e Categorias
+              {tM('tab_modules')}
             </TabsTrigger>
             <TabsTrigger value="custom_fields" className="rounded-lg text-xs font-semibold px-4 py-2">
-              Campos Personalizados ({customFields.length})
+              {tM('tab_custom', { count: customFields.length })}
             </TabsTrigger>
             <TabsTrigger value="audit" onClick={fetchAuditLogs} className="rounded-lg text-xs font-semibold px-4 py-2">
-              Histórico de Alterações
+              {tM('tab_audit')}
             </TabsTrigger>
           </TabsList>
 
@@ -279,7 +282,7 @@ export default function MonitoringSettingsPage() {
               <Dialog open={copyModalOpen} onOpenChange={setCopyModalOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-2 text-xs">
-                    <Copy className="h-3.5 w-3.5" /> Copiar de outro familiar
+                    <Copy className="h-3.5 w-3.5" /> {tM('btn_copy')}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
@@ -325,7 +328,7 @@ export default function MonitoringSettingsPage() {
             <Dialog open={customFieldModalOpen} onOpenChange={setCustomFieldModalOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2 text-xs">
-                  <Plus className="h-3.5 w-3.5" /> Novo campo da família
+                  <Plus className="h-3.5 w-3.5" /> {tM('btn_new_field')}
                 </Button>
               </DialogTrigger>
               <DialogContent>
@@ -399,7 +402,7 @@ export default function MonitoringSettingsPage() {
           <div className="relative">
             <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-stone-400" />
             <Input
-              placeholder="Filtrar por nome ou descrição do acompanhamento..."
+              placeholder={tM('filter_placeholder')}
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
               className="pl-10 h-11"
@@ -418,7 +421,7 @@ export default function MonitoringSettingsPage() {
                           {category.name}
                         </span>
                         <Badge variant="secondary" className="text-xs">
-                          {activeInCategory} de {category.definitions.length}
+                          {tM('count_of', { active: activeInCategory, total: category.definitions.length })}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-2">
@@ -434,7 +437,7 @@ export default function MonitoringSettingsPage() {
                           }}
                           className="text-xs text-brand-green hover:underline font-medium"
                         >
-                          Ativar todos
+                          {tM('enable_all')}
                         </button>
                         <span className="text-stone-300">|</span>
                         <button
@@ -449,7 +452,7 @@ export default function MonitoringSettingsPage() {
                           }}
                           className="text-xs text-stone-500 hover:underline"
                         >
-                          Desativar
+                          {tM('disable_all')}
                         </button>
                       </div>
                     </div>
@@ -504,7 +507,7 @@ export default function MonitoringSettingsPage() {
               <div className="flex items-center gap-3">
                 <AlertCircle className="h-5 w-5 text-brand-green shrink-0" />
                 <span className="text-sm font-semibold">
-                  Existem alterações não salvas nas configurações de {selectedPerson.full_name}.
+                  {tM('unsaved_warning')}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -517,7 +520,7 @@ export default function MonitoringSettingsPage() {
                   onClick={handleSave}
                   className="bg-brand-green hover:bg-brand-green/90 text-white font-bold px-5"
                 >
-                  {saving ? 'Salvando...' : 'Salvar Alterações'}
+                  {saving ? tM('btn_saving') : tM('btn_save')}
                 </Button>
               </div>
             </div>
