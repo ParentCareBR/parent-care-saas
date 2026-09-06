@@ -3,7 +3,7 @@ import createNextIntlPlugin from 'next-intl/plugin';
 // @ts-expect-error next-pwa lacks types
 import withPWAInit from 'next-pwa';
 
-const withNextIntl = createNextIntlPlugin();
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 const withPWA = withPWAInit({
   dest: 'public',
@@ -24,4 +24,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withPWA(withNextIntl(nextConfig));
+export default withNextIntl(withPWA(nextConfig));
