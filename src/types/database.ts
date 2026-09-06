@@ -23,9 +23,9 @@ export type Database = {
         Relationships: [];
       };
       cared_people: {
-        Row: { id: string; organization_id: string; full_name: string; birth_date: string | null; photo_url: string | null; blood_type: string | null; };
-        Insert: { id?: string; organization_id: string; full_name: string; birth_date?: string | null; photo_url?: string | null; blood_type?: string | null; };
-        Update: { id?: string; organization_id?: string; full_name?: string; birth_date?: string | null; photo_url?: string | null; blood_type?: string | null; };
+        Row: { id: string; organization_id: string; user_id: string | null; full_name: string; birth_date: string | null; photo_url: string | null; blood_type: string | null; };
+        Insert: { id?: string; organization_id: string; user_id?: string | null; full_name: string; birth_date?: string | null; photo_url?: string | null; blood_type?: string | null; };
+        Update: { id?: string; organization_id?: string; user_id?: string | null; full_name?: string; birth_date?: string | null; photo_url?: string | null; blood_type?: string | null; };
         Relationships: [];
       };
       medications: {
@@ -110,6 +110,42 @@ export type Database = {
         Row: { id: string; gateway: string; event_id: string; event_type: string; payload: Json; processed_at: string; };
         Insert: { id?: string; gateway: string; event_id: string; event_type: string; payload: Json; processed_at?: string; };
         Update: { id?: string; gateway?: string; event_id?: string; event_type?: string; payload?: Json; processed_at?: string; };
+        Relationships: [];
+      };
+      notifications: {
+        Row: { id: string; user_id: string; organization_id: string | null; type: string; title: string; message: string; link_url: string | null; read_at: string | null; created_at: string; };
+        Insert: { id?: string; user_id: string; organization_id?: string | null; type?: string; title: string; message: string; link_url?: string | null; read_at?: string | null; created_at?: string; };
+        Update: { id?: string; user_id?: string; organization_id?: string | null; type?: string; title?: string; message?: string; link_url?: string | null; read_at?: string | null; };
+        Relationships: [];
+      };
+      audit_logs: {
+        Row: { id: string; organization_id: string | null; user_id: string | null; action: string; table_name: string | null; record_id: string | null; old_data: Json | null; new_data: Json | null; ip_address: string | null; created_at: string; };
+        Insert: { id?: string; organization_id?: string | null; user_id?: string | null; action: string; table_name?: string | null; record_id?: string | null; old_data?: Json | null; new_data?: Json | null; ip_address?: string | null; created_at?: string; };
+        Update: { id?: string; organization_id?: string | null; user_id?: string | null; action?: string; table_name?: string | null; record_id?: string | null; old_data?: Json | null; new_data?: Json | null; ip_address?: string | null; };
+        Relationships: [];
+      };
+      medication_confirmations: {
+        Row: { id: string; organization_id: string; cared_person_id: string; medication_id: string; schedule_id: string | null; confirmed_by: string; confirmed_at: string; status: string; notes: string | null; created_at: string; };
+        Insert: { id?: string; organization_id: string; cared_person_id: string; medication_id: string; schedule_id?: string | null; confirmed_by: string; confirmed_at?: string; status?: string; notes?: string | null; created_at?: string; };
+        Update: { id?: string; organization_id?: string; cared_person_id?: string; medication_id?: string; schedule_id?: string | null; confirmed_by?: string; confirmed_at?: string; status?: string; notes?: string | null; };
+        Relationships: [];
+      };
+      emergency_contacts: {
+        Row: { id: string; cared_person_id: string; organization_id: string; name: string; relationship: string; phone: string; is_primary: boolean; created_at: string; };
+        Insert: { id?: string; cared_person_id: string; organization_id: string; name: string; relationship: string; phone: string; is_primary?: boolean; created_at?: string; };
+        Update: { id?: string; cared_person_id?: string; organization_id?: string; name?: string; relationship?: string; phone?: string; is_primary?: boolean; };
+        Relationships: [];
+      };
+      care_notes: {
+        Row: { id: string; cared_person_id: string; organization_id: string; author_id: string; content: string; type: string; created_at: string; updated_at: string; };
+        Insert: { id?: string; cared_person_id: string; organization_id: string; author_id: string; content: string; type?: string; created_at?: string; updated_at?: string; };
+        Update: { id?: string; cared_person_id?: string; organization_id?: string; author_id?: string; content?: string; type?: string; };
+        Relationships: [];
+      };
+      medication_schedules: {
+        Row: { id: string; medication_id: string; cared_person_id: string; organization_id: string; time_of_day: string; days_of_week: string[] | null; created_at: string; };
+        Insert: { id?: string; medication_id: string; cared_person_id: string; organization_id: string; time_of_day: string; days_of_week?: string[] | null; created_at?: string; };
+        Update: { id?: string; medication_id?: string; cared_person_id?: string; organization_id?: string; time_of_day?: string; days_of_week?: string[] | null; };
         Relationships: [];
       };
     };

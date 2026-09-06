@@ -21,7 +21,7 @@ export default function MedicationsPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from('medications')
-        .select('*')
+        .select('*, medication_schedules(id, time_of_day)')
         .eq('cared_person_id', selectedPerson.id)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
@@ -78,10 +78,15 @@ export default function MedicationsPage() {
               <div className="flex flex-col sm:flex-row">
                 <div className="bg-stone-50 p-4 sm:w-48 border-r border-stone-100 flex flex-col justify-center">
                   <span className="text-sm text-stone-500 font-medium">Horários previstos</span>
-                  {/* Mocking schedules for now */}
-                  <div className="flex gap-2 mt-2">
-                    <span className="bg-white border border-stone-200 text-stone-700 text-xs px-2 py-1 rounded-md font-medium">08:00</span>
-                    <span className="bg-white border border-stone-200 text-stone-700 text-xs px-2 py-1 rounded-md font-medium">20:00</span>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {med.medication_schedules?.map((sched: any) => (
+                      <span key={sched.id} className="bg-white border border-stone-200 text-stone-700 text-xs px-2 py-1 rounded-md font-medium">
+                        {sched.time_of_day.slice(0, 5)}
+                      </span>
+                    ))}
+                    {(!med.medication_schedules || med.medication_schedules.length === 0) && (
+                      <span className="text-xs text-stone-400 italic">Sem horário definido</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex-1 p-5 flex justify-between items-center">

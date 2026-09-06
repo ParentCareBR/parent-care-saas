@@ -4,8 +4,6 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
-import { AuthProvider } from '@/contexts/AuthContext';
-import { Toaster } from "@/components/ui/toaster";
 import CookieBanner from '@/components/shared/CookieBanner';
 import '../globals.css';
 

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { 
@@ -14,30 +15,33 @@ import {
   BellRing,
   RotateCcw
 } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export default function ElderlyViewPage({ 
-  params,
-  searchParams 
+  params
 }: { 
-  params: { id: string, locale: string },
-  searchParams: { demo?: string, token?: string } 
+  params: { id: string, locale: string }
 }) {
-  const isDemo = searchParams.demo === 'true';
   const supabase = createClient();
+  const router = useRouter();
   
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
   
   const [personInfo, setPersonInfo] = useState({
-    name: isDemo ? 'Dona Maria' : 'Carregando...',
-    nextAppointment: isDemo ? 'Consulta Dr. Silva (Amanhã, 14:00)' : null,
-    nextMedication: isDemo ? 'Losartana 50mg - 08:00' : null,
+    name: 'Carregando...',
+    organizationId: '',
+    userId: '',
+    nextAppointment: null as string | null,
+    nextMedication: null as string | null,
+    medicationId: null as string | null,
+    medicationScheduleId: null as string | null,
   });
 
   const [lastAction, setLastAction] = useState<{id: string, type: string, table: string} | null>(null);
 
-  // Update clock every minute
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
@@ -45,230 +49,279 @@ export default function ElderlyViewPage({
 
   useEffect(() => {
     async function fetchData() {
-      if (isDemo) return;
+      const { data: { user } } = await supabase.auth.getUser();
       
-      // Ideally, validate token here for secure access
+      if (!user) {
+        router.push(`/${params.locale}/care/login`);
+        return;
+      }
+
       // Fetch person data
-      const { data: person } = await supabase
+      const { data: person, error: pErr } = await supabase
         .from('cared_people')
         .select('full_name, organization_id')
         .eq('id', params.id)
         .single();
         
-      if (person) {
-        const typedPerson = person as any;
-        setPersonInfo(prev => ({ ...prev, name: typedPerson.full_name.split(' ')[0] }));
-        localStorage.setItem('parentcare_org', typedPerson.organization_id);
+      if (!person || pErr) {
+        router.push(`/${params.locale}/care/login`);
+        return;
       }
+
+      const orgId = person.organization_id;
+      const firstName = person.full_name.split(' ')[0];
+
+      // Puxar próxima medicação (Simplificado para MVP: pegar o primeiro medicamento ativo que tem um schedule hoje futuro)
+      // Em produção real faríamos query nos medication_schedules cruzando horários
+      const { data: meds } = await supabase
+        .from('medications')
+        .select('id, name')
+        .eq('cared_person_id', params.id)
+        .eq('is_active', true)
+        .limit(1);
+
+      let nextMed = null;
+      let medId = null;
+      if (meds && meds.length > 0) {
+        nextMed = `${meds[0].name} (Verifique Horário)`;
+        medId = meds[0].id;
+      }
+
+      // Puxar próxima consulta futura
+      const { data: appt } = await supabase
+        .from('appointments')
+        .select('title, starts_at')
+        .eq('cared_person_id', params.id)
+        .gte('starts_at', new Date().toISOString())
+        .order('starts_at', { ascending: true })
+        .limit(1)
+        .single();
+
+      let nextAppt = null;
+      if (appt) {
+        nextAppt = `${appt.title} (${format(new Date(appt.starts_at), "dd/MM 'às' HH:mm", { locale: ptBR })})`;
+      }
+
+      setPersonInfo({
+        name: firstName,
+        organizationId: orgId,
+        userId: user.id,
+        nextMedication: nextMed,
+        medicationId: medId,
+        medicationScheduleId: null,
+        nextAppointment: nextAppt
+      });
     }
     fetchData();
-  }, [isDemo, params.id, supabase]);
+  }, [params.id, params.locale, router, supabase]);
 
   const triggerVibration = () => {
     if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-      navigator.vibrate(200); // 200ms vibration
+      navigator.vibrate(200);
     }
   };
 
-  const handleAction = async (type: string, message: string, dbTable: string, data: any) => {
+  const handleAction = async (type: string, message: string, dbTable: string, payloadData: any) => {
     setLoading(true);
     
-    let actionId = '';
+    const payload = {
+      organization_id: personInfo.organizationId,
+      cared_person_id: params.id,
+      ...payloadData
+    };
     
-    if (isDemo) {
-      await new Promise(resolve => setTimeout(resolve, 800)); // simulate network
-      actionId = 'demo-id';
-    } else {
-      const orgId = localStorage.getItem('parentcare_org') || '';
-      
-      const payload = {
-        organization_id: orgId,
-        cared_person_id: params.id,
-        ...data
-      };
-      
-      const { data: result, error } = await supabase.from(dbTable).insert(payload).select().single();
-      
-      if (error) {
-        setLoading(false);
-        alert('Falha na comunicação. Verifique sua internet.');
-        return;
-      }
-      
-      const typedResult = result as any;
-      actionId = typedResult.id;
+    const { data: result, error } = await supabase.from(dbTable).insert(payload).select().single();
+    
+    if (error) {
+      setLoading(false);
+      alert('Falha na comunicação. Verifique sua internet.');
+      return;
     }
     
     triggerVibration();
-    setLastAction({ id: actionId, type, table: dbTable });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setLastAction({ id: (result as any).id, type, table: dbTable });
     setLoading(false);
     setSuccessMsg(`${message}! A família foi avisada.`);
     
+    // Create a real notification for the organization members
+    const { data: members } = await supabase.from('organization_members')
+      .select('user_id')
+      .eq('organization_id', personInfo.organizationId)
+      .neq('user_id', personInfo.userId);
+      
+    if (members && members.length > 0) {
+       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       const notifications: any[] = members.map(m => ({
+          user_id: m.user_id,
+          organization_id: personInfo.organizationId,
+          type: type === 'emergency' ? 'alert' : 'info',
+          title: `Aviso de ${personInfo.name}`,
+          message: message,
+          link_url: `/${params.locale}/dashboard`
+       }));
+       await supabase.from('notifications').insert(notifications);
+    }
+
     setTimeout(() => setSuccessMsg(''), 6000);
   };
 
   const undoLastAction = async () => {
-    if (!lastAction || isDemo) {
-      setLastAction(null);
-      setSuccessMsg('Ação cancelada.');
-      setTimeout(() => setSuccessMsg(''), 3000);
-      return;
-    }
+    if (!lastAction) return;
     
     setLoading(true);
     await supabase.from(lastAction.table).delete().eq('id', lastAction.id);
     setLoading(false);
     setLastAction(null);
-    setSuccessMsg('Ação corrigida.');
+    setSuccessMsg('Ação cancelada.');
     setTimeout(() => setSuccessMsg(''), 3000);
   };
 
   return (
-    <div className="min-h-screen bg-stone-100 flex justify-center text-stone-900 elderly-mode selection:bg-brand-green selection:text-white">
-      <div className="w-full max-w-lg bg-white min-h-screen shadow-2xl flex flex-col">
+    <div className="min-h-screen bg-stone-50 elderly-mode">
+      {/* Top Bar */}
+      <div className="bg-white border-b-4 border-stone-200 p-6 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="h-16 w-16 bg-brand-soft rounded-full flex items-center justify-center">
+            <Heart className="h-8 w-8 text-brand-green" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-stone-900">Olá, {personInfo.name}</h1>
+            <p className="text-xl text-stone-500 font-medium">
+              {currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          </div>
+        </div>
         
-        {/* Header - Greeting and Time */}
-        <header className="bg-brand-green text-white p-6 pb-8 rounded-b-[2rem] shadow-md relative z-10" role="banner">
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-4xl font-bold mb-1">Olá, {personInfo.name}!</h1>
-              <p className="text-xl opacity-90 font-medium">
-                {currentTime.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
-              </p>
-            </div>
-            <div className="text-right">
-              <span className="text-4xl font-bold tracking-tighter" aria-label={`Hora atual: ${currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}>
-                {currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            </div>
-          </div>
-        </header>
+        <Button 
+          variant="ghost" 
+          onClick={() => {
+            supabase.auth.signOut();
+            router.push(`/${params.locale}/care/login`);
+          }} 
+          className="text-stone-400 hover:text-stone-600 h-16 w-16"
+        >
+          Sair
+        </Button>
+      </div>
 
-        <main className="flex-1 p-4 -mt-4 z-0 flex flex-col gap-4 overflow-y-auto" role="main">
-          
-          {/* Important Reminders */}
-          {(personInfo.nextMedication || personInfo.nextAppointment) && (
-            <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 shadow-sm mb-2" role="region" aria-label="Lembretes">
-              {personInfo.nextMedication && (
-                <div className="flex items-center gap-3 text-amber-900 font-semibold text-lg mb-2">
-                  <div className="bg-amber-200 p-2 rounded-full text-amber-700">
-                    <BellRing className="h-6 w-6" aria-hidden="true" />
-                  </div>
-                  <span>Lembrete: {personInfo.nextMedication}</span>
-                </div>
-              )}
-              {personInfo.nextAppointment && (
-                <div className="flex items-center gap-3 text-indigo-900 font-medium text-lg pt-2 border-t border-amber-200/50">
-                  <Calendar className="h-6 w-6 text-indigo-600" aria-hidden="true" />
-                  <span>{personInfo.nextAppointment}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Feedback Message */}
-          {successMsg && (
-            <div 
-              className="bg-green-100 border-2 border-green-500 text-green-900 p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 shadow-md"
-              role="alert"
-              aria-live="assertive"
-            >
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-10 w-10 text-green-600 shrink-0" aria-hidden="true" />
-                <span className="font-bold text-xl">{successMsg}</span>
-              </div>
-              
-              {lastAction && (
-                <Button 
-                  variant="outline" 
-                  className="border-green-300 text-green-800 bg-white hover:bg-green-50 w-full sm:w-auto h-12 text-lg rounded-xl shrink-0"
-                  onClick={undoLastAction}
-                  disabled={loading}
-                  aria-label="Desfazer ação"
-                >
-                  <RotateCcw className="h-5 w-5 mr-2" aria-hidden="true" /> Corrigir
-                </Button>
-              )}
-            </div>
-          )}
-
-          {/* Quick Actions Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2 flex-1 content-start">
-            <Button 
-              className="h-28 text-2xl rounded-2xl bg-green-600 hover:bg-green-700 text-white shadow-lg flex flex-col justify-center items-center gap-2"
-              onClick={() => handleAction('mood', 'Estou bem', 'check_ins', { mood: 'great', checked_by: isDemo ? null : undefined, notes: 'Estou bem' })}
-              disabled={loading}
-              aria-label="Informar que estou bem"
-            >
-              <Heart className="h-10 w-10" aria-hidden="true" />
-              Estou bem
-            </Button>
-
-            <Button 
-              className="h-28 text-2xl rounded-2xl bg-blue-600 hover:bg-blue-700 text-white shadow-lg flex flex-col justify-center items-center gap-2"
-              onClick={() => handleAction('medication', 'Medicamento tomado', 'check_ins', { notes: 'Tomei o medicamento' })}
-              disabled={loading}
-              aria-label="Confirmar que tomei medicamento"
-            >
-              <Pill className="h-10 w-10" aria-hidden="true" />
-              Tomei Remédio
-            </Button>
-
-            <Button 
-              className="h-28 text-2xl rounded-2xl bg-orange-500 hover:bg-orange-600 text-white shadow-lg flex flex-col justify-center items-center gap-2"
-              onClick={() => handleAction('meal', 'Refeição registrada', 'check_ins', { notes: 'Já me alimentei' })}
-              disabled={loading}
-              aria-label="Confirmar que me alimentei"
-            >
-              <Coffee className="h-10 w-10" aria-hidden="true" />
-              Me Alimentei
-            </Button>
-
-            <Button 
-              className="h-28 text-2xl rounded-2xl bg-cyan-600 hover:bg-cyan-700 text-white shadow-lg flex flex-col justify-center items-center gap-2"
-              onClick={() => handleAction('hydration', 'Água registrada', 'check_ins', { notes: 'Bebi água' })}
-              disabled={loading}
-              aria-label="Confirmar que bebi água"
-            >
-              <Droplet className="h-10 w-10" aria-hidden="true" />
-              Bebi Água
-            </Button>
-          </div>
-
-          <div className="mt-4 space-y-4">
-            <Button 
-              className="w-full h-24 text-2xl rounded-2xl bg-amber-500 hover:bg-amber-600 text-white shadow-lg flex justify-start px-6 gap-4"
-              onClick={() => handleAction('help', 'Pedido de ajuda enviado', 'help_requests', { message: 'Preciso de ajuda com tarefas cotidianas' })}
-              disabled={loading}
-              aria-label="Solicitar ajuda não urgente"
-            >
-              <div className="bg-white/20 p-3 rounded-full"><AlertCircle className="h-8 w-8" aria-hidden="true" /></div>
-              <span className="font-bold">Preciso de ajuda</span>
-            </Button>
-
-            <Button 
-              className="w-full h-28 text-3xl font-black tracking-wide rounded-2xl bg-red-600 hover:bg-red-700 text-white shadow-xl flex justify-center items-center gap-4 border-4 border-red-700/50"
-              onClick={() => {
-                triggerVibration();
-                if (window.confirm("Atenção! Isso enviará um alerta de EMERGÊNCIA para todos os familiares imediatamente. Confirmar?")) {
-                  handleAction('emergency', 'ALERTA DE EMERGÊNCIA ENVIADO', 'emergency_events', { description: 'Botão de pânico acionado pela tela simplificada', severity: 'critical' });
-                }
-              }}
-              disabled={loading}
-              aria-label="Acionar botão de emergência"
-            >
-              <AlertCircle className="h-12 w-12" aria-hidden="true" />
-              EMERGÊNCIA
-            </Button>
-          </div>
-
-        </main>
-        
-        {isDemo && (
-          <div className="bg-stone-800 text-stone-200 text-center p-2 text-sm font-medium">
-            MODO DEMONSTRAÇÃO ATIVADO
+      <div className="p-6 max-w-2xl mx-auto space-y-6 pb-32">
+        {successMsg && (
+          <div className="bg-emerald-100 border-4 border-emerald-500 text-emerald-800 p-6 rounded-3xl flex items-center gap-4 mb-8 shadow-lg animate-in slide-in-from-top-4">
+            <CheckCircle2 className="h-10 w-10 shrink-0" />
+            <p className="text-2xl font-bold flex-1">{successMsg}</p>
+            {lastAction && (
+              <Button onClick={undoLastAction} variant="outline" className="h-14 border-emerald-500 text-emerald-700 bg-emerald-50 hover:bg-emerald-200 text-xl px-6 rounded-2xl gap-2">
+                <RotateCcw className="h-6 w-6" /> Desfazer
+              </Button>
+            )}
           </div>
         )}
+
+        {/* Daily Summary Cards */}
+        {personInfo.nextMedication && (
+          <div className="bg-white p-6 rounded-3xl border-4 border-blue-100 flex items-center gap-6 shadow-sm">
+            <div className="bg-blue-100 p-4 rounded-2xl">
+              <Pill className="h-10 w-10 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-stone-500 font-bold text-xl uppercase tracking-wider mb-1">Próximo Remédio</p>
+              <p className="text-3xl font-bold text-stone-900">{personInfo.nextMedication}</p>
+            </div>
+          </div>
+        )}
+
+        {personInfo.nextAppointment && (
+          <div className="bg-white p-6 rounded-3xl border-4 border-purple-100 flex items-center gap-6 shadow-sm">
+            <div className="bg-purple-100 p-4 rounded-2xl">
+              <Calendar className="h-10 w-10 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-stone-500 font-bold text-xl uppercase tracking-wider mb-1">Próxima Consulta</p>
+              <p className="text-2xl font-bold text-stone-900">{personInfo.nextAppointment}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Action Grid */}
+        <div className="grid grid-cols-2 gap-6 mt-8">
+          <button 
+            disabled={loading}
+            onClick={() => handleAction('mood', 'Estou bem', 'check_ins', { mood: 'great', checked_by: personInfo.userId, notes: 'Estou bem' })}
+            className="bg-white border-4 border-stone-200 hover:border-emerald-500 active:bg-emerald-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
+          >
+            <div className="bg-emerald-100 p-6 rounded-full">
+              <Heart className="h-14 w-14 text-emerald-600" />
+            </div>
+            <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Estou<br/>Bem</span>
+          </button>
+
+          <button 
+            disabled={loading}
+            onClick={() => handleAction('meal', 'Já me alimentei', 'meals', { meal_type: 'other', logged_by: personInfo.userId })}
+            className="bg-white border-4 border-stone-200 hover:border-amber-500 active:bg-amber-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
+          >
+            <div className="bg-amber-100 p-6 rounded-full">
+              <Coffee className="h-14 w-14 text-amber-600" />
+            </div>
+            <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Já<br/>Comi</span>
+          </button>
+
+          <button 
+            disabled={loading || !personInfo.medicationId}
+            onClick={() => handleAction('medication', 'Remédio tomado', 'medication_confirmations', { medication_id: personInfo.medicationId, confirmed_by: personInfo.userId, status: 'taken' })}
+            className="bg-white border-4 border-stone-200 hover:border-blue-500 active:bg-blue-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+          >
+            <div className="bg-blue-100 p-6 rounded-full">
+              <Pill className="h-14 w-14 text-blue-600" />
+            </div>
+            <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Tomei o<br/>Remédio</span>
+          </button>
+
+          <button 
+            disabled={loading}
+            onClick={() => handleAction('hydration', 'Bebi água', 'hydration_logs', { amount_ml: 250, logged_by: personInfo.userId })}
+            className="bg-white border-4 border-stone-200 hover:border-cyan-500 active:bg-cyan-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
+          >
+            <div className="bg-cyan-100 p-6 rounded-full">
+              <Droplet className="h-14 w-14 text-cyan-600" />
+            </div>
+            <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Bebi<br/>Água</span>
+          </button>
+        </div>
+
+        <button 
+          disabled={loading}
+          onClick={() => {
+            if(window.confirm('Tem certeza que precisa de ajuda agora?')) {
+              handleAction('help', 'Preciso de ajuda', 'help_requests', { message: 'Preciso de ajuda geral', requested_by: personInfo.userId });
+            }
+          }}
+          className="w-full bg-white border-4 border-orange-200 hover:border-orange-500 active:bg-orange-50 p-8 rounded-[2rem] flex items-center justify-center gap-6 transition-all shadow-sm active:scale-95 mt-6"
+        >
+          <div className="bg-orange-100 p-5 rounded-full">
+            <BellRing className="h-12 w-12 text-orange-600" />
+          </div>
+          <span className="text-4xl font-bold text-stone-800">Preciso de Ajuda</span>
+        </button>
+      </div>
+
+      {/* Emergency Button - Fixed Bottom */}
+      <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white to-transparent">
+        <div className="max-w-2xl mx-auto">
+          <button 
+            disabled={loading}
+            onClick={() => {
+              if(window.confirm('ALERTA DE EMERGÊNCIA! Deseja enviar um alerta para todos os familiares agora?')) {
+                handleAction('emergency', 'EMERGÊNCIA! Preciso de ajuda imediata', 'emergency_events', { reported_by: personInfo.userId, description: 'Emergência acionada pela tela do idoso', severity: 'critical' });
+              }
+            }}
+            className="w-full bg-red-600 hover:bg-red-700 active:bg-red-800 text-white p-8 rounded-[2rem] flex items-center justify-center gap-6 shadow-[0_10px_30px_rgba(220,38,38,0.4)] transition-all active:scale-95 active:translate-y-2 border-b-8 border-red-800"
+          >
+            <AlertCircle className="h-14 w-14" />
+            <span className="text-4xl font-black tracking-widest uppercase">Emergência</span>
+          </button>
+        </div>
       </div>
     </div>
   );

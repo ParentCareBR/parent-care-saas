@@ -1,13 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
-import type { Database } from '@/types/database';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { AlertTriangle, Phone, ArrowLeft, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 
@@ -20,6 +18,21 @@ export default function EmergencyPage() {
   const [confirming, setConfirming] = useState(false);
   const [triggered, setTriggered] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [contacts, setContacts] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadContacts() {
+      if (!selectedPerson || !currentOrganizationId) return;
+      const { data } = await supabase
+        .from('emergency_contacts')
+        .select('*')
+        .eq('cared_person_id', selectedPerson.id)
+        .order('is_primary', { ascending: false });
+      
+      setContacts(data || []);
+    }
+    loadContacts();
+  }, [selectedPerson, currentOrganizationId, supabase]);
 
   const handleTriggerEmergency = async () => {
     if (!selectedPerson || !user || !currentOrganizationId) return;
@@ -27,22 +40,39 @@ export default function EmergencyPage() {
     setLoading(true);
     
     // Register the emergency event
-    type EmergencyInsert = Database['public']['Tables']['emergency_events']['Insert'];
-    const emergencyPayload: EmergencyInsert = {
-      organization_id: currentOrganizationId!,
+    const emergencyPayload = {
+      organization_id: currentOrganizationId,
       cared_person_id: selectedPerson.id,
       reported_by: user.id,
       description: 'Emergência acionada pelo botão rápido',
-      severity: 'high'
+      severity: 'critical'
     };
     const { error } = await supabase.from('emergency_events').insert(emergencyPayload);
+
+    // Create notifications for organization members
+    const { data: members } = await supabase.from('organization_members')
+      .select('user_id')
+      .eq('organization_id', currentOrganizationId)
+      .neq('user_id', user.id);
+      
+    if (members && members.length > 0) {
+       const notifications = members.map(m => ({
+          user_id: m.user_id,
+          organization_id: currentOrganizationId,
+          type: 'alert',
+          title: `EMERGÊNCIA: ${selectedPerson.full_name}`,
+          message: 'Um alerta de emergência foi acionado.',
+          link_url: `/dashboard/emergency`
+       }));
+       await supabase.from('notifications').insert(notifications);
+    }
 
     setLoading(false);
     
     if (!error) {
       setTriggered(true);
     } else {
-      alert('Erro ao registrar emergência, mas tente ligar para os contatos abaixo.');
+      alert('Erro ao registrar emergência no sistema, mas os contatos abaixo podem ser acionados manualmente.');
       setTriggered(true);
     }
   };
@@ -77,24 +107,29 @@ export default function EmergencyPage() {
 
             {!confirming ? (
               <Button 
-                className="w-full sm:w-auto h-16 px-12 text-lg bg-red-600 hover:bg-red-700" 
+                className="w-full sm:w-auto h-16 px-12 text-lg bg-red-600 hover:bg-red-700 font-bold text-white shadow-lg shadow-red-200" 
                 onClick={() => setConfirming(true)}
               >
                 Acionar Emergência
               </Button>
             ) : (
-              <div className="space-y-4 animate-in fade-in zoom-in duration-200">
-                <p className="font-bold text-red-600">Tem certeza?</p>
-                <div className="flex gap-4 justify-center">
-                  <Button variant="outline" onClick={() => setConfirming(false)}>
+              <div className="space-y-4 animate-in slide-in-from-bottom-2">
+                <p className="font-bold text-red-600">Tem certeza? Esta ação criará um registro de incidente crítico.</p>
+                <div className="flex flex-col sm:flex-row justify-center gap-4">
+                  <Button 
+                    variant="outline" 
+                    className="h-14 px-8" 
+                    onClick={() => setConfirming(false)}
+                    disabled={loading}
+                  >
                     Cancelar
                   </Button>
                   <Button 
-                    className="bg-red-600 hover:bg-red-800" 
+                    className="h-14 px-8 bg-red-600 hover:bg-red-700 font-bold" 
                     onClick={handleTriggerEmergency}
                     disabled={loading}
                   >
-                    {loading ? 'Enviando...' : 'Sim, solicitar ajuda!'}
+                    {loading ? 'Registrando...' : 'Sim, Confirmar Alerta'}
                   </Button>
                 </div>
               </div>
@@ -107,44 +142,38 @@ export default function EmergencyPage() {
             </div>
             
             <div>
-              <h2 className="text-2xl font-bold text-stone-900 mb-2">Alerta Enviado!</h2>
+              <h2 className="text-2xl font-bold text-stone-900 mb-2">Alerta Registrado!</h2>
               <p className="text-stone-600 max-w-md mx-auto">
-                Todos os contatos de emergência e familiares responsáveis foram notificados.
+                O evento de emergência foi salvo no sistema e notificações internas foram geradas para a família.
               </p>
             </div>
 
             <div className="bg-stone-50 p-6 rounded-lg text-left mt-8">
               <h3 className="font-semibold text-stone-900 mb-4 flex items-center gap-2">
-                <Phone className="h-5 w-5" /> Contatos de Emergência
+                <Phone className="h-5 w-5" /> Contatos Cadastrados
               </h3>
               
-              {/* Mock emergency contacts for now */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-center bg-white p-4 border border-stone-200 rounded-md">
-                  <div>
-                    <p className="font-bold">SAMU (Ambulância)</p>
-                    <p className="text-sm text-stone-500">Serviço Público</p>
-                  </div>
-                  <Button asChild variant="outline" className="text-brand-green border-brand-green">
-                    <a href="tel:192">Ligar 192</a>
-                  </Button>
+              {contacts.length === 0 ? (
+                <p className="text-sm text-stone-500">Nenhum contato de emergência cadastrado para esta pessoa.</p>
+              ) : (
+                <div className="space-y-4">
+                  {contacts.map((contact) => (
+                    <div key={contact.id} className="flex justify-between items-center bg-white p-4 border border-stone-200 rounded-md">
+                      <div>
+                        <p className="font-bold">{contact.name}</p>
+                        <p className="text-sm text-stone-500">{contact.relationship} {contact.is_primary && '(Principal)'}</p>
+                      </div>
+                      <Button asChild variant="outline" className="text-brand-green border-brand-green">
+                        <a href={`tel:${contact.phone}`}>Ligar {contact.phone}</a>
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-                
-                <div className="flex justify-between items-center bg-white p-4 border border-stone-200 rounded-md">
-                  <div>
-                    <p className="font-bold">Filho(a) Principal</p>
-                    <p className="text-sm text-stone-500">Contato Primário</p>
-                  </div>
-                  <Button asChild variant="outline" className="text-brand-green border-brand-green">
-                    <a href="tel:11999999999">Ligar</a>
-                  </Button>
-                </div>
-              </div>
+              )}
             </div>
 
-            <p className="text-xs text-stone-400 mt-8">
-              O Parent Care não substitui serviços médicos ou de emergência públicos. 
-              Em caso de risco à vida, ligue imediatamente para as autoridades locais.
+            <p className="text-xs text-stone-500 mt-8 font-medium">
+              Aviso: O Parent Care auxilia na organização familiar, mas NÃO substitui serviços médicos ou de emergência públicos (SAMU, Polícia, Bombeiros). Em caso de risco à vida, ligue imediatamente para as autoridades locais (Ex: 192). O alerta gerado restringe-se aos usuários do aplicativo.
             </p>
           </div>
         )}

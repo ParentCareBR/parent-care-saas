@@ -45,15 +45,55 @@ export default function DashboardOverview() {
         .order('starts_at', { ascending: true })
         .limit(1);
 
+      // Real Check In
+      const { data: checkIns } = await supabase
+        .from('check_ins')
+        .select('mood, checked_at')
+        .eq('cared_person_id', selectedPerson.id)
+        .order('checked_at', { ascending: false })
+        .limit(1);
+
+      // Hydration today
+      const startOfDay = new Date();
+      startOfDay.setHours(0,0,0,0);
+      const { data: hydration } = await supabase
+        .from('hydration_logs')
+        .select('amount_ml')
+        .eq('cared_person_id', selectedPerson.id)
+        .gte('logged_at', startOfDay.toISOString());
+      const hydrationSum = (hydration || []).reduce((acc, log) => acc + (log.amount_ml || 0), 0);
+      
+      // Pending tasks
+      const { count: pendingCount } = await supabase
+        .from('tasks')
+        .select('*', { count: 'exact', head: true })
+        .eq('cared_person_id', selectedPerson.id)
+        .neq('status', 'done');
+
+      // Late meds today
+      const { count: lateMeds } = await supabase
+        .from('medication_confirmations')
+        .select('*', { count: 'exact', head: true })
+        .eq('cared_person_id', selectedPerson.id)
+        .eq('status', 'late')
+        .gte('created_at', startOfDay.toISOString());
+
+      // Last meal
+      const { data: meals } = await supabase
+        .from('meals')
+        .select('meal_type, consumed_at')
+        .eq('cared_person_id', selectedPerson.id)
+        .order('consumed_at', { ascending: false })
+        .limit(1);
+
       setStats({
         medsCount: meds?.length || 0,
         nextAppointment: appointments?.[0] || null,
-        // Mocking the rest for the layout demonstration
-        lastCheckIn: { status: 'Estou bem', time: '10:30' },
-        hydrationProgress: 60,
-        pendingTasks: 3,
-        delayedMeds: 1,
-        nextMeal: { type: 'Almoço', time: '12:30' }
+        lastCheckIn: checkIns && checkIns.length > 0 ? { status: checkIns[0].mood === 'great' ? 'Ótimo' : checkIns[0].mood, time: new Date(checkIns[0].checked_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) } : null,
+        hydrationProgress: Math.min((hydrationSum / 2000) * 100, 100), // Assuming 2000ml goal
+        pendingTasks: pendingCount || 0,
+        delayedMeds: lateMeds || 0,
+        nextMeal: meals && meals.length > 0 ? { type: meals[0].meal_type, time: new Date(meals[0].consumed_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) } : null
       });
     }
 
