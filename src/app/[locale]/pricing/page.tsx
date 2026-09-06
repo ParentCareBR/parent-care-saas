@@ -2,15 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, Heart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 
 export default function PricingPage() {
   const supabase = createClient();
+  const t = useTranslations('PricingPage');
+  const n = useTranslations('Navigation');
+  const params = useParams();
+  const locale = (params?.locale as string) || 'pt-BR';
+
   const [plans, setPlans] = useState<any[]>([]);
   const [currency, setCurrency] = useState('BRL');
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
@@ -35,21 +41,21 @@ export default function PricingPage() {
   }, [supabase]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Carregando planos...</div>;
+    return <div className="min-h-screen flex items-center justify-center font-medium text-stone-600">{t('loading')}</div>;
   }
 
   return (
     <div className="min-h-screen bg-stone-50">
       <header className="bg-white border-b border-stone-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href={`/${locale}`} className="flex items-center gap-2">
             <Heart className="h-6 w-6 text-brand-green fill-brand-green" />
             <span className="text-xl font-bold text-brand-green">Parent Care</span>
           </Link>
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
-            <Link href="/auth/login" className="text-sm font-medium text-stone-600 hover:text-brand-green transition-colors">
-              Entrar
+            <Link href={`/${locale}/auth/login`} className="text-sm font-medium text-stone-600 hover:text-brand-green transition-colors">
+              {n('login')}
             </Link>
           </div>
         </div>
@@ -58,18 +64,18 @@ export default function PricingPage() {
       <main className="py-20 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <h1 className="text-4xl font-extrabold text-stone-900 mb-4">Preços simples para o cuidado da sua família</h1>
+            <h1 className="text-4xl font-extrabold text-stone-900 mb-4">{t('title')}</h1>
             <p className="text-xl text-stone-600">
-              Escolha o plano ideal e teste por <strong>30 dias grátis</strong> com cartão. R$ 0,00 cobrado hoje.
+              {t('subtitle')}
             </p>
-            <div className="mt-3 inline-flex flex-wrap items-center justify-center gap-4 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-full shadow-2xs">
-              <span>💳 Cartão protegido por Stripe</span>
+            <div className="mt-3 inline-flex flex-wrap items-center justify-center gap-3 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-full shadow-2xs">
+              <span>{t('badge_security')}</span>
               <span>•</span>
-              <span>⚡ R$ 0,00 cobrado hoje</span>
+              <span>{t('badge_trial')}</span>
               <span>•</span>
-              <span>📅 Cobrança automática só no 31º dia</span>
+              <span>{t('badge_automatic')}</span>
               <span>•</span>
-              <span>❌ Cancele com 1 clique</span>
+              <span>{t('badge_cancel')}</span>
             </div>
             
             <div className="mt-8 flex justify-center items-center gap-4">
@@ -78,15 +84,15 @@ export default function PricingPage() {
                   onClick={() => setBillingCycle('monthly')}
                   className={`px-4 py-2 text-sm font-medium rounded-md ${billingCycle === 'monthly' ? 'bg-brand-green text-white shadow-sm' : 'text-stone-600 hover:text-stone-900'}`}
                 >
-                  Mensal
+                  {t('monthly')}
                 </button>
                 <button 
                   onClick={() => setBillingCycle('yearly')}
                   className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 ${billingCycle === 'yearly' ? 'bg-brand-green text-white shadow-sm' : 'text-stone-600 hover:text-stone-900'}`}
                 >
-                  Anual
+                  {t('yearly')}
                   <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-full ${billingCycle === 'yearly' ? 'bg-white text-brand-green' : 'bg-brand-soft text-brand-green'}`}>
-                    -20%
+                    {t('save_discount')}
                   </span>
                 </button>
               </div>
@@ -114,7 +120,7 @@ export default function PricingPage() {
                 <Card key={plan.id} className="flex flex-col border-stone-200 shadow-lg hover:shadow-xl transition-shadow bg-white relative">
                   {plan.slug === 'familia' && (
                     <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-brand-warm text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-                      Mais Popular
+                      {t('popular_badge')}
                     </div>
                   )}
                   <CardHeader>
@@ -126,39 +132,47 @@ export default function PricingPage() {
                       <span className="text-4xl font-bold text-stone-900">
                         {priceConfig.currency === 'BRL' ? 'R$' : priceConfig.currency === 'USD' ? '$' : '€'} {price}
                       </span>
-                      <span className="text-stone-500">/{billingCycle === 'monthly' ? 'mês' : 'ano'}</span>
+                      <span className="text-stone-500">{billingCycle === 'monthly' ? t('per_month') : t('per_year')}</span>
                     </div>
                     <ul className="space-y-4">
                       <li className="flex items-start gap-3">
                         <Check className="h-5 w-5 text-brand-green shrink-0 mt-0.5" />
-                        <span className="text-stone-600">Até <strong>{plan.max_cared_people}</strong> idosos cuidados</span>
+                        <span className="text-stone-600">
+                          {locale === 'pt-BR' ? `Até ${plan.max_cared_people} idosos cuidados` : locale === 'es' ? `Hasta ${plan.max_cared_people} personas mayores cuidadas` : locale === 'fr' ? `Jusqu'à ${plan.max_cared_people} personnes âgées` : locale === 'de' ? `Bis zu ${plan.max_cared_people} betreute Senioren` : `Up to ${plan.max_cared_people} cared seniors`}
+                        </span>
                       </li>
                       <li className="flex items-start gap-3">
                         <Check className="h-5 w-5 text-brand-green shrink-0 mt-0.5" />
-                        <span className="text-stone-600">Até <strong>{plan.max_members}</strong> familiares/cuidadores no painel</span>
+                        <span className="text-stone-600">
+                          {locale === 'pt-BR' ? `Até ${plan.max_members} familiares/cuidadores no painel` : locale === 'es' ? `Hasta ${plan.max_members} familiares/cuidadores` : locale === 'fr' ? `Jusqu'à ${plan.max_members} membres de la famille/aidants` : locale === 'de' ? `Bis zu ${plan.max_members} Familienmitglieder/Pflegekräfte` : `Up to ${plan.max_members} family members/caregivers`}
+                        </span>
                       </li>
                       <li className="flex items-start gap-3">
                         <Check className="h-5 w-5 text-brand-green shrink-0 mt-0.5" />
-                        <span className="text-stone-600">Tela simplificada no celular para o idoso</span>
+                        <span className="text-stone-600">
+                          {locale === 'pt-BR' ? 'Tela simplificada no celular para o idoso' : locale === 'es' ? 'Pantalla simplificada en el móvil para el adulto mayor' : locale === 'fr' ? 'Écran mobile simplifié pour la personne âgée' : locale === 'de' ? 'Vereinfachter mobiler Bildschirm für Senioren' : 'Simplified mobile screen for the senior'}
+                        </span>
                       </li>
                       <li className="flex items-start gap-3">
                         <Check className="h-5 w-5 text-brand-green shrink-0 mt-0.5" />
-                        <span className="text-stone-600">Alertas de medicamentos e compromissos</span>
+                        <span className="text-stone-600">
+                          {locale === 'pt-BR' ? 'Alertas de medicamentos e compromissos' : locale === 'es' ? 'Alertas de medicamentos y citas' : locale === 'fr' ? 'Alertes de médicaments et rendez-vous' : locale === 'de' ? 'Medikamenten- und Terminerinnerungen' : 'Medication and appointment alerts'}
+                        </span>
                       </li>
                     </ul>
                   </CardContent>
                   <CardFooter className="flex flex-col gap-2">
                     <Button asChild className={`w-full h-12 text-base font-bold rounded-xl ${plan.slug === 'familia' ? 'bg-brand-green hover:bg-emerald-800 shadow-md' : 'bg-stone-800 hover:bg-stone-900'}`}>
-                      <Link href={`/auth/signup?plan=${plan.slug}`}>
-                        Começar 30 dias grátis
+                      <Link href={`/${locale}/auth/signup?plan=${plan.slug}`}>
+                        {t('cta_start')}
                       </Link>
                     </Button>
                     <span className="text-[11px] text-stone-400 text-center font-medium">
-                      R$ 0,00 hoje • Cobrança automática no 31º dia
+                      {t('badge_trial')} • {t('badge_automatic')}
                     </span>
                   </CardFooter>
                 </Card>
-              )
+              );
             })}
           </div>
         </div>

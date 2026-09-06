@@ -23,7 +23,7 @@ export default function Home({ params: { locale } }: { params: { locale: string 
             <div className="flex items-center gap-2 sm:gap-4">
               <LanguageSwitcher />
               <Link href={`/${locale}/pricing`} className="text-gray-600 hover:text-gray-900 font-medium px-2.5 py-1.5 text-sm">
-                Preços
+                {n('pricing')}
               </Link>
               <Link href={`/${locale}/auth/login`} className="text-gray-600 hover:text-gray-900 font-medium px-2.5 py-1.5 text-sm">
                 {n('login')}
@@ -56,7 +56,7 @@ export default function Home({ params: { locale } }: { params: { locale: string 
           </div>
           <div className="mt-4 flex items-center justify-center gap-3 text-xs text-gray-500 font-medium">
             <span className="flex items-center gap-1 text-emerald-800 font-semibold bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200 shadow-2xs">
-              💳 30 dias de teste grátis com cartão • R$ 0,00 cobrado hoje • Cancele quando quiser
+              {t('hero_badge')}
             </span>
           </div>
         </div>
@@ -64,7 +64,7 @@ export default function Home({ params: { locale } }: { params: { locale: string 
         <div className="mt-16 max-w-5xl mx-auto rounded-3xl overflow-hidden shadow-2xl relative aspect-[16/9] border-4 border-white">
           <Image 
             src="/images/family-planning.jpg" 
-            alt="Família planejando o cuidado juntos" 
+            alt={t('hero_img_alt')} 
             fill
             className="object-cover"
             priority
@@ -108,12 +108,17 @@ export default function Home({ params: { locale } }: { params: { locale: string 
           <div className="grid md:grid-cols-2 gap-16 items-center">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-sm font-medium mb-4">
-                <Users className="h-4 w-4" /> Visão Administrativa
+                <Users className="h-4 w-4" /> {t('solution_family_badge')}
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-4">{t('solution_family')}</h3>
               <p className="text-gray-600 mb-6 text-lg">{t('solution_family_desc')}</p>
               <ul className="space-y-4">
-                {['Gerencie o estoque de medicamentos', 'Adicione lembretes e alarmes', 'Acompanhe quem pagou o quê', 'Convide todos os irmãos'].map((item, i) => (
+                {[
+                  t('solution_family_item1'),
+                  t('solution_family_item2'),
+                  t('solution_family_item3'),
+                  t('solution_family_item4')
+                ].map((item, i) => (
                   <li key={i} className="flex items-center gap-3 text-gray-700">
                     <CheckCircle2 className="h-5 w-5 text-emerald-500 flex-shrink-0" />
                     <span>{item}</span>
@@ -124,7 +129,7 @@ export default function Home({ params: { locale } }: { params: { locale: string 
             <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-gray-100 flex items-center justify-center bg-gray-50">
               <Image 
                 src="/images/dashboard.png" 
-                alt="Dashboard Administrativo" 
+                alt={t('solution_family_img_alt')} 
                 width={800} 
                 height={600}
                 className="w-full h-auto object-cover"
@@ -137,19 +142,24 @@ export default function Home({ params: { locale } }: { params: { locale: string 
             <div className="relative rounded-[2.5rem] overflow-hidden shadow-2xl border-8 border-gray-100 mx-auto w-full max-w-md aspect-[3/4] flex items-center justify-center">
               <Image 
                 src="/images/elderly-care.jpg" 
-                alt="Visão Simplificada para Idosos" 
+                alt={t('solution_elderly_img_alt')} 
                 fill
                 className="object-cover"
               />
             </div>
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-sm font-medium mb-4">
-                <Smartphone className="h-4 w-4" /> Visão Simplificada
+                <Smartphone className="h-4 w-4" /> {t('solution_elderly_badge')}
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-4">{t('solution_elderly')}</h3>
               <p className="text-gray-600 mb-6 text-lg">{t('solution_elderly_desc')}</p>
               <ul className="space-y-4">
-                {['Botões gigantes e claros', 'Cores fortes de contraste', 'Apenas 1 tarefa por vez na tela', 'Não precisa de e-mail ou senha'].map((item, i) => (
+                {[
+                  t('solution_elderly_item1'),
+                  t('solution_elderly_item2'),
+                  t('solution_elderly_item3'),
+                  t('solution_elderly_item4')
+                ].map((item, i) => (
                   <li key={i} className="flex items-center gap-3 text-gray-700">
                     <CheckCircle2 className="h-5 w-5 text-emerald-500 flex-shrink-0" />
                     <span>{item}</span>
@@ -196,7 +206,7 @@ export default function Home({ params: { locale } }: { params: { locale: string 
             <p className="text-sm">© {new Date().getFullYear()} Parent Care. {t('footer_rights')}</p>
           </div>
           <div>
-            <h5 className="text-white font-medium mb-4">Legal</h5>
+            <h5 className="text-white font-medium mb-4">{t('footer_legal')}</h5>
             <ul className="space-y-2 text-sm">
               <li><Link href={`/${locale}/legal/privacy`} className="hover:text-white transition-colors">{t('footer_privacy')}</Link></li>
               <li><Link href={`/${locale}/legal/terms`} className="hover:text-white transition-colors">{t('footer_terms')}</Link></li>
