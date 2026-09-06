@@ -28,31 +28,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get or create customer ID in gateway
+    // Get or create customer ID in Paddle gateway
     const { data: org } = await supabase
       .from('organizations')
-      .select('name')
+      .select('name, paddle_customer_id')
       .eq('id', organizationId)
       .single();
 
     const { data: sub } = await supabase
       .from('subscriptions')
-      .select('stripe_customer_id')
+      .select('paddle_customer_id')
       .eq('organization_id', organizationId)
       .single();
 
-    const gateway = getBillingGateway('stripe');
-    let customerId = sub?.stripe_customer_id;
+    const gateway = getBillingGateway('paddle');
+    let customerId = sub?.paddle_customer_id || org?.paddle_customer_id;
 
     if (!customerId) {
       customerId = await gateway.createCustomer({
         email: user.email!,
-        name: org?.name,
+        name: org?.name || 'Cliente Parent Care',
         metadata: { organization_id: organizationId }
       });
+
+      await supabase
+        .from('organizations')
+        .update({ paddle_customer_id: customerId })
+        .eq('id', organizationId);
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://parentcare-pink.vercel.app';
     
     const session = await gateway.createCheckoutSession({
       customerId,
@@ -70,6 +75,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: session.url });
   } catch (error: any) {
     console.error('Checkout error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Internal Server Error' }, { status: 500 });
   }
 }

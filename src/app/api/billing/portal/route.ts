@@ -30,25 +30,36 @@ export async function POST(req: NextRequest) {
 
     const { data: sub } = await supabase
       .from('subscriptions')
-      .select('stripe_customer_id')
+      .select('paddle_customer_id, paddle_subscription_id')
       .eq('organization_id', organizationId)
       .single();
 
-    if (!sub?.stripe_customer_id) {
-      return NextResponse.json({ error: 'No active customer found' }, { status: 400 });
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('paddle_customer_id')
+      .eq('id', organizationId)
+      .single();
+
+    const customerId = sub?.paddle_customer_id || org?.paddle_customer_id;
+
+    if (!customerId) {
+      return NextResponse.json({ error: 'Nenhum cliente registrado encontrado no Paddle' }, { status: 400 });
     }
 
-    const gateway = getBillingGateway('stripe');
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const gateway = getBillingGateway('paddle');
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://parentcare-pink.vercel.app';
+    const returnUrl = `${appUrl}/pt-BR/dashboard/settings/subscription`;
     
-    const session = await gateway.createPortalSession(
-      sub.stripe_customer_id,
-      `${appUrl}/pt-BR/dashboard/settings/subscription`
+    const subscriptionIds = sub?.paddle_subscription_id ? [sub.paddle_subscription_id] : [];
+    const session = await (gateway as any).createPortalSession(
+      customerId,
+      returnUrl,
+      subscriptionIds
     );
 
     return NextResponse.json({ url: session.url });
   } catch (error: any) {
     console.error('Portal error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Internal Server Error' }, { status: 500 });
   }
 }

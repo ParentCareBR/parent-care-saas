@@ -359,7 +359,7 @@ export default function SubscriptionSettingsPage() {
                     }`}
                     variant={isCurrent ? 'outline' : 'default'}
                     disabled={isCurrent || checkoutLoading === plan.id}
-                    onClick={() => handleCheckout(plan.id, priceConfig.stripe_price_monthly_id || priceConfig.id)}
+                    onClick={() => handleCheckout(plan.id, priceConfig.paddle_price_monthly_id || priceConfig.id)}
                   >
                     {isCurrent
                       ? 'Plano Atual'
