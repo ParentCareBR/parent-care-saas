@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -19,20 +19,29 @@ const LANGUAGES = [
 ];
 
 export function LanguageSwitcher({ className }: { className?: string }) {
-  const pathname = usePathname();
-  const router = useRouter();
+  const pathname = usePathname() || '/';
 
   // Extract current locale from pathname
   const segments = pathname.split('/').filter(Boolean);
-  const currentLocale = segments[0] || 'pt-BR';
+  const firstSegment = segments[0] || '';
+  const isFirstSegmentLocale = LANGUAGES.some((l) => l.code === firstSegment);
+  const currentLocale = isFirstSegmentLocale ? firstSegment : 'pt-BR';
   const currentLang = LANGUAGES.find((l) => l.code === currentLocale) || LANGUAGES[0];
 
   const handleSelectLanguage = (newLocale: string) => {
     if (newLocale === currentLocale) return;
-    const remainingPath = segments.slice(1).join('/');
-    const newPath = `/${newLocale}${remainingPath ? `/${remainingPath}` : ''}`;
-    router.push(newPath);
+
+    // 1. Explicitly set NEXT_LOCALE cookie so next-intl middleware and server components read the new language
+    document.cookie = `NEXT_LOCALE=${newLocale};path=/;max-age=31536000;SameSite=Lax`;
+
+    // 2. Compute destination URL
+    const remainingSegments = isFirstSegmentLocale ? segments.slice(1) : segments;
+    const targetPath = `/${newLocale}${remainingSegments.length > 0 ? `/${remainingSegments.join('/')}` : ''}`;
+
+    // 3. Navigate with window.location to force full SSR refresh and prevent client-side translation caching
+    window.location.href = targetPath;
   };
+
 
   return (
     <DropdownMenu>

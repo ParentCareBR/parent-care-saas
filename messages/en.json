@@ -84,6 +84,15 @@
     "email_confirm_notice_title": "⚠️ Confirm your email",
     "email_confirm_notice_desc": "We sent a confirmation email to",
     "email_confirm_notice_action": "Click the link in the email to activate your account and sign in.",
-    "email_confirm_notice_spam": "Didn't receive it? Check your spam folder."
+    "email_confirm_notice_spam": "Didn't receive it? Check your spam folder.",
+    "signup_success_title": "Account created successfully!"
+  },
+  "CookieBanner": {
+    "text": "We use cookies to improve your experience on our platform, customize content and analyze our traffic. By continuing to browse, you agree to our ",
+    "privacy": "Privacy Policy",
+    "and": " and ",
+    "terms": "Terms of Use",
+    "decline": "Decline",
+    "accept": "Accept"
   }
 }

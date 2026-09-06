@@ -84,6 +84,15 @@
     "email_confirm_notice_title": "⚠️ Confirme o seu e-mail",
     "email_confirm_notice_desc": "Enviamos um e-mail de confirmação para",
     "email_confirm_notice_action": "Clique no link do e-mail para ativar sua conta e poder fazer login.",
-    "email_confirm_notice_spam": "Não recebeu? Verifique a pasta de spam."
+    "email_confirm_notice_spam": "Não recebeu? Verifique a pasta de spam.",
+    "signup_success_title": "Conta criada com sucesso!"
+  },
+  "CookieBanner": {
+    "text": "Utilizamos cookies para melhorar sua experiência em nossa plataforma, personalizar conteúdo e analisar nosso tráfego. Ao continuar navegando, você concorda com a nossa ",
+    "privacy": "Política de Privacidade",
+    "and": " e ",
+    "terms": "Termos de Uso",
+    "decline": "Recusar",
+    "accept": "Aceitar"
   }
 }

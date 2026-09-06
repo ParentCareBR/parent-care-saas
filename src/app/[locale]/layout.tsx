@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
-import { getMessages } from 'next-intl/server';
+import { getMessages, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import CookieBanner from '@/components/shared/CookieBanner';
@@ -36,10 +36,12 @@ export default async function LocaleLayout({
     notFound();
   }
 
+  setRequestLocale(locale);
+
   // Fallback to empty messages if not found, avoiding build errors
   let messages;
   try {
-    messages = await getMessages();
+    messages = await getMessages({ locale });
   } catch (error) {
     messages = {};
   }
@@ -48,13 +50,14 @@ export default async function LocaleLayout({
     <html lang={locale} className="h-full">
       <body className={`${inter.className} h-full bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 antialiased`}>
         <ThemeProvider>
-          <NextIntlClientProvider messages={messages}>
+          <NextIntlClientProvider messages={messages} locale={locale}>
             {children}
+            <CookieBanner />
+            <Toaster />
           </NextIntlClientProvider>
-          <CookieBanner />
-          <Toaster />
         </ThemeProvider>
       </body>
     </html>
   );
 }
+

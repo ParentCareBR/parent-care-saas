@@ -84,6 +84,15 @@
     "email_confirm_notice_title": "⚠️ Bestätigen Sie Ihre E-Mail",
     "email_confirm_notice_desc": "Wir haben eine Bestätigungs-E-Mail gesendet an",
     "email_confirm_notice_action": "Klicken Sie auf den Link in der E-Mail, um Ihr Konto zu aktivieren.",
-    "email_confirm_notice_spam": "Nicht erhalten? Überprüfen Sie Ihren Spam-Ordner."
+    "email_confirm_notice_spam": "Nicht erhalten? Überprüfen Sie Ihren Spam-Ordner.",
+    "signup_success_title": "Konto erfolgreich erstellt!"
+  },
+  "CookieBanner": {
+    "text": "Wir verwenden Cookies, um Ihre Erfahrung auf unserer Plattform zu verbessern, Inhalte anzupassen und unseren Datenverkehr zu analysieren. Durch die weitere Nutzung stimmen Sie unserer ",
+    "privacy": "Datenschutzrichtlinie",
+    "and": " und unseren ",
+    "terms": "Nutzungsbedingungen",
+    "decline": "Ablehnen",
+    "accept": "Akzeptieren"
   }
 }

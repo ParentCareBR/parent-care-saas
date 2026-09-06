@@ -57,7 +57,7 @@ export default function SignupPage() {
         <Card className="w-full max-w-md">
           <CardContent className="pt-6 text-center space-y-4">
             <div className="text-5xl">📧</div>
-            <p className="text-brand-green font-semibold text-xl">{t('signup_title')}</p>
+            <p className="text-brand-green font-semibold text-xl">{t('signup_success_title')}</p>
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-left space-y-2">
               <p className="text-amber-800 font-medium text-sm">{t('email_confirm_notice_title')}</p>
               <p className="text-amber-700 text-sm">
