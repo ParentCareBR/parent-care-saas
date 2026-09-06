@@ -300,9 +300,9 @@ export default function SubscriptionSettingsPage() {
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 p-4 rounded-2xl flex items-start gap-3 shadow-2xs">
           <Sparkles className="h-6 w-6 text-emerald-600 shrink-0 mt-0.5" />
           <div>
-            <h3 className="font-bold text-sm">🎉 Assinatura ativada com sucesso!</h3>
+            <h3 className="font-bold text-sm">{tBilling('success_title')}</h3>
             <p className="text-xs text-emerald-700 mt-1">
-              Seu pagamento foi confirmado. Acesso total habilitado para todos os acessos do plano escolhido.
+              {tBilling('success_desc')}
             </p>
           </div>
         </div>
@@ -313,9 +313,9 @@ export default function SubscriptionSettingsPage() {
         <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-2xl flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
           <div>
-            <h3 className="font-bold text-sm">Pagamento não concluído</h3>
+            <h3 className="font-bold text-sm">{tBilling('canceled_title')}</h3>
             <p className="text-xs text-amber-700 mt-1">
-              Você saiu antes de concluir o pagamento. Nenhuma cobrança foi realizada. Escolha um plano abaixo para tentar novamente.
+              {tBilling('canceled_desc')}
             </p>
           </div>
         </div>
@@ -419,7 +419,7 @@ export default function SubscriptionSettingsPage() {
                 <div className="text-sm">
                   <p className="font-bold text-amber-900">{tBilling('cancel_scheduled')}</p>
                   <p className="text-amber-700 text-xs mt-1">
-                    O acesso permanece ativo até <strong>{formatDate(subscription.current_period_end)}</strong>, após essa data o plano será encerrado.
+                    {tBilling('cancel_access_until', { date: formatDate(subscription.current_period_end) })}
                   </p>
                   <Button
                     onClick={handleResume}
@@ -428,7 +428,7 @@ export default function SubscriptionSettingsPage() {
                     className="mt-3 h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded-lg"
                   >
                     <RefreshCw className="h-3 w-3 mr-1.5" />
-                    {resumeLoading ? 'Reativando...' : 'Manter Assinatura Ativa'}
+                    {resumeLoading ? tBilling('reactivating') : tBilling('keep_active_btn')}
                   </Button>
                 </div>
               </div>
@@ -451,7 +451,7 @@ export default function SubscriptionSettingsPage() {
                     <DialogDescription>{tBilling('upgrade_desc')}</DialogDescription>
                   </DialogHeader>
                   <div className="py-4 space-y-4">
-                    <p className="text-sm text-stone-600">Plano atual: <strong>{subscription.seat_limit} acesso(s)</strong></p>
+                    <p className="text-sm text-stone-600">{tBilling('current_plan_seats', { seats: subscription.seat_limit })}</p>
                     <div className="grid grid-cols-3 gap-2">
                       {Array.from({ length: MAX_STANDARD_SEATS }, (_, i) => i + 1)
                         .filter(s => s > subscription.seat_limit)
@@ -463,8 +463,8 @@ export default function SubscriptionSettingsPage() {
                               onClick={() => setUpgradeTargetSeats(seats)}
                               className={`p-3 rounded-xl border text-center text-sm transition-all ${upgradeTargetSeats === seats ? 'border-emerald-600 bg-emerald-50 ring-2 ring-emerald-400/30' : 'border-stone-200 hover:border-stone-300'}`}
                             >
-                              <span className="font-bold block">{seats} acessos</span>
-                              <span className="text-xs text-emerald-700">{p.totalFormatted}/mês</span>
+                              <span className="font-bold block">{tBilling('seats_count_label', { seats })}</span>
+                              <span className="text-xs text-emerald-700">{p.totalFormatted}{tPlan('total_month')}</span>
                             </button>
                           );
                         })}
@@ -482,7 +482,7 @@ export default function SubscriptionSettingsPage() {
                       disabled={upgradeLoading || upgradeTargetSeats <= subscription.seat_limit}
                       className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
                     >
-                      {upgradeLoading ? 'Processando...' : `${tBilling('confirm_upgrade')} — ${upgradeTargetSeats} Acessos`}
+                      {upgradeLoading ? tBilling('processing') : tBilling('confirm_upgrade_seats', { action: tBilling('confirm_upgrade'), seats: upgradeTargetSeats })}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -504,9 +504,9 @@ export default function SubscriptionSettingsPage() {
                     </DialogHeader>
                     <div className="py-4 space-y-4">
                       <p className="text-sm text-stone-600">
-                        Plano atual: <strong>{subscription.seat_limit} acesso(s)</strong>
+                        {tBilling('current_plan_seats', { seats: subscription.seat_limit })}
                         {entitlements && (
-                          <span className="text-xs text-stone-500 ml-2">(em uso: {entitlements.totalUsedSeats})</span>
+                          <span className="text-xs text-stone-500 ml-2">{tBilling('seats_in_use', { count: entitlements.totalUsedSeats })}</span>
                         )}
                       </p>
                       <div className="grid grid-cols-3 gap-2">
@@ -528,9 +528,9 @@ export default function SubscriptionSettingsPage() {
                                     : 'border-stone-200 hover:border-stone-300'
                                 }`}
                               >
-                                <span className="font-bold block">{seats} acessos</span>
-                                <span className="text-xs text-emerald-700">{p.totalFormatted}/mês</span>
-                                {wouldViolate && <span className="text-[10px] text-red-600 block mt-0.5">Acessos cheios</span>}
+                                <span className="font-bold block">{tBilling('seats_count_label', { seats })}</span>
+                                <span className="text-xs text-emerald-700">{p.totalFormatted}{tPlan('total_month')}</span>
+                                {wouldViolate && <span className="text-[10px] text-red-600 block mt-0.5">{tBilling('seats_full_tag')}</span>}
                               </button>
                             );
                           })}
@@ -548,7 +548,7 @@ export default function SubscriptionSettingsPage() {
                         disabled={downgradeLoading || !entitlements || entitlements.totalUsedSeats > downgradeTargetSeats}
                         className="bg-stone-800 hover:bg-stone-900 text-white rounded-xl"
                       >
-                        {downgradeLoading ? 'Processando...' : `${tBilling('confirm_downgrade')} — ${downgradeTargetSeats} Acessos`}
+                        {downgradeLoading ? tBilling('processing') : tBilling('confirm_downgrade_seats', { action: tBilling('confirm_downgrade'), seats: downgradeTargetSeats })}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -564,7 +564,7 @@ export default function SubscriptionSettingsPage() {
                 className="h-9 rounded-lg border-stone-300 gap-1.5"
               >
                 <ExternalLink className="h-4 w-4" />
-                {portalLoading ? 'Abrindo...' : tBilling('paddle_portal')}
+                {portalLoading ? tBilling('opening') : tBilling('paddle_portal')}
               </Button>
 
               {/* Cancel Dialog */}
@@ -584,12 +584,12 @@ export default function SubscriptionSettingsPage() {
                     <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                       <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
                       <div className="text-sm space-y-1">
-                        <p className="font-bold text-amber-900">O que acontece ao cancelar?</p>
+                        <p className="font-bold text-amber-900">{tBilling('cancel_consequences_title')}</p>
                         <ul className="text-amber-800 text-xs space-y-1 list-disc list-inside">
-                          <li>Seu acesso permanece ativo até <strong>{formatDate(subscription.current_period_end)}</strong>.</li>
-                          <li>Após essa data, membros perdem o acesso (exceto você, em modo somente leitura).</li>
-                          <li>Todos os dados são preservados por 90 dias após o cancelamento.</li>
-                          <li>Você pode reativar a qualquer momento antes do vencimento.</li>
+                          <li>{tBilling('cancel_bullet_1', { date: formatDate(subscription.current_period_end) })}</li>
+                          <li>{tBilling('cancel_bullet_2')}</li>
+                          <li>{tBilling('cancel_bullet_3')}</li>
+                          <li>{tBilling('cancel_bullet_4')}</li>
                         </ul>
                       </div>
                     </div>
@@ -606,7 +606,7 @@ export default function SubscriptionSettingsPage() {
                       disabled={cancelLoading}
                       className="bg-red-600 hover:bg-red-700 text-white rounded-xl"
                     >
-                      {cancelLoading ? 'Cancelando...' : tBilling('confirm_cancel')}
+                      {cancelLoading ? tBilling('canceling') : tBilling('confirm_cancel')}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -618,10 +618,10 @@ export default function SubscriptionSettingsPage() {
           {isCanceled && !hasPendingCancel && (
             <CardFooter className="border-t border-stone-100 pt-4">
               <div className="w-full text-center space-y-3">
-                <p className="text-sm text-stone-500">Sua assinatura está cancelada. Reative para voltar a ter acesso completo.</p>
+                <p className="text-sm text-stone-500">{tBilling('canceled_notice')}</p>
                 <Button onClick={handleResume} disabled={resumeLoading} className="bg-brand-green hover:bg-emerald-800 text-white rounded-xl h-10 gap-2">
                   <RefreshCw className="h-4 w-4" />
-                  {resumeLoading ? 'Reativando...' : tBilling('resume_subscription')}
+                  {resumeLoading ? tBilling('reactivating') : tBilling('resume_subscription')}
                 </Button>
               </div>
             </CardFooter>
@@ -635,7 +635,7 @@ export default function SubscriptionSettingsPage() {
       <div>
         <div className="mb-6">
           <h2 className="text-xl font-bold text-stone-900">
-            {subscription ? 'Alterar Plano' : tPlan('title')}
+            {subscription ? tBilling('change_plan_title') : tPlan('title')}
           </h2>
           <p className="text-stone-500 text-sm mt-1">{tPlan('subtitle')}</p>
         </div>
@@ -781,7 +781,7 @@ export default function SubscriptionSettingsPage() {
                       {checkoutLoading === tier.seats ? (
                         <div className="flex items-center gap-2">
                           <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                          <span>Processando...</span>
+                          <span>{tBilling('processing')}</span>
                         </div>
                       ) : (
                         <>

@@ -69,7 +69,7 @@ export default function PricingPage() {
               className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-900 dark:hover:text-stone-200 font-medium"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">Voltar / Back</span>
+              <span className="hidden sm:inline">{tPlan('back')}</span>
             </Link>
             <div className="h-4 w-px bg-stone-200 dark:bg-stone-700 mx-1" />
             <Link href={`/${locale}`} className="flex items-center gap-2">
@@ -230,7 +230,7 @@ export default function PricingPage() {
                     {checkoutLoadingSeats === tier.seats ? (
                       <div className="flex items-center gap-2">
                         <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                        <span>Carregando...</span>
+                        <span>{tPlan('loading')}</span>
                       </div>
                     ) : (
                       <>
@@ -256,9 +256,9 @@ export default function PricingPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-xs text-stone-500">
-              <p>• Suporte prioritário dedicado</p>
-              <p>• Idosos e acessos flexíveis sem limite</p>
-              <p>• Faturamento personalizado</p>
+              <p>• {tPlan('custom_feature_1')}</p>
+              <p>• {tPlan('custom_feature_2')}</p>
+              <p>• {tPlan('custom_feature_3')}</p>
             </CardContent>
             <CardFooter className="pt-0 pb-6">
               <Button
