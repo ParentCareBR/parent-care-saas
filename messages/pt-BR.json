@@ -1,0 +1,40 @@
+{
+  "LandingPage": {
+    "hero_title": "Cuide de quem sempre cuidou de você,",
+    "hero_subtitle": "mesmo quando você não puder estar por perto.",
+    "hero_description": "A solução completa para organizar medicamentos, alimentação e rotina da família. Sem confusão entre irmãos, sem esquecimentos.",
+    "cta_primary": "Começar Teste Gratuito",
+    "cta_secondary": "Ver Demonstração",
+    "problem_title": "A desorganização custa caro (e gera estresse)",
+    "problem_desc_1": "Caixa de remédios bagunçada e dúvidas sobre qual horário tomar.",
+    "problem_desc_2": "Desentendimentos entre irmãos sobre quem cuidou do que.",
+    "problem_desc_3": "Falta de controle de gastos e rateio injusto das despesas.",
+    "solution_title": "Uma plataforma, duas visões",
+    "solution_family": "Para a Família (Gestão)",
+    "solution_family_desc": "Controle completo de medicamentos, agenda, relatórios de saúde e divisão de despesas. Acesso para todos os filhos.",
+    "solution_elderly": "Para o Idoso (Simplicidade)",
+    "solution_elderly_desc": "Tela ultra-simplificada, focada apenas no que precisa ser feito agora. Sem distrações, feita para quem tem dificuldade com tecnologia.",
+    "features_title": "Tudo que você precisa em um só lugar",
+    "feature_meds": "Gestão de Medicamentos",
+    "feature_meds_desc": "Alertas no celular para nunca mais pular uma dose. Histórico completo.",
+    "feature_finance": "Rateio Financeiro",
+    "feature_finance_desc": "Registre os gastos com farmácia e cuidadores. O sistema calcula quanto cada irmão deve pagar.",
+    "feature_routine": "Rotina e Alimentação",
+    "feature_routine_desc": "Cardápio do dia, hidratação e agenda de consultas médicas e fisioterapia.",
+    "testimonials_title": "O que dizem as famílias",
+    "testimonial_demo": "(Dados de demonstração)",
+    "pricing_title": "Escolha o plano ideal para sua família",
+    "pricing_monthly": "Mensal",
+    "pricing_yearly": "Anual (Economize 20%)",
+    "faq_title": "Perguntas Frequentes",
+    "footer_rights": "Todos os direitos reservados.",
+    "footer_privacy": "Política de Privacidade",
+    "footer_terms": "Termos de Uso"
+  },
+  "Navigation": {
+    "login": "Entrar",
+    "register": "Criar Conta",
+    "dashboard": "Painel",
+    "pricing": "Preços"
+  }
+}

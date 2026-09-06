@@ -1,0 +1,40 @@
+{
+  "LandingPage": {
+    "hero_title": "Care for those who always cared for you,",
+    "hero_subtitle": "even when you can't be close by.",
+    "hero_description": "The complete solution to organize medications, meals, and the family routine. No confusion between siblings, no forgotten tasks.",
+    "cta_primary": "Start Free Trial",
+    "cta_secondary": "View Demo",
+    "problem_title": "Disorganization is costly (and causes stress)",
+    "problem_desc_1": "Messy medicine boxes and doubts about what time to take them.",
+    "problem_desc_2": "Misunderstandings between siblings about who did what.",
+    "problem_desc_3": "Lack of expense tracking and unfair cost sharing.",
+    "solution_title": "One platform, two views",
+    "solution_family": "For the Family (Management)",
+    "solution_family_desc": "Full control of medications, schedule, health reports, and expense sharing. Access for all siblings.",
+    "solution_elderly": "For the Elderly (Simplicity)",
+    "solution_elderly_desc": "Ultra-simplified screen, focused only on what needs to be done right now. No distractions, made for those who struggle with technology.",
+    "features_title": "Everything you need in one place",
+    "feature_meds": "Medication Management",
+    "feature_meds_desc": "Mobile alerts so you never miss a dose. Complete history.",
+    "feature_finance": "Expense Sharing",
+    "feature_finance_desc": "Log pharmacy and caregiver costs. The system calculates how much each sibling owes.",
+    "feature_routine": "Routine and Meals",
+    "feature_routine_desc": "Daily menu, hydration tracking, and medical/physiotherapy appointments.",
+    "testimonials_title": "What families are saying",
+    "testimonial_demo": "(Demo data)",
+    "pricing_title": "Choose the ideal plan for your family",
+    "pricing_monthly": "Monthly",
+    "pricing_yearly": "Yearly (Save 20%)",
+    "faq_title": "Frequently Asked Questions",
+    "footer_rights": "All rights reserved.",
+    "footer_privacy": "Privacy Policy",
+    "footer_terms": "Terms of Use"
+  },
+  "Navigation": {
+    "login": "Sign In",
+    "register": "Create Account",
+    "dashboard": "Dashboard",
+    "pricing": "Pricing"
+  }
+}
