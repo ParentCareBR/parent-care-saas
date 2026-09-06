@@ -38,8 +38,10 @@ export class StripeProvider implements BillingGateway {
       success_url: params.successUrl,
       cancel_url: params.cancelUrl,
       subscription_data: {
+        trial_period_days: params.trialPeriodDays ?? 30,
         metadata: params.metadata,
       },
+      payment_method_collection: 'always',
       metadata: params.metadata,
       allow_promotion_codes: true,
     });

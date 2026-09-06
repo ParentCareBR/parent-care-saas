@@ -11,9 +11,9 @@ export type Database = {
         Relationships: [];
       };
       organizations: {
-        Row: { id: string; name: string; slug: string; owner_id: string; subscription_status: string | null; plan_id: string | null; };
-        Insert: { id?: string; name: string; slug: string; owner_id: string; subscription_status?: string | null; plan_id?: string | null; };
-        Update: { id?: string; name?: string; slug?: string; owner_id?: string; subscription_status?: string | null; plan_id?: string | null; };
+        Row: { id: string; name: string; slug: string; owner_id: string; subscription_status: string | null; plan_id: string | null; trial_ends_at?: string | null; };
+        Insert: { id?: string; name: string; slug: string; owner_id: string; subscription_status?: string | null; plan_id?: string | null; trial_ends_at?: string | null; };
+        Update: { id?: string; name?: string; slug?: string; owner_id?: string; subscription_status?: string | null; plan_id?: string | null; trial_ends_at?: string | null; };
         Relationships: [];
       };
       organization_members: {
@@ -95,9 +95,9 @@ export type Database = {
         Relationships: [];
       };
       subscriptions: {
-        Row: { id: string; organization_id: string; plan_id: string; status: string; gateway: string; stripe_customer_id: string | null; stripe_subscription_id: string | null; cancel_at_period_end: boolean | null; grace_period_ends_at: string | null; cancel_reason: string | null; created_at: string; };
-        Insert: { id?: string; organization_id: string; plan_id: string; status?: string; gateway?: string; stripe_customer_id?: string | null; stripe_subscription_id?: string | null; cancel_at_period_end?: boolean | null; grace_period_ends_at?: string | null; cancel_reason?: string | null; created_at?: string; };
-        Update: { id?: string; organization_id?: string; plan_id?: string; status?: string; gateway?: string; stripe_customer_id?: string | null; stripe_subscription_id?: string | null; cancel_at_period_end?: boolean | null; grace_period_ends_at?: string | null; cancel_reason?: string | null; };
+        Row: { id: string; organization_id: string; plan_id: string; status: string; gateway: string; stripe_customer_id: string | null; stripe_subscription_id: string | null; cancel_at_period_end: boolean | null; grace_period_ends_at: string | null; cancel_reason: string | null; trial_ends_at?: string | null; current_period_start?: string | null; current_period_end?: string | null; created_at: string; };
+        Insert: { id?: string; organization_id: string; plan_id: string; status?: string; gateway?: string; stripe_customer_id?: string | null; stripe_subscription_id?: string | null; cancel_at_period_end?: boolean | null; grace_period_ends_at?: string | null; cancel_reason?: string | null; trial_ends_at?: string | null; current_period_start?: string | null; current_period_end?: string | null; created_at?: string; };
+        Update: { id?: string; organization_id?: string; plan_id?: string; status?: string; gateway?: string; stripe_customer_id?: string | null; stripe_subscription_id?: string | null; cancel_at_period_end?: boolean | null; grace_period_ends_at?: string | null; cancel_reason?: string | null; trial_ends_at?: string | null; current_period_start?: string | null; current_period_end?: string | null; };
         Relationships: [];
       };
       billing_history: {

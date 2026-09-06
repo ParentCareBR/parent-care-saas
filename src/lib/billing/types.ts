@@ -9,6 +9,7 @@ export interface CreateCheckoutSessionParams {
   priceId: string;
   successUrl: string;
   cancelUrl: string;
+  trialPeriodDays?: number;
   metadata?: Record<string, string>;
 }
 

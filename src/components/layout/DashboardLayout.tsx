@@ -23,7 +23,8 @@ import {
   UserPlus,
   Menu,
   X,
-  ChevronRight
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -326,6 +327,20 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </Link>
           </div>
         )}
+
+        {/* 30-day Trial Ribbon */}
+        <div className="bg-emerald-50/70 dark:bg-emerald-950/30 border-b border-emerald-200/50 dark:border-emerald-900/40 px-4 py-1.5 flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-200">
+          <span className="flex items-center gap-1.5 font-medium truncate">
+            <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <span className="truncate">Teste de 30 dias ativo com cartão. R$ 0,00 cobrado hoje. Primeira fatura somente no 31º dia.</span>
+          </span>
+          <Link 
+            href={`/${locale}/dashboard/settings/subscription`}
+            className="font-bold underline text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 flex-shrink-0 ml-2"
+          >
+            Ver Plano →
+          </Link>
+        </div>
 
         {/* Scrollable Page Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-24 md:pb-8">

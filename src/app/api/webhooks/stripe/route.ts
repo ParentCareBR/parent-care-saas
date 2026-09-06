@@ -41,21 +41,27 @@ export async function POST(req: NextRequest) {
         const session = event.data.object;
         const orgId = session.metadata?.organization_id;
         const planId = session.metadata?.plan_id;
+        const trialDays = Number(session.metadata?.trial_days || 30);
+        const trialEndsAt = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toISOString();
         
         if (orgId && planId) {
-          // Update organization status and subscription
+          // Update organization status and subscription with 30-day trial
           await supabase.from('subscriptions').upsert({
             organization_id: orgId,
             plan_id: planId,
-            status: 'active',
+            status: 'trial',
+            trial_ends_at: trialEndsAt,
+            current_period_start: new Date().toISOString(),
+            current_period_end: trialEndsAt,
             stripe_subscription_id: session.subscription,
             stripe_customer_id: session.customer,
             gateway: 'stripe',
           }, { onConflict: 'organization_id' });
           
           await supabase.from('organizations').update({
-            subscription_status: 'active',
-            plan_id: planId
+            subscription_status: 'trial',
+            plan_id: planId,
+            trial_ends_at: trialEndsAt
           }).eq('id', orgId);
         }
         break;
@@ -142,16 +148,29 @@ export async function POST(req: NextRequest) {
       }
       case 'customer.subscription.updated': {
         const subscription = event.data.object;
-        const status = subscription.status; // active, past_due, canceled, etc.
+        const status = subscription.status; // active, past_due, canceled, trialing
         const cancelAtPeriodEnd = subscription.cancel_at_period_end;
+        const dbStatus = status === 'trialing' ? 'trial' : status;
         
         await supabase
           .from('subscriptions')
           .update({
-            status: status === 'trialing' ? 'trial' : status,
+            status: dbStatus,
             cancel_at_period_end: cancelAtPeriodEnd
           })
           .eq('stripe_subscription_id', subscription.id);
+
+        const { data: sub } = await supabase
+          .from('subscriptions')
+          .select('organization_id')
+          .eq('stripe_subscription_id', subscription.id)
+          .single();
+
+        if (sub?.organization_id) {
+          await supabase.from('organizations').update({
+            subscription_status: dbStatus
+          }).eq('id', sub.organization_id);
+        }
         break;
       }
     }

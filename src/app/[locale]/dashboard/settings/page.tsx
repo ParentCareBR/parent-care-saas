@@ -13,8 +13,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Settings, User, Lock, Bell, CreditCard, Sun, Moon } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 
 export default function SettingsPage() {
+  const params = useParams();
+  const locale = (params?.locale as string) || 'pt-BR';
   const { user, profile, refreshProfile } = useAuth();
   const { theme, setTheme } = useTheme();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -350,12 +353,14 @@ export default function SettingsPage() {
               <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center justify-between">
                 <div>
                   <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">Plano Atual</span>
-                  <h4 className="text-lg font-bold text-emerald-950 mt-0.5">Plano Familiar Gratuito (Trial)</h4>
-                  <p className="text-xs text-emerald-700 mt-1">Acesso a todos os recursos essenciais de acompanhamento.</p>
+                  <h4 className="text-lg font-bold text-emerald-950 mt-0.5">Plano Familiar — 30 Dias de Teste Grátis</h4>
+                  <p className="text-xs text-emerald-700 mt-1">
+                    Cartão cadastrado com segurança no Stripe. R$ 0,00 cobrado hoje. Primeira fatura no 31º dia.
+                  </p>
                 </div>
                 <Button asChild className="bg-emerald-600 hover:bg-emerald-700 rounded-xl">
-                  <Link href="/pt-BR/dashboard/settings/subscription">
-                    Gerenciar Plano
+                  <Link href={`/${locale}/dashboard/settings/subscription`}>
+                    Gerenciar Plano e Cartão
                   </Link>
                 </Button>
               </div>

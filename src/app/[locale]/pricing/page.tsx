@@ -57,8 +57,17 @@ export default function PricingPage() {
           <div className="text-center max-w-3xl mx-auto mb-16">
             <h1 className="text-4xl font-extrabold text-stone-900 mb-4">Preços simples para o cuidado da sua família</h1>
             <p className="text-xl text-stone-600">
-              Escolha o plano ideal e teste gratuitamente por 14 dias. Cancele quando quiser.
+              Escolha o plano ideal e teste por <strong>30 dias grátis</strong> com cartão. R$ 0,00 cobrado hoje.
             </p>
+            <div className="mt-3 inline-flex flex-wrap items-center justify-center gap-4 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-full shadow-2xs">
+              <span>💳 Cartão protegido por Stripe</span>
+              <span>•</span>
+              <span>⚡ R$ 0,00 cobrado hoje</span>
+              <span>•</span>
+              <span>📅 Cobrança automática só no 31º dia</span>
+              <span>•</span>
+              <span>❌ Cancele com 1 clique</span>
+            </div>
             
             <div className="mt-8 flex justify-center items-center gap-4">
               <div className="bg-white p-1 rounded-lg border border-stone-200 inline-flex">
@@ -135,12 +144,15 @@ export default function PricingPage() {
                       </li>
                     </ul>
                   </CardContent>
-                  <CardFooter>
-                    <Button asChild className={`w-full h-12 text-lg ${plan.slug === 'familia' ? 'bg-brand-green hover:bg-emerald-800' : 'bg-stone-800 hover:bg-stone-900'}`}>
+                  <CardFooter className="flex flex-col gap-2">
+                    <Button asChild className={`w-full h-12 text-base font-bold rounded-xl ${plan.slug === 'familia' ? 'bg-brand-green hover:bg-emerald-800 shadow-md' : 'bg-stone-800 hover:bg-stone-900'}`}>
                       <Link href={`/auth/signup?plan=${plan.slug}`}>
-                        Começar 14 dias grátis
+                        Começar 30 dias grátis
                       </Link>
                     </Button>
+                    <span className="text-[11px] text-stone-400 text-center font-medium">
+                      R$ 0,00 hoje • Cobrança automática no 31º dia
+                    </span>
                   </CardFooter>
                 </Card>
               )

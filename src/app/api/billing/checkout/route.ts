@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 
 export async function POST(req: NextRequest) {
   try {
-    const { planId, priceId, organizationId } = await req.json();
+    const { planId, priceId, organizationId, locale = 'pt-BR', trialPeriodDays = 30 } = await req.json();
 
     if (!planId || !priceId || !organizationId) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
@@ -57,11 +57,13 @@ export async function POST(req: NextRequest) {
     const session = await gateway.createCheckoutSession({
       customerId,
       priceId,
-      successUrl: `${appUrl}/pt-BR/dashboard/settings/subscription?success=true`,
-      cancelUrl: `${appUrl}/pt-BR/dashboard/settings/subscription?canceled=true`,
+      trialPeriodDays,
+      successUrl: `${appUrl}/${locale}/dashboard/settings/subscription?trial_started=true`,
+      cancelUrl: `${appUrl}/${locale}/dashboard/settings/subscription?canceled=true`,
       metadata: {
         organization_id: organizationId,
-        plan_id: planId
+        plan_id: planId,
+        trial_days: String(trialPeriodDays)
       }
     });
 

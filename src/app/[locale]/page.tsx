@@ -49,6 +49,11 @@ export default function Home({ params: { locale } }: { params: { locale: string 
               <PlayCircle className="h-5 w-5" /> {t('cta_secondary')}
             </Link>
           </div>
+          <div className="mt-4 flex items-center justify-center gap-3 text-xs text-gray-500 font-medium">
+            <span className="flex items-center gap-1 text-emerald-800 font-semibold bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200 shadow-2xs">
+              💳 30 dias de teste grátis com cartão • R$ 0,00 cobrado hoje • Cancele quando quiser
+            </span>
+          </div>
         </div>
         
         <div className="mt-16 max-w-5xl mx-auto rounded-3xl overflow-hidden shadow-2xl relative aspect-[16/9] border-4 border-white">
