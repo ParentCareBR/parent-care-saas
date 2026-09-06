@@ -83,39 +83,45 @@ export default function NewCaredPersonPage() {
 
     setLoading(true);
 
-    // Get or create an organization for the user
-    const orgId = await getOrCreateOrganization();
-    if (!orgId) {
-      toast({ title: 'Erro', description: 'Não foi possível criar sua família. Tente novamente.', variant: 'destructive' });
+    try {
+      // Get or create an organization for the user
+      const orgId = await getOrCreateOrganization();
+      if (!orgId) {
+        toast({ title: 'Erro', description: 'Não foi possível criar sua família. Tente novamente.', variant: 'destructive' });
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('cared_people')
+        .insert({
+          organization_id: orgId,
+          full_name: formData.full_name,
+          birth_date: formData.birth_date || null,
+          blood_type: formData.blood_type || null,
+          created_by: user.id,
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        toast({ title: 'Erro ao cadastrar', description: error.message, variant: 'destructive' });
+        setLoading(false);
+        return;
+      }
+
+      toast({ title: 'Sucesso!', description: 'Pessoa cuidada cadastrada com sucesso.' });
+      await refreshCaredPeople();
+      if (data?.id) {
+        setSelectedPersonId(data.id);
+      }
+      router.push('/pt-BR/dashboard');
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: 'Erro inesperado', description: err.message || 'Ocorreu um erro no servidor', variant: 'destructive' });
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const { data, error } = await supabase
-      .from('cared_people')
-      .insert({
-        organization_id: orgId,
-        full_name: formData.full_name,
-        nickname: formData.nickname || null,
-        birth_date: formData.birth_date || null,
-        gender: formData.gender || null,
-        blood_type: formData.blood_type || null,
-      })
-      .select('id')
-      .single();
-
-    if (error) {
-      toast({ title: 'Erro ao cadastrar', description: error.message, variant: 'destructive' });
-      setLoading(false);
-      return;
-    }
-
-    toast({ title: 'Sucesso!', description: 'Pessoa cuidada cadastrada com sucesso.' });
-    await refreshCaredPeople();
-    if (data?.id) {
-      setSelectedPersonId(data.id);
-    }
-    router.push('/pt-BR/dashboard');
   };
 
   return (
