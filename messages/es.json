@@ -285,5 +285,62 @@
     "terms": "Términos de Uso",
     "decline": "Rechazar",
     "accept": "Aceptar"
+  },
+  "CaredPersonProfile": {
+    "title": "Perfil de la Persona Cuidada",
+    "create_title": "Registro Individual de la Persona Cuidada",
+    "create_subtitle": "Configure un perfil exclusivo para su familiar con rutina, contactos y seguimiento personalizado.",
+    "draft_saved": "Borrador guardado automáticamente",
+    "steps": {
+      "identification": "1. Identificación",
+      "contact_location": "2. Contacto y Ubicación",
+      "emergency_contacts": "3. Responsables y Emergencia",
+      "important_info": "4. Información Importante",
+      "routine_preferences": "5. Rutina y Preferencias",
+      "monitoring": "6. Seguimientos",
+      "simplified_screen": "7. Pantalla Simplificada",
+      "consents": "8. Privacidad y Consentimientos",
+      "review": "9. Revisión y Confirmación"
+    },
+    "tabs": {
+      "overview": "Visión General",
+      "routine": "Rutina",
+      "monitoring": "Seguimientos",
+      "schedule": "Agenda",
+      "medications": "Medicamentos",
+      "meals": "Alimentación e Hidratación",
+      "family": "Cuidadores y Familia",
+      "occurrences": "Incidencias",
+      "documents": "Documentos",
+      "history": "Historial y Auditoría",
+      "settings": "Configuración"
+    },
+    "relationships": {
+      "mother": "Madre",
+      "father": "Padre",
+      "grandmother": "Abuela",
+      "grandfather": "Abuelo",
+      "uncle_aunt": "Tío(a)",
+      "other_family": "Otro Familiar",
+      "client": "Cliente / Paciente",
+      "resident": "Residente"
+    },
+    "profile_types": {
+      "family_member": "Familiar Atendido",
+      "professional_care": "Atendido por Cuidador Profesional",
+      "nursing_home_resident": "Residente de Residencia de Mayores"
+    },
+    "actions": {
+      "next": "Siguiente Paso",
+      "back": "Volver",
+      "save_draft": "Guardar Borrador",
+      "finish": "Completar Registro",
+      "edit": "Editar Perfil",
+      "archive": "Archivar Perfil",
+      "restore": "Restaurar Perfil",
+      "open_elderly_view": "Abrir Pantalla del Mayor",
+      "change_photo": "Cambiar Foto"
+    }
   }
 }
+

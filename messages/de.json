@@ -285,5 +285,62 @@
     "terms": "Nutzungsbedingungen",
     "decline": "Ablehnen",
     "accept": "Akzeptieren"
+  },
+  "CaredPersonProfile": {
+    "title": "Profil der betreuten Person",
+    "create_title": "Individuelle Registrierung der betreuten Person",
+    "create_subtitle": "Richten Sie ein exklusives Profil für Ihren Angehörigen mit individueller Routine, Kontakten und Überwachung ein.",
+    "draft_saved": "Entwurf automatisch gespeichert",
+    "steps": {
+      "identification": "1. Identifikation",
+      "contact_location": "2. Kontakt & Wohnort",
+      "emergency_contacts": "3. Bezugspersonen & Notfall",
+      "important_info": "4. Wichtige Informationen",
+      "routine_preferences": "5. Routine & Vorlieben",
+      "monitoring": "6. Betreuungseinstellungen",
+      "simplified_screen": "7. Vereinfachter Bildschirm",
+      "consents": "8. Datenschutz & Einwilligungen",
+      "review": "9. Überprüfung & Bestätigung"
+    },
+    "tabs": {
+      "overview": "Übersicht",
+      "routine": "Routine",
+      "monitoring": "Betreuung",
+      "schedule": "Termine",
+      "medications": "Medikamente",
+      "meals": "Mahlzeiten & Trinken",
+      "family": "Pflege & Familie",
+      "occurrences": "Vorfälle",
+      "documents": "Dokumente",
+      "history": "Verlauf & Protokoll",
+      "settings": "Einstellungen"
+    },
+    "relationships": {
+      "mother": "Mutter",
+      "father": "Vater",
+      "grandmother": "Großmutter",
+      "grandfather": "Großvater",
+      "uncle_aunt": "Onkel / Tante",
+      "other_family": "Anderer Angehöriger",
+      "client": "Klient / Patient",
+      "resident": "Bewohner"
+    },
+    "profile_types": {
+      "family_member": "Betreuter Angehöriger",
+      "professional_care": "Professionell betreut",
+      "nursing_home_resident": "Bewohner eines Pflegeheims"
+    },
+    "actions": {
+      "next": "Nächster Schritt",
+      "back": "Zurück",
+      "save_draft": "Entwurf speichern",
+      "finish": "Registrierung abschließen",
+      "edit": "Profil bearbeiten",
+      "archive": "Profil archivieren",
+      "restore": "Profil wiederherstellen",
+      "open_elderly_view": "Senioren-Ansicht öffnen",
+      "change_photo": "Foto ändern"
+    }
   }
 }
+

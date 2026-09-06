@@ -285,5 +285,62 @@
     "terms": "Termos de Uso",
     "decline": "Recusar",
     "accept": "Aceitar"
+  },
+  "CaredPersonProfile": {
+    "title": "Perfil da Pessoa Cuidada",
+    "create_title": "Cadastro Individual da Pessoa Cuidada",
+    "create_subtitle": "Configure um perfil exclusivo para seu familiar com rotina, contatos e acompanhamentos personalizados.",
+    "draft_saved": "Rascunho salvo automaticamente",
+    "steps": {
+      "identification": "1. Identificação",
+      "contact_location": "2. Contato & Localização",
+      "emergency_contacts": "3. Responsáveis & Emergência",
+      "important_info": "4. Informações Importantes",
+      "routine_preferences": "5. Rotina & Preferências",
+      "monitoring": "6. Acompanhamentos",
+      "simplified_screen": "7. Tela Simplificada",
+      "consents": "8. Privacidade & Consentimentos",
+      "review": "9. Revisão & Confirmação"
+    },
+    "tabs": {
+      "overview": "Visão Geral",
+      "routine": "Rotina",
+      "monitoring": "Acompanhamentos",
+      "schedule": "Agenda",
+      "medications": "Medicamentos",
+      "meals": "Alimentação & Hidratação",
+      "family": "Cuidadores & Família",
+      "occurrences": "Ocorrências",
+      "documents": "Documentos",
+      "history": "Histórico & Auditoria",
+      "settings": "Configurações"
+    },
+    "relationships": {
+      "mother": "Mãe",
+      "father": "Pai",
+      "grandmother": "Avó",
+      "grandfather": "Avô",
+      "uncle_aunt": "Tio(a)",
+      "other_family": "Outro Familiar",
+      "client": "Cliente / Paciente",
+      "resident": "Residente"
+    },
+    "profile_types": {
+      "family_member": "Familiar sob Cuidado",
+      "professional_care": "Atendido por Cuidador Profissional",
+      "nursing_home_resident": "Residente de Casa de Repouso / ILPI"
+    },
+    "actions": {
+      "next": "Próximo Passo",
+      "back": "Voltar",
+      "save_draft": "Salvar Rascunho",
+      "finish": "Concluir Cadastro",
+      "edit": "Editar Perfil",
+      "archive": "Arquivar Perfil",
+      "restore": "Restaurar Perfil",
+      "open_elderly_view": "Abrir Tela do Idoso",
+      "change_photo": "Alterar Foto"
+    }
   }
 }
+

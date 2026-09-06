@@ -285,5 +285,62 @@
     "terms": "Conditions d'Utilisation",
     "decline": "Refuser",
     "accept": "Accepter"
+  },
+  "CaredPersonProfile": {
+    "title": "Profil de la Personne Aidée",
+    "create_title": "Inscription Individuelle de la Personne Aidée",
+    "create_subtitle": "Configurez un profil exclusif pour votre proche avec routine, contacts et suivis personnalisés.",
+    "draft_saved": "Brouillon enregistré automatiquement",
+    "steps": {
+      "identification": "1. Identification",
+      "contact_location": "2. Contact & Emplacement",
+      "emergency_contacts": "3. Référents & Urgences",
+      "important_info": "4. Informations Importantes",
+      "routine_preferences": "5. Routine & Préférences",
+      "monitoring": "6. Suivis",
+      "simplified_screen": "7. Écran Simplifié",
+      "consents": "8. Confidentialité & Consentements",
+      "review": "9. Révision & Confirmation"
+    },
+    "tabs": {
+      "overview": "Vue d'ensemble",
+      "routine": "Routine",
+      "monitoring": "Suivis",
+      "schedule": "Agenda",
+      "medications": "Médicaments",
+      "meals": "Repas & Hydratation",
+      "family": "Aidants & Famille",
+      "occurrences": "Incidents",
+      "documents": "Documents",
+      "history": "Historique & Audit",
+      "settings": "Paramètres"
+    },
+    "relationships": {
+      "mother": "Mère",
+      "father": "Père",
+      "grandmother": "Grand-mère",
+      "grandfather": "Grand-père",
+      "uncle_aunt": "Oncle / Tante",
+      "other_family": "Autre Proche",
+      "client": "Client / Patient",
+      "resident": "Résident"
+    },
+    "profile_types": {
+      "family_member": "Proche Aidé",
+      "professional_care": "Pris en charge par un aidant professionnel",
+      "nursing_home_resident": "Résident d'EHPAD / Maison de retraite"
+    },
+    "actions": {
+      "next": "Étape Suivante",
+      "back": "Retour",
+      "save_draft": "Enregistrer le brouillon",
+      "finish": "Terminer l'inscription",
+      "edit": "Modifier le profil",
+      "archive": "Archiver le profil",
+      "restore": "Restaurer le profil",
+      "open_elderly_view": "Ouvrir l'écran simplifié",
+      "change_photo": "Changer la photo"
+    }
   }
 }
+

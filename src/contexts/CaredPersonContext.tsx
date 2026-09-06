@@ -8,21 +8,30 @@ export interface CaredPerson {
   id: string;
   organization_id: string;
   full_name: string;
-  nickname: string | null;
+  nickname?: string | null;
+  preferred_name?: string | null;
+  relationship?: string | null;
   birth_date: string | null;
-  gender: string | null;
+  gender?: string | null;
   blood_type: string | null;
-  avatar_url: string | null;
+  photo_url?: string | null;
+  photo_path?: string | null;
+  avatar_url?: string | null;
+  status?: string | null;
+  archived_at?: string | null;
   notes: string | null;
 }
 
 interface CaredPersonContextValue {
   caredPeople: CaredPerson[];
+  allCaredPeople: CaredPerson[];
   selectedPersonId: string | null;
   selectedPerson: CaredPerson | null;
   setSelectedPersonId: (id: string) => void;
   loading: boolean;
   refreshCaredPeople: () => Promise<void>;
+  archivePerson: (id: string) => Promise<boolean>;
+  restorePerson: (id: string) => Promise<boolean>;
 }
 
 const CaredPersonContext = createContext<CaredPersonContextValue | undefined>(undefined);
@@ -30,13 +39,13 @@ const CaredPersonContext = createContext<CaredPersonContextValue | undefined>(un
 export function CaredPersonProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
   const { currentOrganizationId } = useAuth();
-  const [caredPeople, setCaredPeople] = useState<CaredPerson[]>([]);
+  const [allCaredPeople, setAllCaredPeople] = useState<CaredPerson[]>([]);
   const [selectedPersonIdState, setSelectedPersonIdState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchCaredPeople = useCallback(async () => {
     if (!currentOrganizationId) {
-      setCaredPeople([]);
+      setAllCaredPeople([]);
       setLoading(false);
       return;
     }
@@ -48,13 +57,18 @@ export function CaredPersonProvider({ children }: { children: React.ReactNode })
       .eq('organization_id', currentOrganizationId);
 
     if (data) {
-      setCaredPeople(data as unknown as CaredPerson[]);
+      const typed = data as unknown as CaredPerson[];
+      setAllCaredPeople(typed);
       
+      const activePeople = typed.filter(p => !p.archived_at && p.status !== 'archived');
       const savedId = localStorage.getItem(`parentcare_person_${currentOrganizationId}`);
-      if (savedId && data.some(p => p.id === savedId)) {
+      
+      if (savedId && activePeople.some(p => p.id === savedId)) {
         setSelectedPersonIdState(savedId);
-      } else if (data.length > 0) {
-        setSelectedPersonIdState(data[0].id);
+      } else if (activePeople.length > 0) {
+        setSelectedPersonIdState(activePeople[0].id);
+      } else if (typed.length > 0) {
+        setSelectedPersonIdState(typed[0].id);
       } else {
         setSelectedPersonIdState(null);
       }
@@ -73,17 +87,55 @@ export function CaredPersonProvider({ children }: { children: React.ReactNode })
     }
   }, [currentOrganizationId]);
 
-  const selectedPerson = caredPeople.find(p => p.id === selectedPersonIdState) || null;
+  const archivePerson = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/cared-people/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'archive' }),
+      });
+      if (res.ok) {
+        await fetchCaredPeople();
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }, [fetchCaredPeople]);
+
+  const restorePerson = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/cared-people/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restore' }),
+      });
+      if (res.ok) {
+        await fetchCaredPeople();
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }, [fetchCaredPeople]);
+
+  const caredPeople = allCaredPeople.filter(p => !p.archived_at && p.status !== 'archived');
+  const selectedPerson = allCaredPeople.find(p => p.id === selectedPersonIdState) || null;
 
   return (
     <CaredPersonContext.Provider
       value={{
         caredPeople,
+        allCaredPeople,
         selectedPersonId: selectedPersonIdState,
         selectedPerson,
         setSelectedPersonId,
         loading,
         refreshCaredPeople: fetchCaredPeople,
+        archivePerson,
+        restorePerson,
       }}
     >
       {children}

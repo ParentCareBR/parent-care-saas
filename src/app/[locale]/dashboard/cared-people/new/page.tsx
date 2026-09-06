@@ -1,110 +1,415 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
-import { createClient } from '@/lib/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 import { 
-  AlertCircle, 
-  ArrowLeft, 
-  ArrowRight, 
-  Check, 
-  CheckSquare, 
+  UserPlus, 
   ChevronRight, 
+  ArrowRight, 
+  ArrowLeft, 
+  Check, 
+  AlertCircle, 
   Search, 
   ShieldCheck, 
-  Sparkles, 
-  UserPlus 
+  Phone, 
+  MapPin, 
+  HeartHandshake, 
+  FileText, 
+  Clock, 
+  Activity, 
+  Smartphone, 
+  Lock, 
+  Plus, 
+  Trash2,
+  AlertTriangle,
+  UploadCloud,
+  Sparkles
 } from 'lucide-react';
-import { MONITORING_CATALOG, validateDependencies, getDefinitionByCode } from '@/lib/monitoring/catalog';
+import { MONITORING_CATALOG, validateDependencies } from '@/lib/monitoring/catalog';
+import type { OnboardingWizardState } from '@/types/cared-person';
+
+const INITIAL_STATE: OnboardingWizardState = {
+  // Step 1: Identification
+  full_name: '',
+  preferred_name: '',
+  relationship: 'mother',
+  birth_date: '',
+  gender_identity: 'female',
+  pronouns: 'ela/dela',
+  marital_status: 'widowed',
+  preferred_language: 'pt-BR',
+  timezone: 'America/Sao_Paulo',
+  profile_type: 'family_member',
+  notes: '',
+
+  // Step 2: Contact & Location
+  phone: '',
+  whatsapp: '',
+  email: '',
+  address_type: 'primary',
+  street: '',
+  number: '',
+  complement: '',
+  city: '',
+  region: '',
+  postal_code: '',
+  country_code: 'BR',
+  housing_type: 'house',
+  lives_alone: false,
+  lives_with_family: true,
+  has_caregiver: false,
+  receives_scheduled_visits: false,
+  access_notes: '',
+
+  // Step 3: Emergency Contacts
+  contacts: [
+    {
+      name: '',
+      relationship: 'Filho(a)',
+      phone: '',
+      whatsapp: '',
+      email: '',
+      priority_order: 1,
+      is_primary: true,
+      is_emergency: true,
+      can_receive_notifications: true,
+      can_view_profile: true,
+      can_edit_records: true,
+    },
+  ],
+
+  // Step 4: Important Information
+  blood_type: 'O+',
+  allergies: [],
+  chronic_conditions: [],
+  mobility_status: 'independent',
+  hearing_vision_impairment: 'none',
+  medical_devices: [],
+  health_insurance: {
+    plan_name: '',
+    policy_number: '',
+    hospital_preference: '',
+  },
+
+  // Step 5: Routine & Preferences
+  wake_time: '07:00',
+  sleep_time: '21:30',
+  meal_preferences: '',
+  activity_preferences: '',
+  communication_style: 'tranquila e paciente',
+  comfort_actions: 'música clássica, passeios curtos',
+  dislikes_or_triggers: 'ambientes muito barulhentos',
+
+  // Step 6: Monitoring Settings (codes)
+  enabled_monitoring_codes: ['medications', 'meals', 'hydration_logs', 'appointments'],
+
+  // Step 7: Simplified Screen Config
+  simplified_screen_enabled: true,
+  simplified_buttons: ['confirmMedication', 'helpButton'],
+  emergency_button_enabled: true,
+
+  // Step 8: Consents
+  consents: {
+    data_processing: true,
+    emergency_sharing: true,
+    health_records: true,
+    professional_care: false,
+  },
+};
+
+const STEPS = [
+  { id: 1, label: 'Identificação', icon: UserPlus },
+  { id: 2, label: 'Contato & Localização', icon: MapPin },
+  { id: 3, label: 'Responsáveis & Emergência', icon: Phone },
+  { id: 4, label: 'Saúde & Cuidados', icon: Activity },
+  { id: 5, label: 'Rotina & Gostos', icon: Clock },
+  { id: 6, label: 'Acompanhamentos', icon: HeartHandshake },
+  { id: 7, label: 'Tela Simplificada', icon: Smartphone },
+  { id: 8, label: 'Consentimentos', icon: Lock },
+  { id: 9, label: 'Revisão', icon: Check },
+];
 
 export default function NewCaredPersonPage() {
   const router = useRouter();
   const params = useParams();
   const locale = (params?.locale as string) || 'pt-BR';
-  const { user, currentOrganizationId, setCurrentOrganizationId } = useAuth();
+  const { user, currentOrganizationId } = useAuth();
   const { refreshCaredPeople, setSelectedPersonId } = useCaredPerson();
   const { toast } = useToast();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createClient() as any;
 
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState<OnboardingWizardState>(INITIAL_STATE);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Step 1 Form Data
-  const [formData, setFormData] = useState({
-    full_name: '',
-    nickname: '',
-    birth_date: '',
-    gender: '',
-    blood_type: '',
-  });
-
-  // Step 2 Monitoring Selection: default to empty set (User must choose consciously)
-  const [selectedCodes, setSelectedCodes] = useState<Set<string>>(new Set());
+  const [limitReached, setLimitReached] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
+  const [newAllergy, setNewAllergy] = useState('');
+  const [newCondition, setNewCondition] = useState('');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  // Load draft from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && currentOrganizationId) {
+      const draft = localStorage.getItem(`pc_wizard_draft_${currentOrganizationId}`);
+      if (draft) {
+        try {
+          const parsed = JSON.parse(draft);
+          setForm(prev => ({ ...prev, ...parsed }));
+        } catch {}
+      }
+    }
+  }, [currentOrganizationId]);
+
+  // Auto-save draft
+  const saveDraft = (updated: OnboardingWizardState) => {
+    if (typeof window !== 'undefined' && currentOrganizationId) {
+      localStorage.setItem(`pc_wizard_draft_${currentOrganizationId}`, JSON.stringify(updated));
+    }
   };
 
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  const updateField = (field: keyof OnboardingWizardState, value: any) => {
+    setForm(prev => {
+      const next = { ...prev, [field]: value };
+      saveDraft(next);
+      return next;
+    });
   };
 
-  // Toggle single item
-  const handleToggleCode = (code: string) => {
-    setSelectedCodes((prev) => {
-      const next = new Set(prev);
-      if (next.has(code)) {
-        next.delete(code);
+  // Contacts helper
+  const addContact = () => {
+    setForm(prev => {
+      const next = {
+        ...prev,
+        contacts: [
+          ...prev.contacts,
+          {
+            name: '',
+            relationship: 'Familiar',
+            phone: '',
+            whatsapp: '',
+            email: '',
+            priority_order: prev.contacts.length + 1,
+            is_primary: false,
+            is_emergency: false,
+            can_receive_notifications: true,
+            can_view_profile: true,
+            can_edit_records: false,
+          },
+        ],
+      };
+      saveDraft(next);
+      return next;
+    });
+  };
+
+  const removeContact = (index: number) => {
+    setForm(prev => {
+      const next = {
+        ...prev,
+        contacts: prev.contacts.filter((_, i) => i !== index),
+      };
+      saveDraft(next);
+      return next;
+    });
+  };
+
+  const updateContact = (index: number, key: string, val: any) => {
+    setForm(prev => {
+      const updatedContacts = [...prev.contacts];
+      updatedContacts[index] = { ...updatedContacts[index], [key]: val };
+      const next = { ...prev, contacts: updatedContacts };
+      saveDraft(next);
+      return next;
+    });
+  };
+
+  // Monitoring toggle helper
+  const handleToggleMonitoring = (code: string) => {
+    setForm(prev => {
+      const current = new Set(prev.enabled_monitoring_codes);
+      if (current.has(code)) {
+        current.delete(code);
       } else {
-        next.add(code);
-        // If it has a dependency, also auto-suggest or include it
-        const def = getDefinitionByCode(code);
-        if (def?.dependencyCode && !next.has(def.dependencyCode)) {
-          next.add(def.dependencyCode);
-          toast({
-            title: 'Módulo vinculado ativado',
-            description: `Ativado automaticamente "${def.dependencyCode}" necessário para este acompanhamento.`,
+        current.add(code);
+      }
+      const next = { ...prev, enabled_monitoring_codes: Array.from(current) };
+      saveDraft(next);
+      return next;
+    });
+  };
+
+  // Photo change
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  // Validation per step
+  const validateCurrentStep = (): boolean => {
+    setErrorMessage(null);
+    if (step === 1) {
+      if (!form.full_name.trim()) {
+        setErrorMessage('O Nome Completo é obrigatório para continuar.');
+        return false;
+      }
+    }
+    if (step === 3) {
+      const validContacts = form.contacts.filter(c => c.name.trim() && (c.phone.trim() || c.whatsapp.trim()));
+      if (validContacts.length === 0) {
+        setErrorMessage('Cadastre pelo menos 1 contato com nome e telefone para segurança do idoso.');
+        return false;
+      }
+    }
+    if (step === 8) {
+      if (!form.consents.data_processing) {
+        setErrorMessage('O consentimento para tratamento de dados operacionais do cuidado é obrigatório.');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleNext = () => {
+    if (!validateCurrentStep()) return;
+    setStep(prev => Math.min(prev + 1, 9));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBack = () => {
+    setErrorMessage(null);
+    setStep(prev => Math.max(prev - 1, 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Submit
+  const handleSubmit = async () => {
+    if (!validateCurrentStep()) return;
+    setLoading(true);
+    setErrorMessage(null);
+
+    try {
+      // 1. Send to server-side API with plan limit check
+      const res = await fetch('/api/cared-people', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          organizationId: currentOrganizationId,
+          full_name: form.full_name,
+          preferred_name: form.preferred_name,
+          relationship: form.relationship,
+          birth_date: form.birth_date || null,
+          gender_identity: form.gender_identity,
+          pronouns: form.pronouns,
+          marital_status: form.marital_status,
+          preferred_language: form.preferred_language,
+          timezone: form.timezone,
+          country_code: form.country_code,
+          profile_type: form.profile_type,
+          notes: form.notes,
+          blood_type: form.blood_type,
+          contacts: form.contacts.filter(c => c.name.trim()),
+          addresses: [
+            {
+              address_type: form.address_type,
+              street: form.street,
+              number: form.number,
+              complement: form.complement,
+              city: form.city,
+              region: form.region,
+              postal_code: form.postal_code,
+              country_code: form.country_code,
+              housing_type: form.housing_type,
+              lives_alone: form.lives_alone,
+              lives_with_family: form.lives_with_family,
+              has_caregiver: form.has_caregiver,
+              receives_scheduled_visits: form.receives_scheduled_visits,
+              access_notes: form.access_notes,
+            },
+          ],
+          important_information: [
+            { information_type: 'allergies', value_json: form.allergies },
+            { information_type: 'chronic_conditions', value_json: form.chronic_conditions },
+            { information_type: 'mobility', value_json: { status: form.mobility_status } },
+            { information_type: 'sensory', value_json: { impairment: form.hearing_vision_impairment } },
+            { information_type: 'health_insurance', value_json: form.health_insurance },
+          ],
+          preferences: [
+            { preference_type: 'sleep_schedule', value_json: { wake: form.wake_time, sleep: form.sleep_time } },
+            { preference_type: 'communication', value_json: { style: form.communication_style } },
+            { preference_type: 'comforts', value_json: { actions: form.comfort_actions } },
+            { preference_type: 'triggers', value_json: { dislikes: form.dislikes_or_triggers } },
+          ],
+          consents: form.consents,
+          enabled_monitoring_codes: form.enabled_monitoring_codes,
+          simplified_screen: {
+            enabled: form.simplified_screen_enabled,
+            buttons: form.simplified_buttons,
+            emergency_button: form.emergency_button_enabled,
+          },
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 403 && data.code === 'PLAN_LIMIT_REACHED') {
+          setLimitReached(true);
+          setErrorMessage(data.error);
+          setLoading(false);
+          return;
+        }
+        throw new Error(data.error || 'Erro ao realizar cadastro.');
+      }
+
+      const createdId = data.caredPersonId || data.person?.id;
+
+      // 2. Upload photo if selected
+      if (photoFile && createdId) {
+        try {
+          const photoData = new FormData();
+          photoData.append('photo', photoFile);
+          await fetch(`/api/cared-people/${createdId}/photo`, {
+            method: 'POST',
+            body: photoData,
           });
+        } catch (photoErr) {
+          console.warn('Foto não pôde ser enviada agora:', photoErr);
         }
       }
-      return next;
-    });
-  };
 
-  // Select all in category
-  const handleSelectAllCategory = (categoryCode: string) => {
-    const category = MONITORING_CATALOG.find((c) => c.code === categoryCode);
-    if (!category) return;
-    setSelectedCodes((prev) => {
-      const next = new Set(prev);
-      category.definitions.forEach((d) => next.add(d.code));
-      return next;
-    });
-  };
+      // 3. Clear draft
+      if (typeof window !== 'undefined' && currentOrganizationId) {
+        localStorage.removeItem(`pc_wizard_draft_${currentOrganizationId}`);
+      }
 
-  // Clear category
-  const handleClearCategory = (categoryCode: string) => {
-    const category = MONITORING_CATALOG.find((c) => c.code === categoryCode);
-    if (!category) return;
-    setSelectedCodes((prev) => {
-      const next = new Set(prev);
-      category.definitions.forEach((d) => next.delete(d.code));
-      return next;
-    });
+      toast({
+        title: 'Pessoa cuidada cadastrada com sucesso!',
+        description: `${form.full_name} agora possui um perfil completo e exclusivo.`,
+      });
+
+      await refreshCaredPeople();
+      if (createdId) setSelectedPersonId(createdId);
+      router.push(`/${locale}/dashboard/cared-people/${createdId}`);
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Falha ao salvar o cadastro.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredCatalog = useMemo(() => {
@@ -118,496 +423,1008 @@ export default function NewCaredPersonPage() {
     })).filter((cat) => cat.definitions.length > 0);
   }, [searchFilter]);
 
-  const getOrCreateOrganization = async (): Promise<string | null> => {
-    if (currentOrganizationId) return currentOrganizationId;
-    if (!user) return null;
-
-    const { data: existingMemberships } = await supabase
-      .from('organization_members')
-      .select('organization_id')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .limit(1);
-
-    if (existingMemberships && existingMemberships.length > 0) {
-      const orgId = existingMemberships[0].organization_id;
-      setCurrentOrganizationId(orgId);
-      return orgId;
-    }
-
-    const { data: ownedOrgs } = await supabase
-      .from('organizations')
-      .select('id')
-      .eq('owner_id', user.id)
-      .limit(1);
-
-    if (ownedOrgs && ownedOrgs.length > 0) {
-      const orgId = ownedOrgs[0].id;
-      setCurrentOrganizationId(orgId);
-      return orgId;
-    }
-
-    const newOrgId = crypto.randomUUID();
-    const uniqueSlug = `familia-${user.id.slice(0, 5)}-${Date.now()}`;
-    const orgName = formData.full_name
-      ? `Família de ${formData.full_name.split(' ')[0]}`
-      : 'Minha Família';
-
-    const { error: orgError } = await supabase.from('organizations').insert({
-      id: newOrgId,
-      name: orgName,
-      slug: uniqueSlug,
-      owner_id: user.id,
-    });
-
-    if (orgError) {
-      setErrorMessage(`Erro ao criar família: ${orgError.message}`);
-      return null;
-    }
-
-    await supabase.from('organization_members').insert({
-      organization_id: newOrgId,
-      user_id: user.id,
-      role: 'owner',
-      status: 'active',
-    });
-
-    setCurrentOrganizationId(newOrgId);
-    return newOrgId;
-  };
-
-  const handleProceedToStep2 = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.full_name.trim()) {
-      setErrorMessage('Por favor, informe o nome completo.');
-      return;
-    }
-    setErrorMessage(null);
-    setStep(2);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleFinalSubmit = async () => {
-    setErrorMessage(null);
-    if (!user) {
-      setErrorMessage('Você precisa estar autenticado para continuar.');
-      return;
-    }
-
-    // Validate dependencies before submitting
-    const depCheck = validateDependencies(Array.from(selectedCodes));
-    if (!depCheck.valid) {
-      setErrorMessage('Alguns acompanhamentos selecionados requerem módulos vinculados que não foram ativados.');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const orgId = await getOrCreateOrganization();
-      if (!orgId) {
-        setLoading(false);
-        return;
-      }
-
-      // 1. Insert Cared Person
-      const payload: Record<string, any> = {
-        organization_id: orgId,
-        full_name: formData.full_name.trim(),
-        birth_date: formData.birth_date || null,
-        blood_type: formData.blood_type || null,
-        created_by: user.id,
-      };
-
-      if (formData.nickname?.trim()) {
-        payload.nickname = formData.nickname.trim();
-      }
-      if (formData.gender) {
-        payload.gender = formData.gender;
-      }
-
-      let createdPersonId: string | null = null;
-      const { data, error } = await supabase
-        .from('cared_people')
-        .insert(payload)
-        .select('id')
-        .single();
-
-      if (error) {
-        if (error.message?.includes('nickname') || error.message?.includes('gender')) {
-          delete payload.nickname;
-          delete payload.gender;
-          const { data: retryData, error: retryError } = await supabase
-            .from('cared_people')
-            .insert(payload)
-            .select('id')
-            .single();
-
-          if (retryError) {
-            setErrorMessage(`Erro no cadastro: ${retryError.message}`);
-            setLoading(false);
-            return;
-          }
-          createdPersonId = retryData?.id || null;
-        } else {
-          setErrorMessage(`Erro ao cadastrar: ${error.message}`);
-          setLoading(false);
-          return;
-        }
-      } else {
-        createdPersonId = data?.id || null;
-      }
-
-      if (!createdPersonId) {
-        setErrorMessage('Não foi possível obter o identificador da pessoa cuidada.');
-        setLoading(false);
-        return;
-      }
-
-      // 2. Persist Selected Monitoring Settings via API
-      const saveRes = await fetch('/api/monitoring/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          caredPersonId: createdPersonId,
-          enabledCodes: Array.from(selectedCodes),
-          settingsPayload: {},
-        }),
-      });
-
-      if (!saveRes.ok) {
-        console.warn('Configurações de acompanhamento serão ajustadas posteriormente.');
-      }
-
-      toast({
-        title: 'Pessoa cuidada cadastrada com sucesso!',
-        description: `${formData.full_name} foi adicionado(a) com ${selectedCodes.size} acompanhamento(s) personalizado(s).`,
-      });
-
-      await refreshCaredPeople();
-      setSelectedPersonId(createdPersonId);
-      router.push(`/${locale}/dashboard`);
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Ocorreu um erro ao salvar o cadastro.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 py-10 px-4">
+    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 py-8 px-4 sm:px-6">
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* Progress Bar */}
-        <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-4">
-          <div className="flex items-center gap-3">
-            <div className={`h-8 w-8 rounded-full flex items-center justify-center font-bold text-sm ${step === 1 ? 'bg-brand-green text-white' : 'bg-emerald-100 text-emerald-800'}`}>
-              {step > 1 ? <Check className="h-4 w-4" /> : '1'}
+        {/* Header Breadcrumb */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-stone-200 dark:border-stone-800">
+          <div>
+            <div className="flex items-center gap-2 text-xs text-stone-500 mb-1">
+              <Link href={`/${locale}/dashboard`} className="hover:underline">Painel</Link>
+              <span>/</span>
+              <span className="text-stone-800 dark:text-stone-300 font-medium">Cadastro Individual</span>
             </div>
-            <span className={`text-sm font-semibold ${step === 1 ? 'text-stone-900 dark:text-stone-100' : 'text-stone-500'}`}>
-              Dados Básicos
-            </span>
-            <ChevronRight className="h-4 w-4 text-stone-400" />
-            <div className={`h-8 w-8 rounded-full flex items-center justify-center font-bold text-sm ${step === 2 ? 'bg-brand-green text-white' : 'bg-stone-200 text-stone-600'}`}>
-              2
-            </div>
-            <span className={`text-sm font-semibold ${step === 2 ? 'text-stone-900 dark:text-stone-100' : 'text-stone-500'}`}>
-              Personalizar Acompanhamentos
-            </span>
+            <h1 className="text-2xl font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+              <UserPlus className="h-6 w-6 text-brand-green" /> Perfil Completo da Pessoa Cuidada
+            </h1>
+            <p className="text-sm text-stone-500">
+              Cada familiar possui seu próprio histórico, rotina, contatos e tela simplificada sem compartilhar registros com terceiros.
+            </p>
           </div>
-          {step === 2 && (
-            <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold px-3 py-1">
-              {selectedCodes.size} selecionado(s)
-            </Badge>
-          )}
+          <Badge variant="outline" className="self-start sm:self-auto bg-emerald-50 text-emerald-800 border-emerald-300">
+            Etapa {step} de 9
+          </Badge>
         </div>
 
+        {/* Step Progress Pills (Horizontal scrollable) */}
+        <div className="overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex items-center gap-2 min-w-max">
+            {STEPS.map((s) => {
+              const Icon = s.icon;
+              const isCurrent = step === s.id;
+              const isDone = step > s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => s.id < step && setStep(s.id)}
+                  disabled={s.id > step}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                    isCurrent
+                      ? 'bg-brand-green text-white shadow-xs'
+                      : isDone
+                      ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 cursor-pointer hover:bg-emerald-200'
+                      : 'bg-stone-200/70 dark:bg-stone-800 text-stone-400 cursor-not-allowed'
+                  }`}
+                >
+                  <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] ${
+                    isDone ? 'bg-emerald-600 text-white' : isCurrent ? 'bg-white/20 text-white' : 'bg-stone-300 dark:bg-stone-700 text-stone-500'
+                  }`}>
+                    {isDone ? <Check className="h-3 w-3" /> : s.id}
+                  </div>
+                  <span>{s.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Error / Plan Limit Alert */}
         {errorMessage && (
-          <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 p-4 rounded-xl flex items-center gap-3 text-red-700 dark:text-red-300">
-            <AlertCircle className="h-5 w-5 shrink-0" />
-            <p className="text-sm">{errorMessage}</p>
+          <div className={`p-4 rounded-xl border flex items-start gap-3 ${
+            limitReached
+              ? 'bg-amber-50 border-amber-300 text-amber-900 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200'
+              : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-900 dark:text-red-300'
+          }`}>
+            <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+            <div className="flex-1 text-sm">
+              <p className="font-semibold">{limitReached ? 'Limite de Pessoas Cuidadas' : 'Atenção'}</p>
+              <p className="mt-0.5">{errorMessage}</p>
+              {limitReached && (
+                <div className="mt-3">
+                  <Button asChild size="sm" className="bg-amber-600 hover:bg-amber-700 text-white">
+                    <Link href={`/${locale}/dashboard/settings/subscription`}>
+                      Ver Planos & Fazer Upgrade
+                    </Link>
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        {/* STEP 1: Basic Information */}
+        {/* ========================================================================= */}
+        {/* STEP 1: IDENTIFICATION                                                    */}
+        {/* ========================================================================= */}
         {step === 1 && (
           <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
             <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-brand-green/10 rounded-xl text-brand-green">
-                  <UserPlus className="h-6 w-6" />
+              <CardTitle className="text-xl">1. Identificação Básica</CardTitle>
+              <CardDescription>
+                Informações civis e de identificação pessoal de quem receberá o cuidado.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-center gap-6 pb-4 border-b border-stone-100 dark:border-stone-800">
+                <div className="relative group">
+                  <div className="h-24 w-24 rounded-full border-2 border-dashed border-stone-300 dark:border-stone-700 flex flex-col items-center justify-center overflow-hidden bg-stone-100 dark:bg-stone-800 text-stone-400">
+                    {photoPreview ? (
+                      <img src={photoPreview} alt="Foto" className="h-full w-full object-cover" />
+                    ) : (
+                      <>
+                        <UploadCloud className="h-6 w-6" />
+                        <span className="text-[10px] mt-1">Foto</span>
+                      </>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoChange}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    title="Adicionar foto"
+                  />
                 </div>
-                <div>
-                  <CardTitle className="text-2xl">Cadastrar Pessoa Cuidada</CardTitle>
-                  <CardDescription>
-                    Insira os dados cadastrais do seu familiar. Na próxima etapa você escolherá os acompanhamentos.
-                  </CardDescription>
+                <div className="space-y-1 text-center sm:text-left">
+                  <p className="text-sm font-semibold text-stone-800 dark:text-stone-200">Foto do Familiar (Opcional)</p>
+                  <p className="text-xs text-stone-500">
+                    Ajuda familiares e cuidadores a identificarem a pessoa no painel. JPG ou PNG de até 5MB.
+                  </p>
                 </div>
               </div>
-            </CardHeader>
-            <form onSubmit={handleProceedToStep2}>
-              <CardContent className="space-y-4">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="full_name">Nome Completo *</Label>
                   <Input
                     id="full_name"
-                    name="full_name"
-                    value={formData.full_name}
-                    onChange={handleChange}
-                    placeholder="Ex: Maria dos Santos Silva"
+                    value={form.full_name}
+                    onChange={(e) => updateField('full_name', e.target.value)}
+                    placeholder="Ex: Helena Antônia Silveira"
                     required
-                    className="h-11"
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="nickname">Como prefere ser chamado(a)? (Opcional)</Label>
-                    <Input
-                      id="nickname"
-                      name="nickname"
-                      value={formData.nickname}
-                      onChange={handleChange}
-                      placeholder="Ex: Mãe, Dona Maria"
-                      className="h-11"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="preferred_name">Como prefere ser chamado(a)?</Label>
+                  <Input
+                    id="preferred_name"
+                    value={form.preferred_name}
+                    onChange={(e) => updateField('preferred_name', e.target.value)}
+                    placeholder="Ex: Dona Helena, Vovó, Mãe"
+                  />
+                </div>
+              </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="birth_date">Data de Nascimento (Opcional)</Label>
-                    <Input
-                      id="birth_date"
-                      name="birth_date"
-                      type="date"
-                      value={formData.birth_date}
-                      onChange={handleChange}
-                      className="h-11"
-                    />
-                  </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="relationship">Grau de Parentesco / Relação</Label>
+                  <Select value={form.relationship} onValueChange={(val) => updateField('relationship', val)}>
+                    <SelectTrigger id="relationship">
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mother">Mãe</SelectItem>
+                      <SelectItem value="father">Pai</SelectItem>
+                      <SelectItem value="grandmother">Avó</SelectItem>
+                      <SelectItem value="grandfather">Avô</SelectItem>
+                      <SelectItem value="uncle_aunt">Tio(a)</SelectItem>
+                      <SelectItem value="spouse">Cônjuge</SelectItem>
+                      <SelectItem value="other_family">Outro Familiar</SelectItem>
+                      <SelectItem value="client">Cliente / Paciente</SelectItem>
+                      <SelectItem value="resident">Residente</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="gender">Gênero (Opcional)</Label>
-                    <Select value={formData.gender} onValueChange={(val) => handleSelectChange('gender', val)}>
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="female">Feminino</SelectItem>
-                        <SelectItem value="male">Masculino</SelectItem>
-                        <SelectItem value="other">Outro</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="blood_type">Tipo Sanguíneo (Opcional)</Label>
-                    <Select value={formData.blood_type} onValueChange={(val) => handleSelectChange('blood_type', val)}>
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="Selecione se souber" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="A+">A+</SelectItem>
-                        <SelectItem value="A-">A-</SelectItem>
-                        <SelectItem value="B+">B+</SelectItem>
-                        <SelectItem value="B-">B-</SelectItem>
-                        <SelectItem value="AB+">AB+</SelectItem>
-                        <SelectItem value="AB-">AB-</SelectItem>
-                        <SelectItem value="O+">O+</SelectItem>
-                        <SelectItem value="O-">O-</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="birth_date">Data de Nascimento</Label>
+                  <Input
+                    id="birth_date"
+                    type="date"
+                    value={form.birth_date}
+                    onChange={(e) => updateField('birth_date', e.target.value)}
+                  />
                 </div>
-              </CardContent>
 
-              <CardFooter className="flex justify-between border-t border-stone-200 dark:border-stone-800 pt-6">
-                <Button type="button" variant="ghost" onClick={() => router.back()}>
-                  Cancelar
-                </Button>
-                <Button type="submit" className="bg-brand-green hover:bg-brand-green/90 text-white gap-2">
-                  Próximo: Personalizar Acompanhamentos <ArrowRight className="h-4 w-4" />
-                </Button>
-              </CardFooter>
-            </form>
+                <div className="space-y-2">
+                  <Label htmlFor="gender_identity">Gênero</Label>
+                  <Select value={form.gender_identity} onValueChange={(val) => updateField('gender_identity', val)}>
+                    <SelectTrigger id="gender_identity">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="female">Feminino</SelectItem>
+                      <SelectItem value="male">Masculino</SelectItem>
+                      <SelectItem value="non_binary">Não-binário</SelectItem>
+                      <SelectItem value="other">Outro / Prefiro não informar</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="preferred_language">Idioma de Preferência</Label>
+                  <Select value={form.preferred_language} onValueChange={(val) => updateField('preferred_language', val)}>
+                    <SelectTrigger id="preferred_language">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pt-BR">Português (Brasil)</SelectItem>
+                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="es">Español</SelectItem>
+                      <SelectItem value="fr">Français</SelectItem>
+                      <SelectItem value="de">Deutsch</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="timezone">Fuso Horário</Label>
+                  <Select value={form.timezone} onValueChange={(val) => updateField('timezone', val)}>
+                    <SelectTrigger id="timezone">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="America/Sao_Paulo">Brasília (GMT-3)</SelectItem>
+                      <SelectItem value="America/Manaus">Manaus (GMT-4)</SelectItem>
+                      <SelectItem value="America/New_York">New York (EST)</SelectItem>
+                      <SelectItem value="Europe/Lisbon">Lisboa (WET)</SelectItem>
+                      <SelectItem value="Europe/Madrid">Madrid / Paris (CET)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="profile_type">Tipo de Perfil</Label>
+                  <Select value={form.profile_type} onValueChange={(val: any) => updateField('profile_type', val)}>
+                    <SelectTrigger id="profile_type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="family_member">Familiar sob Cuidado</SelectItem>
+                      <SelectItem value="professional_care">Atendido por Cuidador Profissional</SelectItem>
+                      <SelectItem value="nursing_home_resident">Residente de ILPI / Casa Repouso</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notes">Anotações Importantes de Identificação (Opcional)</Label>
+                <Input
+                  id="notes"
+                  value={form.notes}
+                  onChange={(e) => updateField('notes', e.target.value)}
+                  placeholder="Ex: Chamar sempre com calma; usa aparelho auditivo no ouvido esquerdo."
+                />
+              </div>
+            </CardContent>
           </Card>
         )}
 
-        {/* STEP 2: Personalized Monitoring Selection */}
+        {/* ========================================================================= */}
+        {/* STEP 2: CONTACT & LOCATION                                                */}
+        {/* ========================================================================= */}
         {step === 2 && (
-          <div className="space-y-6">
-            <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-              <CardHeader>
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-2xl font-bold">
-                      O que você deseja acompanhar na rotina de {formData.nickname || formData.full_name.split(' ')[0]}?
-                    </CardTitle>
-                    <CardDescription className="text-base mt-1">
-                      Selecione apenas o que faz parte da rotina de cuidado. O que não for marcado não gerará pendências nem poluirá o painel. Você poderá alterar depois.
-                    </CardDescription>
+          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-xl">2. Contato & Localização da Residência</CardTitle>
+              <CardDescription>
+                Onde a pessoa cuidada reside e como contatá-la diretamente.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Telefone Fixo / Residencial</Label>
+                  <Input
+                    id="phone"
+                    value={form.phone}
+                    onChange={(e) => updateField('phone', e.target.value)}
+                    placeholder="Ex: (11) 3456-7890"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp">Celular / WhatsApp do Idoso</Label>
+                  <Input
+                    id="whatsapp"
+                    value={form.whatsapp}
+                    onChange={(e) => updateField('whatsapp', e.target.value)}
+                    placeholder="Ex: (11) 98765-4321"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">E-mail (se tiver)</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => updateField('email', e.target.value)}
+                    placeholder="idoso@email.com"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-stone-100 dark:border-stone-800">
+                <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 mb-3">Endereço de Moradia</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div className="sm:col-span-3 space-y-2">
+                    <Label htmlFor="street">Logradouro (Rua, Avenida)</Label>
+                    <Input
+                      id="street"
+                      value={form.street}
+                      onChange={(e) => updateField('street', e.target.value)}
+                      placeholder="Rua das Flores"
+                    />
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const all = new Set<string>();
-                        MONITORING_CATALOG.forEach((cat) => cat.definitions.forEach((d) => all.add(d.code)));
-                        setSelectedCodes(all);
-                      }}
-                      className="text-xs"
-                    >
-                      Selecionar Todos
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedCodes(new Set())}
-                      className="text-xs"
-                    >
-                      Limpar Tudo
-                    </Button>
+                  <div className="space-y-2">
+                    <Label htmlFor="number">Número</Label>
+                    <Input
+                      id="number"
+                      value={form.number}
+                      onChange={(e) => updateField('number', e.target.value)}
+                      placeholder="123"
+                    />
                   </div>
                 </div>
 
-                {/* Filter / Search input */}
-                <div className="relative mt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="complement">Complemento (Apto, Bloco)</Label>
+                    <Input
+                      id="complement"
+                      value={form.complement}
+                      onChange={(e) => updateField('complement', e.target.value)}
+                      placeholder="Apto 42"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="city">Cidade</Label>
+                    <Input
+                      id="city"
+                      value={form.city}
+                      onChange={(e) => updateField('city', e.target.value)}
+                      placeholder="São Paulo"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="postal_code">Código Postal / CEP</Label>
+                    <Input
+                      id="postal_code"
+                      value={form.postal_code}
+                      onChange={(e) => updateField('postal_code', e.target.value)}
+                      placeholder="01234-567"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-stone-100 dark:border-stone-800 space-y-3">
+                <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100">Dinâmica da Residência</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="flex items-center gap-3 p-3 rounded-xl border border-stone-200 dark:border-stone-800 cursor-pointer">
+                    <Switch
+                      checked={form.lives_alone}
+                      onCheckedChange={(val) => updateField('lives_alone', val)}
+                    />
+                    <div className="text-xs">
+                      <p className="font-semibold text-stone-800 dark:text-stone-200">Mora sozinho(a)</p>
+                      <p className="text-stone-500">Requer maior atenção e checagens frequentes</p>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-3 p-3 rounded-xl border border-stone-200 dark:border-stone-800 cursor-pointer">
+                    <Switch
+                      checked={form.has_caregiver}
+                      onCheckedChange={(val) => updateField('has_caregiver', val)}
+                    />
+                    <div className="text-xs">
+                      <p className="font-semibold text-stone-800 dark:text-stone-200">Possui cuidador formal/escala</p>
+                      <p className="text-stone-500">Presença de profissional contratado no local</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ========================================================================= */}
+        {/* STEP 3: EMERGENCY & GUARDIANS                                             */}
+        {/* ========================================================================= */}
+        {step === 3 && (
+          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl">3. Responsáveis & Linha de Emergência</CardTitle>
+                  <CardDescription>
+                    Pessoas que devem ser avisadas imediatamente em qualquer imprevisto ou acionamento de SOS.
+                  </CardDescription>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={addContact} className="gap-1.5 text-xs">
+                  <Plus className="h-4 w-4" /> Adicionar Contato
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center gap-2.5 text-xs text-amber-900 dark:text-amber-200">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+                <span>
+                  <strong>Regra de Segurança:</strong> O botão de emergência (SOS) no celular do idoso somente é habilitado após existir pelo menos 1 contato com telefone válido.
+                </span>
+              </div>
+
+              {form.contacts.map((contact, idx) => (
+                <div key={idx} className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-3 relative">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs font-bold">
+                        Contato #{idx + 1}
+                      </Badge>
+                      {contact.is_primary && (
+                        <Badge className="bg-emerald-600 text-white text-[10px]">
+                          Principal Responsável
+                        </Badge>
+                      )}
+                      {contact.is_emergency && (
+                        <Badge variant="destructive" className="text-[10px]">
+                          Alerta SOS
+                        </Badge>
+                      )}
+                    </div>
+                    {form.contacts.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeContact(idx)}
+                        className="text-red-500 hover:text-red-700 h-8 w-8 p-0"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Nome *</Label>
+                      <Input
+                        value={contact.name}
+                        onChange={(e) => updateContact(idx, 'name', e.target.value)}
+                        placeholder="Ex: Carlos Eduardo (Filho)"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Grau de Parentesco</Label>
+                      <Input
+                        value={contact.relationship}
+                        onChange={(e) => updateContact(idx, 'relationship', e.target.value)}
+                        placeholder="Ex: Filho mais velho, Vizinha"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Telefone / Celular *</Label>
+                      <Input
+                        value={contact.phone}
+                        onChange={(e) => updateContact(idx, 'phone', e.target.value)}
+                        placeholder="(11) 99999-8888"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-stone-100 dark:border-stone-800 text-xs">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Switch
+                        checked={contact.is_primary}
+                        onCheckedChange={(val) => updateContact(idx, 'is_primary', val)}
+                      />
+                      <span>Contato Principal</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Switch
+                        checked={contact.is_emergency}
+                        onCheckedChange={(val) => updateContact(idx, 'is_emergency', val)}
+                      />
+                      <span className="text-rose-600 dark:text-rose-400 font-semibold">Receber Alerta de Emergência SOS</span>
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ========================================================================= */}
+        {/* STEP 4: HEALTH & IMPORTANT INFO                                           */}
+        {/* ========================================================================= */}
+        {step === 4 && (
+          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-xl">4. Informações Médicas & Cuidados Importantes</CardTitle>
+              <CardDescription>
+                Dados críticos para socorristas, médicos e cuidadores em caso de atendimento.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="blood_type">Tipo Sanguíneo</Label>
+                  <Select value={form.blood_type} onValueChange={(val) => updateField('blood_type', val)}>
+                    <SelectTrigger id="blood_type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="A+">A+</SelectItem>
+                      <SelectItem value="A-">A-</SelectItem>
+                      <SelectItem value="B+">B+</SelectItem>
+                      <SelectItem value="B-">B-</SelectItem>
+                      <SelectItem value="AB+">AB+</SelectItem>
+                      <SelectItem value="AB-">AB-</SelectItem>
+                      <SelectItem value="O+">O+</SelectItem>
+                      <SelectItem value="O-">O-</SelectItem>
+                      <SelectItem value="unknown">Não sabe / Não informado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="mobility_status">Mobilidade</Label>
+                  <Select value={form.mobility_status} onValueChange={(val) => updateField('mobility_status', val)}>
+                    <SelectTrigger id="mobility_status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="independent">Caminha sem apoio</SelectItem>
+                      <SelectItem value="cane">Usa bengala</SelectItem>
+                      <SelectItem value="walker">Usa andador</SelectItem>
+                      <SelectItem value="wheelchair">Cadeira de rodas</SelectItem>
+                      <SelectItem value="bedridden">Acamado(a)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="hearing_vision">Visão & Audição</Label>
+                  <Select value={form.hearing_vision_impairment} onValueChange={(val) => updateField('hearing_vision_impairment', val)}>
+                    <SelectTrigger id="hearing_vision">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Preservadas</SelectItem>
+                      <SelectItem value="glasses">Usa óculos de grau</SelectItem>
+                      <SelectItem value="hearing_aid">Usa aparelho auditivo</SelectItem>
+                      <SelectItem value="both">Usa óculos e aparelho auditivo</SelectItem>
+                      <SelectItem value="severe">Dificuldade acentuada</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Allergies tag manager */}
+              <div className="space-y-2 pt-2 border-t border-stone-100 dark:border-stone-800">
+                <Label>Alergias Medicamentosas ou Alimentares</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={newAllergy}
+                    onChange={(e) => setNewAllergy(e.target.value)}
+                    placeholder="Ex: Dipirona, Penicilina, Frutos do mar..."
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newAllergy.trim()) {
+                        e.preventDefault();
+                        updateField('allergies', [...form.allergies, newAllergy.trim()]);
+                        setNewAllergy('');
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      if (newAllergy.trim()) {
+                        updateField('allergies', [...form.allergies, newAllergy.trim()]);
+                        setNewAllergy('');
+                      }
+                    }}
+                  >
+                    Adicionar
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {form.allergies.map((a, i) => (
+                    <Badge key={i} variant="destructive" className="gap-1.5 text-xs py-1">
+                      {a}
+                      <button
+                        type="button"
+                        onClick={() => updateField('allergies', form.allergies.filter((_, idx) => idx !== i))}
+                        className="hover:opacity-75"
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  ))}
+                  {form.allergies.length === 0 && (
+                    <span className="text-xs text-stone-400">Nenhuma alergia cadastrada.</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Health insurance */}
+              <div className="pt-2 border-t border-stone-100 dark:border-stone-800">
+                <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 mb-3">Plano de Saúde / Convênio</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Nome do Convênio</Label>
+                    <Input
+                      value={form.health_insurance.plan_name}
+                      onChange={(e) => updateField('health_insurance', { ...form.health_insurance, plan_name: e.target.value })}
+                      placeholder="Ex: Unimed, Bradesco, SUS"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Número da Carteirinha</Label>
+                    <Input
+                      value={form.health_insurance.policy_number}
+                      onChange={(e) => updateField('health_insurance', { ...form.health_insurance, policy_number: e.target.value })}
+                      placeholder="000.12345.678"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Hospital de Preferência</Label>
+                    <Input
+                      value={form.health_insurance.hospital_preference}
+                      onChange={(e) => updateField('health_insurance', { ...form.health_insurance, hospital_preference: e.target.value })}
+                      placeholder="Ex: Hospital Santa Catarina"
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ========================================================================= */}
+        {/* STEP 5: ROUTINE & PREFERENCES                                             */}
+        {/* ========================================================================= */}
+        {step === 5 && (
+          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-xl">5. Rotina, Hábitos & Preferências Pessoais</CardTitle>
+              <CardDescription>
+                Detalhes que preservam o conforto, a dignidade e o bem-estar psicológico do idoso.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="wake_time">Horário habitual de acordar</Label>
+                  <Input
+                    id="wake_time"
+                    type="time"
+                    value={form.wake_time}
+                    onChange={(e) => updateField('wake_time', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sleep_time">Horário habitual de dormir</Label>
+                  <Input
+                    id="sleep_time"
+                    type="time"
+                    value={form.sleep_time}
+                    onChange={(e) => updateField('sleep_time', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="comfort_actions">O que acalma ou conforta nos momentos difíceis?</Label>
+                <Input
+                  id="comfort_actions"
+                  value={form.comfort_actions}
+                  onChange={(e) => updateField('comfort_actions', e.target.value)}
+                  placeholder="Ex: Ouvir rádio de manhã, café morno, fotos de família na sala..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="dislikes">O que causa irritação ou desconforto (Gatilhos)?</Label>
+                <Input
+                  id="dislikes"
+                  value={form.dislikes_or_triggers}
+                  onChange={(e) => updateField('dislikes_or_triggers', e.target.value)}
+                  placeholder="Ex: Pessoas falando muito alto ao mesmo tempo, banho frio..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="comm_style">Estilo de comunicação recomendado aos cuidadores</Label>
+                <Input
+                  id="comm_style"
+                  value={form.communication_style}
+                  onChange={(e) => updateField('communication_style', e.target.value)}
+                  placeholder="Ex: Falar de frente olhando nos olhos, frases curtas, tom calmo."
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ========================================================================= */}
+        {/* STEP 6: MONITORING SETTINGS                                               */}
+        {/* ========================================================================= */}
+        {step === 6 && (
+          <div className="space-y-4">
+            <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-xl">6. Seleção de Acompanhamentos Ativos</CardTitle>
+                    <CardDescription>
+                      Marque apenas o que faz sentido acompanhar na rotina de {form.preferred_name || form.full_name.split(' ')[0]}.
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold px-3 py-1">
+                    {form.enabled_monitoring_codes.length} selecionado(s)
+                  </Badge>
+                </div>
+                <div className="relative mt-3">
                   <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-stone-400" />
                   <Input
-                    placeholder="Buscar acompanhamento (ex: medicação, água, sono, humor, banho)..."
+                    placeholder="Filtrar acompanhamentos (medicamentos, água, sono, humor...)"
                     value={searchFilter}
                     onChange={(e) => setSearchFilter(e.target.value)}
-                    className="pl-10 h-11"
+                    className="pl-10 h-10"
                   />
                 </div>
               </CardHeader>
             </Card>
 
-            {/* Categories List */}
-            <div className="space-y-6">
-              {filteredCatalog.map((category) => {
-                const categorySelectedCount = category.definitions.filter((d) => selectedCodes.has(d.code)).length;
-                return (
-                  <Card key={category.id} className="border-stone-200 dark:border-stone-800 overflow-hidden">
-                    <CardHeader className="bg-stone-100/50 dark:bg-stone-900/50 py-4 px-6 border-b border-stone-200 dark:border-stone-800">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold text-stone-900 dark:text-stone-100 text-lg">
-                            {category.name}
-                          </span>
-                          <Badge variant="secondary" className="text-xs font-semibold">
-                            {categorySelectedCount} de {category.definitions.length}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleSelectAllCategory(category.code)}
-                            className="text-xs text-brand-green hover:underline font-medium px-2 py-1"
-                          >
-                            Marcar todos
-                          </button>
-                          <span className="text-stone-300">|</span>
-                          <button
-                            type="button"
-                            onClick={() => handleClearCategory(category.code)}
-                            className="text-xs text-stone-500 hover:underline px-2 py-1"
-                          >
-                            Limpar
-                          </button>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-4 sm:p-6 divide-y divide-stone-100 dark:divide-stone-800">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {category.definitions.map((def) => {
-                          const isChecked = selectedCodes.has(def.code);
-                          return (
-                            <label
-                              key={def.id}
-                              htmlFor={def.code}
-                              className={`flex items-start gap-3 p-4 rounded-xl border transition-all cursor-pointer select-none ${
-                                isChecked
-                                  ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800 shadow-xs'
-                                  : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 hover:border-stone-300'
-                              }`}
-                            >
-                              <Switch
-                                id={def.code}
-                                checked={isChecked}
-                                onCheckedChange={() => handleToggleCode(def.code)}
-                                className="mt-0.5"
-                              />
-                              <div className="space-y-1 flex-1">
-                                <div className="flex items-center justify-between">
-                                  <span className={`text-sm font-semibold ${isChecked ? 'text-emerald-950 dark:text-emerald-200' : 'text-stone-900 dark:text-stone-100'}`}>
-                                    {def.name}
-                                  </span>
-                                  {def.isCheckinButton && (
-                                    <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300 bg-amber-50">
-                                      Botão Idoso
-                                    </Badge>
-                                  )}
-                                </div>
-                                <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
-                                  {def.description}
-                                </p>
-                              </div>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+            <div className="space-y-4">
+              {filteredCatalog.map((category) => (
+                <Card key={category.id} className="border-stone-200 dark:border-stone-800 overflow-hidden">
+                  <div className="bg-stone-100/60 dark:bg-stone-900/60 px-4 py-2.5 border-b border-stone-200 dark:border-stone-800 font-bold text-sm text-stone-800 dark:text-stone-200">
+                    {category.name}
+                  </div>
+                  <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {category.definitions.map((def) => {
+                      const isChecked = form.enabled_monitoring_codes.includes(def.code);
+                      return (
+                        <label
+                          key={def.id}
+                          className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                            isChecked
+                              ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
+                              : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800'
+                          }`}
+                        >
+                          <Switch
+                            checked={isChecked}
+                            onCheckedChange={() => handleToggleMonitoring(def.code)}
+                            className="mt-0.5"
+                          />
+                          <div className="text-xs space-y-0.5">
+                            <span className={`font-semibold ${isChecked ? 'text-emerald-950 dark:text-emerald-200' : 'text-stone-900 dark:text-stone-100'}`}>
+                              {def.name}
+                            </span>
+                            <p className="text-stone-500 line-clamp-2 leading-relaxed">{def.description}</p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              ))}
             </div>
+          </div>
+        )}
 
-            {/* Summary & Actions */}
-            <Card className="border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 sticky bottom-4 shadow-xl z-20">
-              <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        {/* ========================================================================= */}
+        {/* STEP 7: SIMPLIFIED SCREEN                                                 */}
+        {/* ========================================================================= */}
+        {step === 7 && (
+          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-xl">7. Tela Simplificada para o Idoso</CardTitle>
+              <CardDescription>
+                Configure a interface acessível de botões grandes que o idoso acessará no próprio celular ou tablet.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <label className="flex items-center justify-between p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-emerald-50/40 dark:bg-emerald-950/20">
+                <div className="space-y-0.5">
+                  <p className="font-bold text-stone-900 dark:text-stone-100 text-sm">Habilitar Tela Simplificada</p>
+                  <p className="text-xs text-stone-500">
+                    A pessoa cuidada terá um link direto com letras grandes e botões de um toque.
+                  </p>
+                </div>
+                <Switch
+                  checked={form.simplified_screen_enabled}
+                  onCheckedChange={(val) => updateField('simplified_screen_enabled', val)}
+                />
+              </label>
+
+              <label className="flex items-center justify-between p-4 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50/40 dark:bg-rose-950/20">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold text-rose-900 dark:text-rose-200 text-sm">Botão de Emergência SOS Gigante</p>
+                    <Badge variant="destructive" className="text-[10px]">Alerta</Badge>
+                  </div>
+                  <p className="text-xs text-rose-700 dark:text-rose-400">
+                    Ao tocar, envia alerta imediato para os contatos prioritários configurados na Etapa 3.
+                  </p>
+                </div>
+                <Switch
+                  checked={form.emergency_button_enabled}
+                  onCheckedChange={(val) => updateField('emergency_button_enabled', val)}
+                />
+              </label>
+
+              <div className="p-4 bg-stone-100 dark:bg-stone-900 rounded-xl text-xs text-stone-600 dark:text-stone-400 space-y-1">
+                <p className="font-semibold text-stone-800 dark:text-stone-200">ℹ️ Regra de Assento Grátis:</p>
+                <p>
+                  O idoso que acessa somente a tela simplificada <strong>não consome assento pago</strong> de membro familiar ou cuidador profissional.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ========================================================================= */}
+        {/* STEP 8: CONSENTS & PRIVACY                                                */}
+        {/* ========================================================================= */}
+        {step === 8 && (
+          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-xl">8. Privacidade & Termos de Consentimento</CardTitle>
+              <CardDescription>
+                Consentimentos explícitos e granulares conforme normas de proteção de dados de saúde.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <label className="flex items-start gap-3 p-4 rounded-xl border border-stone-200 dark:border-stone-800 cursor-pointer">
+                <Switch
+                  checked={form.consents.data_processing}
+                  onCheckedChange={(val) =>
+                    updateField('consents', { ...form.consents, data_processing: val })
+                  }
+                  className="mt-0.5"
+                />
+                <div className="text-xs space-y-1">
+                  <p className="font-semibold text-stone-900 dark:text-stone-100">
+                    Tratamento de Dados para Organização do Cuidado *
+                  </p>
+                  <p className="text-stone-500">
+                    Autorizo o armazenamento dos dados de rotina, medicamentos e alimentação para uso exclusivo da família e cuidadores autorizados.
+                  </p>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 p-4 rounded-xl border border-stone-200 dark:border-stone-800 cursor-pointer">
+                <Switch
+                  checked={form.consents.emergency_sharing}
+                  onCheckedChange={(val) =>
+                    updateField('consents', { ...form.consents, emergency_sharing: val })
+                  }
+                  className="mt-0.5"
+                />
+                <div className="text-xs space-y-1">
+                  <p className="font-semibold text-stone-900 dark:text-stone-100">
+                    Compartilhamento Rápido em Caso de Emergência
+                  </p>
+                  <p className="text-stone-500">
+                    Permite exibir alergias e tipo sanguíneo em tela de emergência acessível para paramédicos ou socorristas.
+                  </p>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 p-4 rounded-xl border border-stone-200 dark:border-stone-800 cursor-pointer">
+                <Switch
+                  checked={form.consents.professional_care}
+                  onCheckedChange={(val) =>
+                    updateField('consents', { ...form.consents, professional_care: val })
+                  }
+                  className="mt-0.5"
+                />
+                <div className="text-xs space-y-1">
+                  <p className="font-semibold text-stone-900 dark:text-stone-100">
+                    Acesso para Cuidadores Profissionais
+                  </p>
+                  <p className="text-stone-500">
+                    Autorizo cuidadores com login ativo na organização a registrarem passagens de turno, refeições e medicações.
+                  </p>
+                </div>
+              </label>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ========================================================================= */}
+        {/* STEP 9: REVIEW & CONFIRMATION                                             */}
+        {/* ========================================================================= */}
+        {step === 9 && (
+          <div className="space-y-4">
+            <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+              <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 rounded-xl">
-                    <ShieldCheck className="h-6 w-6" />
+                  <div className="p-2.5 bg-brand-green/10 text-brand-green rounded-xl">
+                    <Sparkles className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-stone-900 dark:text-stone-100">
-                      {selectedCodes.size === 0
-                        ? 'Nenhum acompanhamento selecionado'
-                        : `${selectedCodes.size} acompanhamento(s) ativo(s) para ${formData.nickname || formData.full_name.split(' ')[0]}`}
-                    </p>
-                    <p className="text-xs text-stone-500">
-                      O histórico de qualquer item ativado é preservado permanentemente.
-                    </p>
+                    <CardTitle className="text-xl">9. Revisão & Confirmação Final</CardTitle>
+                    <CardDescription>
+                      Confira os dados antes de ativar o perfil exclusivo de {form.preferred_name || form.full_name}.
+                    </CardDescription>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setStep(1)}
-                    disabled={loading}
-                    className="flex-1 sm:flex-none gap-2"
-                  >
-                    <ArrowLeft className="h-4 w-4" /> Voltar
+              </CardHeader>
+              <CardContent className="space-y-4 text-xs divide-y divide-stone-100 dark:divide-stone-800">
+                <div className="pt-2 flex justify-between items-start">
+                  <div>
+                    <span className="text-stone-400 font-semibold uppercase tracking-wider text-[10px]">Identificação</span>
+                    <p className="font-bold text-sm text-stone-900 dark:text-stone-100 mt-0.5">{form.full_name}</p>
+                    <p className="text-stone-500">
+                      Chamado(a) carinhosamente de &quot;{form.preferred_name || form.full_name.split(' ')[0]}&quot; • {form.relationship}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setStep(1)} className="text-brand-green h-7 text-xs">
+                    Editar
                   </Button>
-                  <Button
-                    type="button"
-                    onClick={handleFinalSubmit}
-                    disabled={loading}
-                    className="bg-brand-green hover:bg-brand-green/90 text-white flex-1 sm:flex-none gap-2 px-6"
-                  >
-                    {loading ? 'Salvando...' : 'Concluir Cadastro'} <Check className="h-4 w-4" />
+                </div>
+
+                <div className="pt-3 flex justify-between items-start">
+                  <div>
+                    <span className="text-stone-400 font-semibold uppercase tracking-wider text-[10px]">Contatos de Emergência</span>
+                    <p className="font-semibold text-stone-800 dark:text-stone-200 mt-0.5">
+                      {form.contacts.filter(c => c.name.trim()).length} contato(s) cadastrado(s)
+                    </p>
+                    <p className="text-stone-500">
+                      Principal: {form.contacts[0]?.name || 'Nenhum'} ({form.contacts[0]?.phone || 'Sem telefone'})
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setStep(3)} className="text-brand-green h-7 text-xs">
+                    Editar
+                  </Button>
+                </div>
+
+                <div className="pt-3 flex justify-between items-start">
+                  <div>
+                    <span className="text-stone-400 font-semibold uppercase tracking-wider text-[10px]">Saúde & Alergias</span>
+                    <p className="font-semibold text-stone-800 dark:text-stone-200 mt-0.5">
+                      Tipo Sanguíneo: {form.blood_type}
+                    </p>
+                    <p className="text-stone-500">
+                      {form.allergies.length > 0 ? `Alergias: ${form.allergies.join(', ')}` : 'Nenhuma alergia relatada'}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setStep(4)} className="text-brand-green h-7 text-xs">
+                    Editar
+                  </Button>
+                </div>
+
+                <div className="pt-3 flex justify-between items-start">
+                  <div>
+                    <span className="text-stone-400 font-semibold uppercase tracking-wider text-[10px]">Acompanhamentos Ativos</span>
+                    <p className="font-semibold text-stone-800 dark:text-stone-200 mt-0.5">
+                      {form.enabled_monitoring_codes.length} rotinas ativadas
+                    </p>
+                    <p className="text-stone-500">
+                      Tela simplificada para o idoso: {form.simplified_screen_enabled ? 'Habilitada' : 'Desabilitada'}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setStep(6)} className="text-brand-green h-7 text-xs">
+                    Editar
                   </Button>
                 </div>
               </CardContent>
             </Card>
           </div>
         )}
+
+        {/* ========================================================================= */}
+        {/* FOOTER ACTIONS                                                            */}
+        {/* ========================================================================= */}
+        <div className="flex items-center justify-between pt-4 border-t border-stone-200 dark:border-stone-800">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={step === 1 ? () => router.back() : handleBack}
+            disabled={loading}
+            className="gap-1.5 text-xs sm:text-sm"
+          >
+            <ArrowLeft className="h-4 w-4" /> {step === 1 ? 'Cancelar' : 'Voltar'}
+          </Button>
+
+          {step < 9 ? (
+            <Button
+              type="button"
+              onClick={handleNext}
+              className="bg-brand-green hover:bg-brand-green/90 text-white gap-1.5 text-xs sm:text-sm px-5"
+            >
+              Avançar <ArrowRight className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              disabled={loading}
+              className="bg-brand-green hover:bg-brand-green/90 text-white gap-2 text-sm px-6 font-bold shadow-md"
+            >
+              {loading ? 'Criando Perfil...' : 'Concluir e Criar Perfil'} <Check className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

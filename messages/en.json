@@ -285,5 +285,62 @@
     "terms": "Terms of Use",
     "decline": "Decline",
     "accept": "Accept"
+  },
+  "CaredPersonProfile": {
+    "title": "Cared Person Profile",
+    "create_title": "Individual Cared Person Registration",
+    "create_subtitle": "Set up an exclusive profile for your loved one with personalized routine, contacts, and monitoring.",
+    "draft_saved": "Draft saved automatically",
+    "steps": {
+      "identification": "1. Identification",
+      "contact_location": "2. Contact & Location",
+      "emergency_contacts": "3. Guardians & Emergency",
+      "important_info": "4. Important Information",
+      "routine_preferences": "5. Routine & Preferences",
+      "monitoring": "6. Monitoring Settings",
+      "simplified_screen": "7. Simplified Screen",
+      "consents": "8. Privacy & Consents",
+      "review": "9. Review & Confirmation"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "routine": "Routine",
+      "monitoring": "Monitoring",
+      "schedule": "Schedule",
+      "medications": "Medications",
+      "meals": "Meals & Hydration",
+      "family": "Caregivers & Family",
+      "occurrences": "Incidents",
+      "documents": "Documents",
+      "history": "History & Audit",
+      "settings": "Settings"
+    },
+    "relationships": {
+      "mother": "Mother",
+      "father": "Father",
+      "grandmother": "Grandmother",
+      "grandfather": "Grandfather",
+      "uncle_aunt": "Uncle / Aunt",
+      "other_family": "Other Family Member",
+      "client": "Client / Patient",
+      "resident": "Resident"
+    },
+    "profile_types": {
+      "family_member": "Cared Family Member",
+      "professional_care": "Under Professional Caregiver",
+      "nursing_home_resident": "Nursing Home Resident"
+    },
+    "actions": {
+      "next": "Next Step",
+      "back": "Back",
+      "save_draft": "Save Draft",
+      "finish": "Complete Setup",
+      "edit": "Edit Profile",
+      "archive": "Archive Profile",
+      "restore": "Restore Profile",
+      "open_elderly_view": "Open Elderly View",
+      "change_photo": "Change Photo"
+    }
   }
 }
+
