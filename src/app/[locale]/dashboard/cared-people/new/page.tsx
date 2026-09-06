@@ -14,10 +14,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 export default function NewCaredPersonPage() {
   const router = useRouter();
-  const { currentOrganizationId } = useAuth();
+  const { user, currentOrganizationId, setCurrentOrganizationId } = useAuth();
   const { refreshCaredPeople, setSelectedPersonId } = useCaredPerson();
   const { toast } = useToast();
-  const supabase = createClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = createClient() as any;
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -37,28 +38,69 @@ export default function NewCaredPersonPage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const getOrCreateOrganization = async (): Promise<string | null> => {
+    if (currentOrganizationId) return currentOrganizationId;
+    if (!user) return null;
+
+    // Create a new personal organization for this user
+    const orgName = formData.full_name
+      ? `Família de ${formData.full_name.split(' ')[0]}`
+      : 'Minha Família';
+
+    const { data: org, error: orgError } = await supabase
+      .from('organizations')
+      .insert({
+        name: orgName,
+        slug: `familia-${user.id.slice(0, 8)}`,
+        owner_id: user.id,
+      })
+      .select('id')
+      .single();
+
+    if (orgError) {
+      console.error('Erro ao criar organização:', orgError);
+      return null;
+    }
+
+    // Add the user as admin member of the organization
+    await supabase.from('organization_members').insert({
+      organization_id: org.id,
+      user_id: user.id,
+      role: 'admin',
+      status: 'active',
+    });
+
+    setCurrentOrganizationId(org.id);
+    return org.id;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentOrganizationId) {
-      toast({ title: 'Erro', description: 'Você precisa estar em uma família para cadastrar alguém.', variant: 'destructive' });
+    if (!user) {
+      toast({ title: 'Erro', description: 'Você precisa estar logado.', variant: 'destructive' });
       return;
     }
-    
+
     setLoading(true);
 
-    const insertData = {
-      organization_id: currentOrganizationId as string,
-      full_name: formData.full_name,
-      nickname: formData.nickname || null,
-      birth_date: formData.birth_date || null,
-      gender: formData.gender || null,
-      blood_type: formData.blood_type || null,
-    };
+    // Get or create an organization for the user
+    const orgId = await getOrCreateOrganization();
+    if (!orgId) {
+      toast({ title: 'Erro', description: 'Não foi possível criar sua família. Tente novamente.', variant: 'destructive' });
+      setLoading(false);
+      return;
+    }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('cared_people')
-      .insert(insertData)
+      .insert({
+        organization_id: orgId,
+        full_name: formData.full_name,
+        nickname: formData.nickname || null,
+        birth_date: formData.birth_date || null,
+        gender: formData.gender || null,
+        blood_type: formData.blood_type || null,
+      })
       .select('id')
       .single();
 
