@@ -6,388 +6,281 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Check, Heart, Shield, Users, Sparkles, MessageCircle, AlertCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { CheckCircle, Heart, ShieldCheck, Star, Zap, CreditCard, ArrowLeft } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
-import { PADDLE_TIERS, MAX_STANDARD_SEATS } from '@/lib/billing/paddle-catalog';
+import { ThemeToggle } from '@/components/shared/ThemeToggle';
+import { PADDLE_TIERS, getTierPricing } from '@/lib/billing/paddle-catalog';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function PricingPage() {
-  const t = useTranslations('PricingPage');
-  const n = useTranslations('Navigation');
+  const tPlan = useTranslations('PlanCards');
+  const tNav = useTranslations('Navigation');
   const params = useParams();
   const router = useRouter();
   const locale = (params?.locale as string) || 'pt-BR';
   const { user, currentOrganizationId } = useAuth();
 
-  const [selectedSeats, setSelectedSeats] = useState<number>(3);
-  const [isCustomRequested, setIsCustomRequested] = useState<boolean>(false);
-  const [checkoutLoading, setCheckoutLoading] = useState<boolean>(false);
-  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [checkoutLoadingSeats, setCheckoutLoadingSeats] = useState<number | null>(null);
 
-  const currentTier = PADDLE_TIERS[selectedSeats] || PADDLE_TIERS[1];
+  const tiersArray = Object.values(PADDLE_TIERS).sort((a, b) => a.seats - b.seats);
 
-  const handleSelectSeats = (seats: number) => {
-    if (seats > MAX_STANDARD_SEATS) {
-      setIsCustomRequested(true);
-    } else {
-      setIsCustomRequested(false);
-      setSelectedSeats(seats);
-    }
-  };
-
-  const handleStartCheckout = async () => {
-    setCheckoutError(null);
-
-    // If user is not logged in or has no organization yet, redirect to signup with seats parameter
+  const handleAction = async (seats: number) => {
+    // If not logged in or has no organization, redirect to signup with seat selection
     if (!user || !currentOrganizationId) {
-      router.push(`/${locale}/auth/signup?seats=${selectedSeats}`);
+      router.push(`/${locale}/auth/signup?seats=${seats}`);
       return;
     }
 
-    setCheckoutLoading(true);
+    setCheckoutLoadingSeats(seats);
     try {
       const res = await fetch('/api/billing/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           organizationId: currentOrganizationId,
-          seatQuantity: selectedSeats,
+          seatQuantity: seats,
           locale,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok || !data.url) {
-        throw new Error(data.error || 'Erro ao inicializar checkout seguro da Paddle.');
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        router.push(`/${locale}/dashboard/settings/subscription`);
       }
-
-      window.location.href = data.url;
     } catch (err: any) {
-      setCheckoutError(err.message || 'Falha na conexão com a plataforma de pagamentos.');
-      setCheckoutLoading(false);
+      console.error(err);
+      router.push(`/${locale}/dashboard/settings/subscription`);
+    } finally {
+      setCheckoutLoadingSeats(null);
     }
   };
 
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100">
       {/* Navigation Header */}
-      <header className="bg-white border-b border-stone-200">
+      <header className="bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <Link href={`/${locale}`} className="flex items-center gap-2">
-            <Heart className="h-6 w-6 text-brand-green fill-brand-green" />
-            <span className="text-xl font-bold text-brand-green">Parent Care</span>
-          </Link>
           <div className="flex items-center gap-3">
+            <Link
+              href={`/${locale}`}
+              className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-900 dark:hover:text-stone-200 font-medium"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Voltar / Back</span>
+            </Link>
+            <div className="h-4 w-px bg-stone-200 dark:bg-stone-700 mx-1" />
+            <Link href={`/${locale}`} className="flex items-center gap-2">
+              <Heart className="h-6 w-6 text-brand-green fill-brand-green" />
+              <span className="text-xl font-bold text-brand-green">Parent Care</span>
+            </Link>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3">
             <LanguageSwitcher />
+            <ThemeToggle />
             {user ? (
-              <Link
-                href={`/${locale}/dashboard`}
-                className="text-sm font-medium text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 hover:bg-emerald-100 transition-colors"
-              >
-                {n('dashboard')}
-              </Link>
+              <Button asChild size="sm" className="bg-brand-green hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold">
+                <Link href={`/${locale}/dashboard`}>
+                  {tNav('dashboard')}
+                </Link>
+              </Button>
             ) : (
-              <Link
-                href={`/${locale}/auth/login`}
-                className="text-sm font-medium text-stone-600 hover:text-brand-green transition-colors"
-              >
-                {n('login')}
-              </Link>
+              <div className="flex items-center gap-2">
+                <Button asChild variant="ghost" size="sm" className="text-xs font-semibold">
+                  <Link href={`/${locale}/auth/login`}>
+                    {tNav('login')}
+                  </Link>
+                </Button>
+                <Button asChild size="sm" className="bg-brand-green hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold">
+                  <Link href={`/${locale}/auth/signup`}>
+                    {tNav('register')}
+                  </Link>
+                </Button>
+              </div>
             )}
           </div>
         </div>
       </header>
 
-      <main className="py-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-5xl mx-auto">
-          {/* Header Title & Badges */}
-          <div className="text-center max-w-3xl mx-auto mb-12">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold mb-4">
-              <Shield className="h-3.5 w-3.5" />
-              {t('badge_security')}
-            </div>
-            <h1 className="text-4xl font-extrabold text-stone-900 mb-4 tracking-tight">
-              {t('title')}
-            </h1>
-            <p className="text-lg text-stone-600">
-              {t('subtitle')}
-            </p>
-
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-full">
-              <span>{t('badge_trial')}</span>
-              <span>•</span>
-              <span>{t('badge_automatic')}</span>
-              <span>•</span>
-              <span>{t('badge_cancel')}</span>
-            </div>
+      {/* Main Content */}
+      <main className="py-12 sm:py-16 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto space-y-12">
+        {/* Page Title */}
+        <div className="text-center max-w-3xl mx-auto space-y-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            <span>{tPlan('security_note')}</span>
           </div>
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+            {tPlan('title')}
+          </h1>
+          <p className="text-base sm:text-lg text-stone-600 dark:text-stone-400">
+            {tPlan('subtitle')}
+          </p>
+        </div>
 
-          {/* Seat Selector (Interactive Pills: 1 to 6 seats + Custom) */}
-          <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm mb-12">
-            <div className="text-center mb-6">
-              <h2 className="text-lg font-bold text-stone-900">
-                Quantas pessoas da sua família ou cuidadores precisarão de acesso?
-              </h2>
-              <p className="text-sm text-stone-500 mt-1">
-                O titular da conta e os familiares/cuidadores com acesso ativo contam como assentos.
-              </p>
-            </div>
+        {/* Plan Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {tiersArray.map((tier) => {
+            const isPopular = tier.seats === 3;
+            const pricing = getTierPricing(tier.seats, locale);
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
-              {[1, 2, 3, 4, 5, 6].map((seats) => {
-                const tier = PADDLE_TIERS[seats];
-                const isSelected = !isCustomRequested && selectedSeats === seats;
-                return (
-                  <button
-                    key={seats}
-                    type="button"
-                    onClick={() => handleSelectSeats(seats)}
-                    className={`relative p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-between ${
-                      isSelected
-                        ? 'border-emerald-600 bg-emerald-50/70 shadow-sm ring-2 ring-emerald-500/20'
-                        : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50'
-                    }`}
-                  >
-                    {tier.savingsPercentage > 0 && (
-                      <span className="absolute -top-2.5 bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-2xs">
-                        -{tier.savingsPercentage}%
-                      </span>
-                    )}
-                    <span className="text-lg font-bold text-stone-900 mt-1">
-                      {seats} {seats === 1 ? 'acesso' : 'acessos'}
-                    </span>
-                    <span className="text-xs font-medium text-emerald-700 mt-1">
-                      R$ {tier.unitPriceBrl.toFixed(2).replace('.', ',')}/mês
-                    </span>
-                    <span className="text-[10px] text-stone-400">por assento</span>
-                  </button>
-                );
-              })}
-
-              {/* 7+ Seats Custom Option */}
-              <button
-                type="button"
-                onClick={() => handleSelectSeats(7)}
-                className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-between ${
-                  isCustomRequested
-                    ? 'border-emerald-600 bg-emerald-50/70 shadow-sm ring-2 ring-emerald-500/20'
-                    : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50'
+            return (
+              <Card
+                key={tier.seats}
+                className={`relative flex flex-col transition-all duration-200 ${
+                  isPopular
+                    ? 'border-brand-green/80 shadow-lg ring-2 ring-brand-green/20 bg-white dark:bg-stone-900'
+                    : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:shadow-md'
                 }`}
               >
-                <span className="text-lg font-bold text-stone-900 mt-1">&gt; 6 acessos</span>
-                <span className="text-xs font-semibold text-emerald-800 mt-1">Sob medida</span>
-                <span className="text-[10px] text-stone-400">Fale conosco</span>
-              </button>
-            </div>
-          </div>
+                {/* Popular badge */}
+                {isPopular && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                    <Badge className="bg-brand-green text-white px-3 py-0.5 text-xs font-bold shadow-md">
+                      <Star className="h-3 w-3 mr-1 fill-white" />
+                      {tPlan('popular_badge')}
+                    </Badge>
+                  </div>
+                )}
 
-          {/* Pricing Highlight Card */}
-          {!isCustomRequested ? (
-            <div className="max-w-2xl mx-auto">
-              <Card className="border-emerald-200 bg-white shadow-xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 bg-emerald-600 text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl uppercase tracking-wider flex items-center gap-1">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  {selectedSeats === 3 ? 'Opção mais escolhida' : `Plano para ${selectedSeats} familiares`}
-                </div>
-
-                <CardHeader className="pt-8 pb-4">
-                  <CardTitle className="text-2xl font-bold text-stone-900 flex items-center gap-2">
-                    <Users className="h-6 w-6 text-emerald-600" />
-                    Plano Família — {selectedSeats} {selectedSeats === 1 ? 'Assento' : 'Assentos'}
-                  </CardTitle>
-                  <CardDescription className="text-stone-600 text-sm mt-1">
-                    Cuidado coordenado com histórico centralizado e total transparência familiar.
-                  </CardDescription>
+                <CardHeader className="pb-3 pt-6">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">
+                        {tier.seats === 1 ? tPlan('seat_single') : tPlan('seat_plural', { count: tier.seats })}
+                      </p>
+                      <CardTitle className="text-lg font-bold">
+                        {tPlan(`tier_${tier.seats}` as any)}
+                      </CardTitle>
+                    </div>
+                    {tier.savingsPercentage > 0 && (
+                      <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 text-[11px] font-bold shrink-0">
+                        {tPlan('save_discount', { percent: tier.savingsPercentage })}
+                      </Badge>
+                    )}
+                  </div>
                 </CardHeader>
 
-                <CardContent className="space-y-6">
-                  {/* Price Box */}
-                  <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-                    <div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-extrabold text-stone-900">
-                          R$ {currentTier.totalMonthlyBrl.toFixed(2).replace('.', ',')}
-                        </span>
-                        <span className="text-stone-500 font-medium">/mês total</span>
-                      </div>
-                      <p className="text-xs text-stone-500 mt-1">
-                        Equivalente a <strong>R$ {currentTier.unitPriceBrl.toFixed(2).replace('.', ',')}</strong> por assento ao mês.
-                      </p>
+                <CardContent className="flex-1 space-y-4">
+                  {/* Pricing */}
+                  <div>
+                    <div className="flex items-end gap-1">
+                      <span className="text-3xl sm:text-4xl font-extrabold text-stone-900 dark:text-stone-100">
+                        {pricing.totalFormatted}
+                      </span>
+                      <span className="text-stone-500 text-sm mb-1">{tPlan('total_month')}</span>
                     </div>
-
-                    {currentTier.savingsPercentage > 0 && (
-                      <div className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold self-start sm:self-center">
-                        Economia de {currentTier.savingsPercentage}% por assento
-                      </div>
+                    {tier.seats > 1 && (
+                      <p className="text-xs text-stone-500 mt-0.5">
+                        {pricing.unitFormatted} {tPlan('per_seat')}
+                      </p>
                     )}
                   </div>
 
-                  {/* Cared Persons Special Rule Highlight */}
-                  <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-                    <Heart className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                    <div className="text-xs text-amber-900 leading-relaxed">
-                      <strong className="block font-bold mb-0.5">Até 2 pessoas cuidadas incluídas (ex: Pai e Mãe)</strong>
-                      Os idosos utilizam a tela simplificada sem consumir vagas de assentos de gestão. Medicamentos, rotinas e consultas de cada um permanecem 100% individualizados.
-                    </div>
+                  {/* Cared people note - PROGRESSIVE SENIORS COUNT */}
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-2">
+                    <Heart className="h-3.5 w-3.5 shrink-0 fill-emerald-200 text-emerald-600" />
+                    <span className="font-semibold">{tPlan('cared_included', { count: pricing.caredPeopleLimit })}</span>
                   </div>
 
-                  {/* Feature Checklist */}
-                  <div className="space-y-3 pt-2">
-                    <p className="text-xs font-bold uppercase tracking-wider text-stone-500">
-                      Tudo o que está incluído:
-                    </p>
-                    <ul className="space-y-2.5 text-sm text-stone-700">
-                      <li className="flex items-start gap-2.5">
-                        <Check className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                        <span><strong>{selectedSeats} {selectedSeats === 1 ? 'acesso administrativo' : 'acessos administrativos'}</strong> para filhos e cuidadores com permissões configuráveis.</span>
-                      </li>
-                      <li className="flex items-start gap-2.5">
-                        <Check className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                        <span><strong>Até 2 idosos cadastrados</strong> com visão simplificada de alto contraste no celular.</span>
-                      </li>
-                      <li className="flex items-start gap-2.5">
-                        <Check className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                        <span><strong>Controle de medicamentos</strong> com alarmes, doses registradas e alertas de reposição.</span>
-                      </li>
-                      <li className="flex items-start gap-2.5">
-                        <Check className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                        <span><strong>Rateio e gestão de despesas</strong> da farmácia e cuidados compartilhados entre a família.</span>
-                      </li>
-                      <li className="flex items-start gap-2.5">
-                        <Check className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                        <span><strong>Agenda unificada</strong> para consultas médicas, fisioterapia e exames.</span>
-                      </li>
-                      <li className="flex items-start gap-2.5">
-                        <Check className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                        <span><strong>Cobrança recorrente oficial Paddle</strong> com faturamento claro e cancelamento a 1 clique.</span>
-                      </li>
-                    </ul>
-                  </div>
+                  {/* Localized Features Checklist */}
+                  <ul className="space-y-2 pt-2">
+                    <li className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
+                      <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                      <span>{tPlan('feat_routine_meds')}</span>
+                    </li>
+                    <li className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
+                      <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                      <span>{tPlan('feat_schedule')}</span>
+                    </li>
+                    <li className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
+                      <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                      <span>{tPlan('feat_history')}</span>
+                    </li>
+                    <li className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
+                      <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                      <span>{tPlan('feat_alerts')}</span>
+                    </li>
+                    <li className="flex items-center gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                      <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                      <span>{tPlan('feat_seniors', { count: pricing.caredPeopleLimit })}</span>
+                    </li>
+                  </ul>
 
-                  {checkoutError && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
-                      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-500" />
-                      <span>{checkoutError}</span>
-                    </div>
-                  )}
+                  {/* Free trial guarantee */}
+                  <p className="text-xs text-stone-400 flex items-center gap-1 pt-2">
+                    <ShieldCheck className="h-3.5 w-3.5 text-stone-400 shrink-0" />
+                    <span>{tPlan('free_trial')}</span>
+                  </p>
                 </CardContent>
 
-                <CardFooter className="flex flex-col gap-3 pb-8">
+                <CardFooter className="pt-0 pb-6">
                   <Button
-                    onClick={handleStartCheckout}
-                    disabled={checkoutLoading}
-                    className="w-full h-13 text-base font-bold bg-brand-green hover:bg-emerald-800 text-white rounded-xl shadow-md transition-all"
+                    onClick={() => handleAction(tier.seats)}
+                    disabled={checkoutLoadingSeats === tier.seats}
+                    className={`w-full h-11 rounded-xl font-bold transition-all ${
+                      isPopular
+                        ? 'bg-brand-green hover:bg-emerald-800 text-white shadow-md'
+                        : 'bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-white text-white'
+                    }`}
                   >
-                    {checkoutLoading ? 'Processando com Paddle...' : 'Começar 14 Dias Grátis com Paddle'}
+                    {checkoutLoadingSeats === tier.seats ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                        <span>Carregando...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        {tPlan('btn_subscribe')}
+                      </>
+                    )}
                   </Button>
-                  <p className="text-center text-xs text-stone-400">
-                    Cobrança processada de forma segura pelo Paddle Billing. R$ 0,00 cobrado durante o período de teste.
-                  </p>
                 </CardFooter>
               </Card>
-            </div>
-          ) : (
-            /* Custom Tier (> 6 seats) Banner */
-            <div className="max-w-2xl mx-auto">
-              <Card className="border-stone-200 bg-white shadow-lg p-6 sm:p-8 text-center">
-                <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-emerald-200">
-                  <MessageCircle className="h-7 w-7 text-emerald-600" />
-                </div>
-                <h3 className="text-2xl font-bold text-stone-900 mb-2">
-                  Precisa de mais de 6 acessos para sua família ou equipe?
-                </h3>
-                <p className="text-stone-600 text-sm mb-6 max-w-md mx-auto leading-relaxed">
-                  Para redes familiares expandidas, cuidadores profissionais contratados ou clínicas de apoio, oferecemos condições especiais com suporte prioritário e limites ampliados.
-                </p>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <Button asChild className="h-12 px-6 bg-brand-green hover:bg-emerald-800 text-white rounded-xl font-bold">
-                    <a
-                      href="https://wa.me/5511999999999?text=Ol%C3%A1!%20Gostaria%20de%20saber%20mais%20sobre%20o%20plano%20personalizado%20do%20Parent%20Care%20com%20mais%20de%206%20acessos."
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Falar com Consultor no WhatsApp
-                    </a>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsCustomRequested(false)}
-                    className="h-12 px-6 rounded-xl border-stone-300"
-                  >
-                    Voltar aos planos de 1 a 6 acessos
-                  </Button>
-                </div>
-              </Card>
-            </div>
-          )}
+            );
+          })}
 
-          {/* Full Commercial Tiers Table (Section 20 requirement: transparent breakdown) */}
-          <div className="mt-16 bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-xs">
-            <h3 className="text-xl font-bold text-stone-900 mb-2 text-center">
-              Tabela Completa de Planos e Valores (Recorrência Mensal Paddle)
-            </h3>
-            <p className="text-sm text-stone-500 text-center mb-6">
-              Todos os valores são em Reais (BRL) e processados pela plataforma financeira Paddle.
-            </p>
+          {/* Custom / Enterprise Card */}
+          <Card className="border-dashed border-2 border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/40 flex flex-col justify-between">
+            <CardHeader className="pb-3 pt-6">
+              <div className="flex items-center gap-2 mb-1">
+                <Zap className="h-5 w-5 text-stone-500" />
+                <CardTitle className="text-lg font-bold">{tPlan('custom_plan_title')}</CardTitle>
+              </div>
+              <CardDescription className="text-xs text-stone-500 leading-relaxed">
+                {tPlan('custom_plan_desc')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs text-stone-500">
+              <p>• Suporte prioritário dedicado</p>
+              <p>• Idosos e acessos flexíveis sem limite</p>
+              <p>• Faturamento personalizado</p>
+            </CardContent>
+            <CardFooter className="pt-0 pb-6">
+              <Button
+                asChild
+                variant="outline"
+                className="w-full h-11 rounded-xl border-stone-300 dark:border-stone-700 font-semibold"
+              >
+                <a
+                  href="https://wa.me/5511999999999?text=Olá,%20gostaria%20de%20conhecer%20o%20Plano%20Personalizado%20do%20Parent%20Care"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {tPlan('btn_custom')}
+                </a>
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left text-stone-600">
-                <thead className="text-xs text-stone-700 uppercase bg-stone-50 border-b border-stone-200">
-                  <tr>
-                    <th scope="col" className="px-4 py-3 font-bold">Faixa</th>
-                    <th scope="col" className="px-4 py-3 font-bold">Assentos Inclusos</th>
-                    <th scope="col" className="px-4 py-3 font-bold">Valor / Assento</th>
-                    <th scope="col" className="px-4 py-3 font-bold">Total Mensal</th>
-                    <th scope="col" className="px-4 py-3 font-bold">Desconto</th>
-                    <th scope="col" className="px-4 py-3 font-bold">Pessoas Cuidadas</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-stone-100">
-                  {Object.values(PADDLE_TIERS).map((tier) => (
-                    <tr
-                      key={tier.seats}
-                      className={`hover:bg-stone-50/80 transition-colors ${
-                        selectedSeats === tier.seats && !isCustomRequested ? 'bg-emerald-50/50 font-medium' : ''
-                      }`}
-                    >
-                      <td className="px-4 py-3 font-bold text-stone-900">
-                        Tier {tier.seats}
-                      </td>
-                      <td className="px-4 py-3">
-                        {tier.seats} {tier.seats === 1 ? 'acesso' : 'acessos'}
-                      </td>
-                      <td className="px-4 py-3 text-stone-900">
-                        R$ {tier.unitPriceBrl.toFixed(2).replace('.', ',')}
-                      </td>
-                      <td className="px-4 py-3 font-bold text-emerald-700">
-                        R$ {tier.totalMonthlyBrl.toFixed(2).replace('.', ',')}
-                      </td>
-                      <td className="px-4 py-3">
-                        {tier.savingsPercentage > 0 ? (
-                          <span className="text-xs font-semibold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md">
-                            -{tier.savingsPercentage}%
-                          </span>
-                        ) : (
-                          <span className="text-xs text-stone-400">Preço padrão</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-stone-500">
-                        Até 2 idosos inclusos
-                      </td>
-                    </tr>
-                  ))}
-                  <tr className="bg-stone-50/70">
-                    <td className="px-4 py-3 font-bold text-stone-900">&gt; 6 assentos</td>
-                    <td className="px-4 py-3 text-stone-500">Personalizado</td>
-                    <td className="px-4 py-3 text-stone-500">Sob consulta</td>
-                    <td className="px-4 py-3 font-bold text-stone-900">Sob medida</td>
-                    <td className="px-4 py-3 text-stone-500">Volume corporativo</td>
-                    <td className="px-4 py-3 text-xs text-stone-500">Sob consulta</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+        {/* Security & Guarantee Note */}
+        <div className="text-center text-xs text-stone-400 max-w-xl mx-auto pt-4 space-y-1">
+          <p>{tPlan('security_note')}</p>
         </div>
       </main>
     </div>

@@ -13,7 +13,7 @@ import {
   ExternalLink, RefreshCw, Heart, BarChart3, CheckCircle, XCircle, AlertCircle, Star, Zap
 } from 'lucide-react';
 import { useSearchParams, useParams } from 'next/navigation';
-import { PADDLE_TIERS, MAX_STANDARD_SEATS } from '@/lib/billing/paddle-catalog';
+import { PADDLE_TIERS, MAX_STANDARD_SEATS, getTierPricing } from '@/lib/billing/paddle-catalog';
 
 type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'paused' | 'canceled' | null;
 
@@ -47,33 +47,6 @@ interface EntitlementInfo {
   subscriptionStatus: string;
   accessValidUntil: string | null;
 }
-
-// Tier display metadata (not shown to client as "Paddle tiers")
-const TIER_NAMES: Record<number, string> = {
-  1: 'Familiar Básico',
-  2: 'Familiar Duo',
-  3: 'Família Conectada',
-  4: 'Família Completa',
-  5: 'Rede de Apoio',
-  6: 'Familiar Premium',
-};
-
-const TIER_NAMES_EN: Record<number, string> = {
-  1: 'Basic Family',
-  2: 'Family Duo',
-  3: 'Connected Family',
-  4: 'Complete Family',
-  5: 'Support Network',
-  6: 'Premium Family',
-};
-
-const TIER_FEATURES_PT = [
-  'Rotina diária e medicamentos',
-  'Agenda e compromissos',
-  'Histórico completo',
-  'Alertas e lembretes',
-  'Até 2 idosos cadastrados',
-];
 
 export default function SubscriptionSettingsPage() {
   const { currentOrganizationId } = useAuth();
@@ -275,12 +248,15 @@ export default function SubscriptionSettingsPage() {
 
   const formatDate = (date?: string | null) => {
     if (!date) return '—';
-    return new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+    return new Date(date).toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' });
   };
 
   const formatCurrency = (amount?: number | null) => {
     if (amount == null) return '—';
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount);
+    const isEn = locale.startsWith('en') || locale.startsWith('es');
+    const isEur = locale.startsWith('fr') || locale.startsWith('de');
+    const currency = isEn ? 'USD' : isEur ? 'EUR' : 'BRL';
+    return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount);
   };
 
   const getStatusBadge = (status: SubscriptionStatus) => {
@@ -355,10 +331,7 @@ export default function SubscriptionSettingsPage() {
               <div>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <CreditCard className="h-5 w-5 text-emerald-600" />
-                  {locale === 'pt-BR' || locale === 'pt'
-                    ? TIER_NAMES[subscription.seat_limit] || `Plano ${subscription.seat_limit} Acessos`
-                    : TIER_NAMES_EN[subscription.seat_limit] || `${subscription.seat_limit}-Seat Plan`
-                  }
+                  {tPlan(`tier_${subscription.seat_limit}` as any)}
                   {' — '}
                   {subscription.seat_limit === 1
                     ? tPlan('seat_single')
@@ -433,7 +406,7 @@ export default function SubscriptionSettingsPage() {
                 <div className="mt-3 flex items-center gap-2 p-3 bg-amber-50 border border-amber-100 rounded-xl">
                   <Heart className="h-4 w-4 text-amber-600 shrink-0" />
                   <p className="text-xs text-amber-800">
-                    {tBilling('cared_people_note')}
+                    {tPlan('cared_included', { count: entitlements.caredPeopleLimit || 3 })} — {tBilling('cared_people_note')}
                   </p>
                 </div>
               </div>
@@ -483,7 +456,7 @@ export default function SubscriptionSettingsPage() {
                       {Array.from({ length: MAX_STANDARD_SEATS }, (_, i) => i + 1)
                         .filter(s => s > subscription.seat_limit)
                         .map(seats => {
-                          const tier = PADDLE_TIERS[seats];
+                          const p = getTierPricing(seats, locale);
                           return (
                             <button
                               key={seats}
@@ -491,7 +464,7 @@ export default function SubscriptionSettingsPage() {
                               className={`p-3 rounded-xl border text-center text-sm transition-all ${upgradeTargetSeats === seats ? 'border-emerald-600 bg-emerald-50 ring-2 ring-emerald-400/30' : 'border-stone-200 hover:border-stone-300'}`}
                             >
                               <span className="font-bold block">{seats} acessos</span>
-                              <span className="text-xs text-emerald-700">{formatCurrency(tier?.totalMonthlyBrl)}/mês</span>
+                              <span className="text-xs text-emerald-700">{p.totalFormatted}/mês</span>
                             </button>
                           );
                         })}
@@ -540,7 +513,7 @@ export default function SubscriptionSettingsPage() {
                         {Array.from({ length: MAX_STANDARD_SEATS }, (_, i) => i + 1)
                           .filter(s => s < subscription.seat_limit)
                           .map(seats => {
-                            const tier = PADDLE_TIERS[seats];
+                            const p = getTierPricing(seats, locale);
                             const wouldViolate = entitlements && entitlements.totalUsedSeats > seats;
                             return (
                               <button
@@ -556,7 +529,7 @@ export default function SubscriptionSettingsPage() {
                                 }`}
                               >
                                 <span className="font-bold block">{seats} acessos</span>
-                                <span className="text-xs text-emerald-700">{formatCurrency(tier?.totalMonthlyBrl)}/mês</span>
+                                <span className="text-xs text-emerald-700">{p.totalFormatted}/mês</span>
                                 {wouldViolate && <span className="text-[10px] text-red-600 block mt-0.5">Acessos cheios</span>}
                               </button>
                             );
@@ -671,6 +644,7 @@ export default function SubscriptionSettingsPage() {
           {tiersArray.map((tier) => {
             const isCurrent = subscription?.seat_limit === tier.seats && isTrialOrActive;
             const isPopular = tier.seats === 3;
+            const pricing = getTierPricing(tier.seats, locale);
 
             return (
               <Card
@@ -710,9 +684,7 @@ export default function SubscriptionSettingsPage() {
                         {tier.seats === 1 ? tPlan('seat_single') : tPlan('seat_plural', { count: tier.seats })}
                       </p>
                       <CardTitle className="text-base font-bold text-stone-900">
-                        {locale === 'pt-BR' || locale === 'pt'
-                          ? TIER_NAMES[tier.seats]
-                          : TIER_NAMES_EN[tier.seats]}
+                        {tPlan(`tier_${tier.seats}` as any)}
                       </CardTitle>
                     </div>
                     {tier.savingsPercentage > 0 && (
@@ -728,31 +700,45 @@ export default function SubscriptionSettingsPage() {
                   <div>
                     <div className="flex items-end gap-1">
                       <span className="text-3xl font-extrabold text-stone-900">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 }).format(tier.totalMonthlyBrl)}
+                        {pricing.totalFormatted}
                       </span>
                       <span className="text-stone-500 text-sm mb-1">{tPlan('total_month')}</span>
                     </div>
                     {tier.seats > 1 && (
                       <p className="text-xs text-stone-500 mt-0.5">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tier.unitPriceBrl)}{tPlan('per_seat')}
+                        {pricing.unitFormatted} {tPlan('per_seat')}
                       </p>
                     )}
                   </div>
 
-                  {/* Cared people note */}
+                  {/* Cared people note - PROGRESSIVE SENIORS COUNT */}
                   <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
                     <Heart className="h-3.5 w-3.5 shrink-0 fill-emerald-200 text-emerald-600" />
-                    <span className="font-medium">{tPlan('cared_included')}</span>
+                    <span className="font-medium">{tPlan('cared_included', { count: pricing.caredPeopleLimit })}</span>
                   </div>
 
-                  {/* Features */}
+                  {/* Localized Features */}
                   <ul className="space-y-1.5">
-                    {TIER_FEATURES_PT.map((feature) => (
-                      <li key={feature} className="flex items-center gap-2 text-xs text-stone-600">
-                        <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                        {feature}
-                      </li>
-                    ))}
+                    <li className="flex items-center gap-2 text-xs text-stone-600">
+                      <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                      {tPlan('feat_routine_meds')}
+                    </li>
+                    <li className="flex items-center gap-2 text-xs text-stone-600">
+                      <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                      {tPlan('feat_schedule')}
+                    </li>
+                    <li className="flex items-center gap-2 text-xs text-stone-600">
+                      <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                      {tPlan('feat_history')}
+                    </li>
+                    <li className="flex items-center gap-2 text-xs text-stone-600">
+                      <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                      {tPlan('feat_alerts')}
+                    </li>
+                    <li className="flex items-center gap-2 text-xs text-stone-600 font-semibold text-emerald-800">
+                      <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                      {tPlan('feat_seniors', { count: pricing.caredPeopleLimit })}
+                    </li>
                   </ul>
 
                   {/* Free trial note */}
