@@ -25,17 +25,23 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    // Build the callback URL with locale so the confirmation redirects correctly
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://parentcare-pink.vercel.app';
+    const redirectTo = `${siteUrl}/${locale}/auth/callback?locale=${locale}`;
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name } },
+      options: {
+        data: { name },
+        emailRedirectTo: redirectTo,
+      },
     });
     if (signUpError) {
       setError(signUpError.message);
       setLoading(false);
     } else {
       setSuccess(true);
-      setTimeout(() => { router.push('/' + locale + '/auth/login'); }, 2000);
+      // Don't redirect - user needs to confirm email first
     }
   };
 
@@ -43,9 +49,21 @@ export default function SignupPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4">
         <Card className="w-full max-w-md">
-          <CardContent className="pt-6 text-center">
-            <p className="text-brand-green font-semibold text-lg">Conta criada com sucesso!</p>
-            <p className="text-stone-500 text-sm">Redirecionando para o login...</p>
+          <CardContent className="pt-6 text-center space-y-4">
+            <div className="text-5xl">📧</div>
+            <p className="text-brand-green font-semibold text-xl">Conta criada com sucesso!</p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-left space-y-2">
+              <p className="text-amber-800 font-medium text-sm">⚠️ Confirme o seu e-mail</p>
+              <p className="text-amber-700 text-sm">
+                Enviamos um e-mail de confirmação para <strong>{email}</strong>.
+              </p>
+              <p className="text-amber-700 text-sm">
+                Clique no link do e-mail para ativar sua conta e poder fazer login.
+              </p>
+            </div>
+            <p className="text-stone-400 text-xs">
+              Não recebeu? Verifique a pasta de spam.
+            </p>
           </CardContent>
         </Card>
       </div>
