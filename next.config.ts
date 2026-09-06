@@ -3,7 +3,7 @@ import createNextIntlPlugin from 'next-intl/plugin';
 // @ts-expect-error next-pwa lacks types
 import withPWAInit from 'next-pwa';
 
-const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
+const withNextIntl = createNextIntlPlugin();
 
 const withPWA = withPWAInit({
   dest: 'public',
