@@ -26,7 +26,7 @@ export function CaredPersonSelector() {
           <SelectItem key={person.id} value={person.id}>
             <div className="flex items-center gap-2">
               <Avatar className="h-6 w-6">
-                <AvatarImage src={person.photo_url || undefined} alt={person.full_name} />
+                <AvatarImage src={person.avatar_url || undefined} alt={person.full_name} />
                 <AvatarFallback className="text-xs bg-brand-soft text-brand-green">
                   {person.full_name.charAt(0)}
                 </AvatarFallback>

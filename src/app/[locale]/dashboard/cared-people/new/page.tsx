@@ -46,16 +46,19 @@ export default function NewCaredPersonPage() {
     
     setLoading(true);
 
-    const { data, error } = await supabase
+    const insertData = {
+      organization_id: currentOrganizationId as string,
+      full_name: formData.full_name,
+      nickname: formData.nickname || null,
+      birth_date: formData.birth_date || null,
+      gender: formData.gender || null,
+      blood_type: formData.blood_type || null,
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
       .from('cared_people')
-      .insert({
-        organization_id: currentOrganizationId,
-        full_name: formData.full_name,
-        nickname: formData.nickname,
-        birth_date: formData.birth_date || null,
-        gender: formData.gender || null,
-        blood_type: formData.blood_type || null,
-      })
+      .insert(insertData)
       .select('id')
       .single();
 

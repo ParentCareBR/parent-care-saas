@@ -72,18 +72,21 @@ export default function DashboardPage() {
     if (!selectedPerson || !currentOrganizationId) return;
     setDataLoading(true);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = supabase as any;
+
     // Fetch medications
-    const { data: meds } = await supabase
+    const { data: meds } = await db
       .from('medications')
       .select('id, name, dosage, time_of_day, is_active')
       .eq('cared_person_id', selectedPerson.id)
       .eq('is_active', true)
       .order('time_of_day', { ascending: true });
 
-    if (meds) setMedications(meds);
+    if (meds) setMedications(meds as Medication[]);
 
     // Fetch tasks
-    const { data: taskData } = await supabase
+    const { data: taskData } = await db
       .from('tasks')
       .select('id, title, status, due_date')
       .eq('cared_person_id', selectedPerson.id)
@@ -91,20 +94,20 @@ export default function DashboardPage() {
       .order('due_date', { ascending: true })
       .limit(5);
 
-    if (taskData) setTasks(taskData);
+    if (taskData) setTasks(taskData as Task[]);
 
     // Fetch today's hydration
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const { data: hydrationData } = await supabase
+    const { data: hydrationData } = await db
       .from('hydration_logs')
       .select('amount_ml')
       .eq('cared_person_id', selectedPerson.id)
       .gte('logged_at', todayStart.toISOString());
 
     if (hydrationData) {
-      const total = hydrationData.reduce((sum, h) => sum + (h.amount_ml || 0), 0);
+      const total = (hydrationData as { amount_ml: number }[]).reduce((sum, h) => sum + (h.amount_ml || 0), 0);
       setHydrationMl(total);
     }
 
@@ -117,7 +120,8 @@ export default function DashboardPage() {
 
   const addWater = async () => {
     if (!selectedPerson || !currentOrganizationId || !user) return;
-    await supabase.from('hydration_logs').insert({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('hydration_logs').insert({
       cared_person_id: selectedPerson.id,
       organization_id: currentOrganizationId,
       amount_ml: 250,

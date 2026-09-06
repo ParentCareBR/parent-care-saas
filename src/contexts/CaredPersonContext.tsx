@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from './AuthContext';
-import type { Tables } from '@/types';
 
 export interface CaredPerson {
   id: string;
@@ -49,7 +48,7 @@ export function CaredPersonProvider({ children }: { children: React.ReactNode })
       .eq('organization_id', currentOrganizationId);
 
     if (data) {
-      setCaredPeople(data as CaredPerson[]);
+      setCaredPeople(data as unknown as CaredPerson[]);
       
       const savedId = localStorage.getItem(`parentcare_person_${currentOrganizationId}`);
       if (savedId && data.some(p => p.id === savedId)) {
