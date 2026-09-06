@@ -100,9 +100,9 @@ export default function MonitoringSettingsPage() {
   const handleSave = async () => {
     if (!selectedPerson) return;
     setSaving(true);
-    const success = await saveSettings(Array.from(localCodes));
+    const res = await saveSettings(Array.from(localCodes));
     setSaving(false);
-    if (success) {
+    if (res.success) {
       setDirty(false);
       toast({
         title: 'Acompanhamentos atualizados!',
@@ -111,7 +111,7 @@ export default function MonitoringSettingsPage() {
     } else {
       toast({
         title: 'Erro ao salvar',
-        description: 'Não foi possível atualizar as configurações de acompanhamento.',
+        description: res.error || 'Não foi possível atualizar as configurações de acompanhamento.',
         variant: 'destructive',
       });
     }
@@ -120,9 +120,9 @@ export default function MonitoringSettingsPage() {
   const handleCopySubmit = async () => {
     if (!sourcePersonId || !selectedPerson) return;
     setCopying(true);
-    const success = await copyFrom(sourcePersonId);
+    const res = await copyFrom(sourcePersonId);
     setCopying(false);
-    if (success) {
+    if (res.success) {
       setCopyModalOpen(false);
       setDirty(false);
       toast({
@@ -132,7 +132,7 @@ export default function MonitoringSettingsPage() {
     } else {
       toast({
         title: 'Erro ao copiar',
-        description: 'Falha ao copiar configurações do familiar selecionado.',
+        description: res.error || 'Falha ao copiar configurações do familiar selecionado.',
         variant: 'destructive',
       });
     }

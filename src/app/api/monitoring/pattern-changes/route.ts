@@ -25,21 +25,61 @@ export async function GET(req: NextRequest) {
     const adminSupabase = createAdminClient();
 
     // 1. Get enabled modules for this person
-    const { data: activeSettings } = await adminSupabase
-      .from('cared_person_monitoring_settings')
-      .select(`
-        enabled,
-        monitoring_definitions (
-          code,
-          translation_key
-        )
-      `)
-      .eq('cared_person_id', caredPersonId)
-      .eq('enabled', true);
+    const { data: person } = await supabase
+      .from('cared_people')
+      .select('organization_id')
+      .eq('id', caredPersonId)
+      .maybeSingle();
 
-    const enabledCodes = new Set(
-      (activeSettings || []).map((s: any) => s.monitoring_definitions?.code).filter(Boolean)
-    );
+    if (!person) {
+      return NextResponse.json({ error: 'Pessoa cuidada não encontrada.' }, { status: 404 });
+    }
+
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('settings')
+      .eq('id', person.organization_id)
+      .maybeSingle();
+
+    const orgSettings = (org?.settings as any) || {};
+    const personConfig = orgSettings.monitoring?.[caredPersonId];
+    let enabledCodeList: string[] = [];
+
+    if (personConfig && Array.isArray(personConfig.enabled_codes)) {
+      enabledCodeList = personConfig.enabled_codes;
+    } else {
+      try {
+        const adminSupabase = createAdminClient();
+        const { data: activeSettings } = await adminSupabase
+          .from('cared_person_monitoring_settings')
+          .select(`
+            enabled,
+            monitoring_definitions (
+              code
+            )
+          `)
+          .eq('cared_person_id', caredPersonId)
+          .eq('enabled', true);
+
+        if (activeSettings && activeSettings.length > 0) {
+          enabledCodeList = activeSettings.map((s: any) => s.monitoring_definitions?.code).filter(Boolean);
+        }
+      } catch (_) {
+        // Table not present
+      }
+
+      if (enabledCodeList.length === 0) {
+        enabledCodeList = [
+          'routine_hydration',
+          'routine_meals',
+          'safety_help_requests',
+          'meds_scheduled',
+          'meds_taken_confirmation',
+        ];
+      }
+    }
+
+    const enabledCodes = new Set(enabledCodeList);
 
     // Timestamps for two 7-day windows:
     // Window 1: 0 to 7 days ago

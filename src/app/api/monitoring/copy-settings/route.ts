@@ -56,55 +56,84 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Permissão insuficiente para alterar configurações.' }, { status: 403 });
     }
 
-    const adminSupabase = createAdminClient();
-
-    // Fetch source settings
-    const { data: sourceSettings } = await adminSupabase
-      .from('cared_person_monitoring_settings')
-      .select('*')
-      .eq('cared_person_id', sourceCaredPersonId);
-
-    if (!sourceSettings || sourceSettings.length === 0) {
-      return NextResponse.json({ error: 'O familiar de origem ainda não possui configurações salvas.' }, { status: 400 });
-    }
-
     const now = new Date().toISOString();
-    const rowsToUpsert = sourceSettings.map((s: any) => ({
-      organization_id: targetPerson.organization_id,
-      cared_person_id: targetCaredPersonId,
-      monitoring_definition_id: s.monitoring_definition_id,
-      enabled: s.enabled,
-      enabled_at: s.enabled ? now : s.enabled_at,
-      disabled_at: s.enabled ? null : now,
-      configured_by: user.id,
-      settings_json: s.settings_json,
-      display_order: s.display_order,
-      updated_at: now,
-    }));
 
-    const { error: upsertErr } = await adminSupabase
-      .from('cared_person_monitoring_settings')
-      .upsert(rowsToUpsert, { onConflict: 'cared_person_id, monitoring_definition_id' });
+    // 1. Fetch organization settings
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('settings')
+      .eq('id', targetPerson.organization_id)
+      .single();
 
-    if (upsertErr) {
-      return NextResponse.json({ error: upsertErr.message }, { status: 500 });
+    const currentOrgSettings = (org?.settings as any) || {};
+    const monitoringMap = { ...(currentOrgSettings.monitoring || {}) };
+    const sourceConfig = monitoringMap[sourceCaredPersonId];
+
+    let enabledCodes: string[] = [];
+    let settingsPayload: Record<string, any> = {};
+
+    if (sourceConfig && Array.isArray(sourceConfig.enabled_codes)) {
+      enabledCodes = sourceConfig.enabled_codes;
+      settingsPayload = sourceConfig.settings_payload || {};
+    } else {
+      // Fallback baseline essentials
+      enabledCodes = [
+        'routine_meals',
+        'routine_hydration',
+        'meds_scheduled',
+        'schedule_appointments',
+        'safety_help_requests',
+        'checkin_btn_im_well',
+        'checkin_btn_need_help',
+        'checkin_btn_took_med',
+        'checkin_btn_ate',
+        'checkin_btn_drank_water',
+        'checkin_btn_emergency',
+      ];
     }
 
-    // Audit log
-    await adminSupabase.from('monitoring_configuration_audit').insert({
-      organization_id: targetPerson.organization_id,
-      cared_person_id: targetCaredPersonId,
-      action: 'copy_configuration',
-      previous_value: { copiedFrom: sourceCaredPersonId },
-      new_value: { totalModulesCopied: rowsToUpsert.length },
-      performed_by: user.id,
-      created_at: now,
-    });
+    monitoringMap[targetCaredPersonId] = {
+      enabled_codes: enabledCodes,
+      settings_payload: settingsPayload,
+      updated_at: now,
+      configured_by: user.id,
+      copied_from: sourceCaredPersonId,
+    };
+
+    const updatedOrgSettings = {
+      ...currentOrgSettings,
+      monitoring: monitoringMap,
+    };
+
+    const { error: updateErr } = await supabase
+      .from('organizations')
+      .update({
+        settings: updatedOrgSettings,
+        updated_at: now,
+      })
+      .eq('id', targetPerson.organization_id);
+
+    if (updateErr) {
+      return NextResponse.json({ error: updateErr.message }, { status: 500 });
+    }
+
+    // 2. Audit log
+    try {
+      await supabase.from('audit_logs').insert({
+        organization_id: targetPerson.organization_id,
+        user_id: user.id,
+        action: 'monitoring_settings_copied',
+        table_name: 'organizations',
+        record_id: targetPerson.organization_id,
+        old_data: { source: sourceCaredPersonId },
+        new_data: { target: targetCaredPersonId, count: enabledCodes.length },
+      });
+    } catch (_) {}
 
     return NextResponse.json({
       success: true,
       message: `Configurações de ${sourcePerson.full_name} copiadas para ${targetPerson.full_name} com sucesso!`,
-      copiedCount: rowsToUpsert.length,
+      copiedCount: enabledCodes.length,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || 'Erro ao copiar configurações.' }, { status: 500 });

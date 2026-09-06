@@ -109,33 +109,48 @@ export default function ElderlyViewPage({
       }
 
       // Fetch monitoring settings for this cared person
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: settingsData } = await (supabase as any)
-        .from('cared_person_monitoring_settings')
-        .select('enabled, monitoring_definitions(code)')
-        .eq('cared_person_id', params.id);
-
       const enabledSet = new Set<string>();
-      if (!settingsData || settingsData.length === 0) {
-        // Defaults if no custom configuration saved yet
-        [
-          'meds_scheduled',
-          'schedule_appointments',
-          'checkin_btn_im_well',
-          'checkin_btn_need_help',
-          'checkin_btn_took_med',
-          'checkin_btn_ate',
-          'checkin_btn_drank_water',
-          'checkin_btn_emergency',
-        ].forEach((c) => enabledSet.add(c));
+
+      // Check organization settings first (fastest and always up-to-date)
+      const { data: orgData } = await (supabase as any)
+        .from('organizations')
+        .select('settings')
+        .eq('id', orgId)
+        .maybeSingle();
+
+      const orgSettings = (orgData?.settings as any) || {};
+      const personConfig = orgSettings.monitoring?.[params.id];
+
+      if (personConfig && Array.isArray(personConfig.enabled_codes)) {
+        personConfig.enabled_codes.forEach((c: string) => enabledSet.add(c));
       } else {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        settingsData.forEach((row: any) => {
-          const code = row.monitoring_definitions?.code;
-          if (row.enabled && code) {
-            enabledSet.add(code);
-          }
-        });
+        const { data: settingsData } = await (supabase as any)
+          .from('cared_person_monitoring_settings')
+          .select('enabled, monitoring_definitions(code)')
+          .eq('cared_person_id', params.id);
+
+        if (settingsData && settingsData.length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          settingsData.forEach((row: any) => {
+            const code = row.monitoring_definitions?.code;
+            if (row.enabled && code) {
+              enabledSet.add(code);
+            }
+          });
+        } else {
+          // Defaults if no custom configuration saved yet
+          [
+            'meds_scheduled',
+            'schedule_appointments',
+            'checkin_btn_im_well',
+            'checkin_btn_need_help',
+            'checkin_btn_took_med',
+            'checkin_btn_ate',
+            'checkin_btn_drank_water',
+            'checkin_btn_emergency',
+          ].forEach((c) => enabledSet.add(c));
+        }
       }
 
       setEnabledModules(enabledSet);

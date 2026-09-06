@@ -11,9 +11,9 @@ export type Database = {
         Relationships: [];
       };
       organizations: {
-        Row: { id: string; name: string; slug: string; owner_id: string; subscription_status: string | null; plan_id: string | null; trial_ends_at?: string | null; paddle_customer_id?: string | null; created_at?: string | null; updated_at?: string | null; };
-        Insert: { id?: string; name: string; slug: string; owner_id: string; subscription_status?: string | null; plan_id?: string | null; trial_ends_at?: string | null; paddle_customer_id?: string | null; created_at?: string | null; updated_at?: string | null; };
-        Update: { id?: string; name?: string; slug?: string; owner_id?: string; subscription_status?: string | null; plan_id?: string | null; trial_ends_at?: string | null; paddle_customer_id?: string | null; created_at?: string | null; updated_at?: string | null; };
+        Row: { id: string; name: string; slug: string; owner_id: string; subscription_status: string | null; plan_id: string | null; trial_ends_at?: string | null; paddle_customer_id?: string | null; settings?: Json | null; created_at?: string | null; updated_at?: string | null; };
+        Insert: { id?: string; name: string; slug: string; owner_id: string; subscription_status?: string | null; plan_id?: string | null; trial_ends_at?: string | null; paddle_customer_id?: string | null; settings?: Json | null; created_at?: string | null; updated_at?: string | null; };
+        Update: { id?: string; name?: string; slug?: string; owner_id?: string; subscription_status?: string | null; plan_id?: string | null; trial_ends_at?: string | null; paddle_customer_id?: string | null; settings?: Json | null; created_at?: string | null; updated_at?: string | null; };
         Relationships: [];
       };
       organization_members: {

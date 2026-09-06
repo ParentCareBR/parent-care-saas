@@ -75,8 +75,8 @@ export function useMonitoring() {
   );
 
   const saveSettings = useCallback(
-    async (codes: string[], payload?: Record<string, any>) => {
-      if (!caredPersonId) return false;
+    async (codes: string[], payload?: Record<string, any>): Promise<{ success: boolean; error?: string }> => {
+      if (!caredPersonId) return { success: false, error: 'Pessoa cuidada não selecionada' };
       try {
         const res = await fetch('/api/monitoring/settings', {
           method: 'POST',
@@ -90,22 +90,24 @@ export function useMonitoring() {
         const data = await res.json();
         if (res.ok && data.success) {
           await fetchSettings();
-          return true;
+          return { success: true };
         } else {
-          setError(data.error || 'Falha ao salvar configurações.');
-          return false;
+          const errMsg = data.error || 'Falha ao salvar configurações.';
+          setError(errMsg);
+          return { success: false, error: errMsg };
         }
       } catch (err: any) {
-        setError(err?.message || 'Erro ao salvar acompanhamentos');
-        return false;
+        const errMsg = err?.message || 'Erro ao salvar acompanhamentos';
+        setError(errMsg);
+        return { success: false, error: errMsg };
       }
     },
     [caredPersonId, fetchSettings]
   );
 
   const copyFrom = useCallback(
-    async (sourcePersonId: string) => {
-      if (!caredPersonId || !sourcePersonId) return false;
+    async (sourcePersonId: string): Promise<{ success: boolean; error?: string }> => {
+      if (!caredPersonId || !sourcePersonId) return { success: false, error: 'Identificadores inválidos' };
       try {
         const res = await fetch('/api/monitoring/copy-settings', {
           method: 'POST',
@@ -118,14 +120,16 @@ export function useMonitoring() {
         const data = await res.json();
         if (res.ok && data.success) {
           await fetchSettings();
-          return true;
+          return { success: true };
         } else {
-          setError(data.error || 'Falha ao copiar configurações.');
-          return false;
+          const errMsg = data.error || 'Falha ao copiar configurações.';
+          setError(errMsg);
+          return { success: false, error: errMsg };
         }
       } catch (err: any) {
-        setError(err?.message || 'Erro ao copiar acompanhamentos');
-        return false;
+        const errMsg = err?.message || 'Erro ao copiar acompanhamentos';
+        setError(errMsg);
+        return { success: false, error: errMsg };
       }
     },
     [caredPersonId, fetchSettings]

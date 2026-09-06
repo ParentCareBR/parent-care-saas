@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { validateDependencies, getDefinitionByCode } from '@/lib/monitoring/catalog';
+import { validateDependencies, MONITORING_CATALOG } from '@/lib/monitoring/catalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,41 +44,112 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Acesso negado para esta organização.' }, { status: 403 });
     }
 
-    // Fetch settings
-    const adminSupabase = createAdminClient();
-    const { data: settings, error: sErr } = await adminSupabase
-      .from('cared_person_monitoring_settings')
-      .select(`
-        *,
-        monitoring_definitions (
-          id,
-          code,
-          translation_key,
-          description_translation_key,
-          field_type,
-          dependency_code,
-          allows_reminder,
-          allows_attachment,
-          category_id
-        )
-      `)
-      .eq('cared_person_id', caredPersonId)
-      .order('display_order', { ascending: true });
+    // 1. Fetch organization settings from Supabase
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('settings')
+      .eq('id', person.organization_id)
+      .maybeSingle();
 
-    if (sErr) {
-      return NextResponse.json({ error: sErr.message }, { status: 500 });
+    const orgSettings = (org?.settings as any) || {};
+    const monitoringMap = orgSettings.monitoring || {};
+    const personConfig = monitoringMap[caredPersonId];
+
+    let enabledCodes: string[] = [];
+    let settingsPayload: Record<string, any> = {};
+
+    if (personConfig && Array.isArray(personConfig.enabled_codes)) {
+      enabledCodes = personConfig.enabled_codes;
+      settingsPayload = personConfig.settings_payload || {};
+    } else {
+      // Check if dedicated table exists and has data
+      try {
+        const adminSupabase = createAdminClient();
+        const { data: dbSettings, error: dbErr } = await adminSupabase
+          .from('cared_person_monitoring_settings')
+          .select(`
+            *,
+            monitoring_definitions (
+              id,
+              code,
+              translation_key,
+              description_translation_key,
+              field_type,
+              dependency_code,
+              allows_reminder,
+              allows_attachment,
+              category_id
+            )
+          `)
+          .eq('cared_person_id', caredPersonId)
+          .order('display_order', { ascending: true });
+
+        if (!dbErr && dbSettings && dbSettings.length > 0) {
+          const codes = dbSettings
+            .filter((s: any) => s.enabled && s.monitoring_definitions?.code)
+            .map((s: any) => s.monitoring_definitions.code);
+
+          return NextResponse.json({
+            success: true,
+            settings: dbSettings,
+            enabledCodes: codes,
+          });
+        }
+      } catch (_) {
+        // Table not present, fallback
+      }
+
+      // Default baseline essentials if never saved yet
+      enabledCodes = [
+        'routine_meals',
+        'routine_hydration',
+        'meds_scheduled',
+        'schedule_appointments',
+        'safety_help_requests',
+        'checkin_btn_im_well',
+        'checkin_btn_need_help',
+        'checkin_btn_took_med',
+        'checkin_btn_ate',
+        'checkin_btn_drank_water',
+        'checkin_btn_emergency',
+      ];
     }
 
-    const enabledCodes = (settings || [])
-      .filter((s: any) => s.enabled && s.monitoring_definitions?.code)
-      .map((s: any) => s.monitoring_definitions.code);
+    // Build synthesized settings list from catalog
+    const enabledSet = new Set(enabledCodes);
+    const synthesizedSettings: any[] = [];
+
+    for (const cat of MONITORING_CATALOG) {
+      for (const def of cat.definitions) {
+        synthesizedSettings.push({
+          id: def.id,
+          cared_person_id: caredPersonId,
+          organization_id: person.organization_id,
+          enabled: enabledSet.has(def.code),
+          display_order: def.displayOrder,
+          settings_json: settingsPayload[def.code] || {},
+          monitoring_definitions: {
+            id: def.id,
+            code: def.code,
+            translation_key: def.translationKey,
+            description_translation_key: def.descriptionTranslationKey,
+            field_type: def.fieldType,
+            dependency_code: def.dependencyCode || null,
+            allows_reminder: !!def.allowsReminder,
+            allows_attachment: !!def.allowsAttachment,
+            category_id: cat.id,
+          },
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      settings: settings || [],
+      settings: synthesizedSettings,
       enabledCodes,
     });
   } catch (error: any) {
+    console.error('Error in GET /api/monitoring/settings:', error);
     return NextResponse.json({ error: error?.message || 'Erro ao carregar configurações.' }, { status: 500 });
   }
 }
@@ -102,7 +173,7 @@ export async function POST(req: NextRequest) {
     // Verify permission (owner, admin, or collaborator)
     const { data: person } = await supabase
       .from('cared_people')
-      .select('organization_id')
+      .select('organization_id, full_name')
       .eq('id', caredPersonId)
       .maybeSingle();
 
@@ -131,88 +202,106 @@ export async function POST(req: NextRequest) {
       }, { status: 422 });
     }
 
-    const adminSupabase = createAdminClient();
-
-    // Fetch existing monitoring definitions from database to get IDs
-    const { data: dbDefinitions } = await adminSupabase
-      .from('monitoring_definitions')
-      .select('id, code');
-
-    const defMap = new Map<string, string>();
-    dbDefinitions?.forEach((d: any) => defMap.set(d.code, d.id));
-
-    // Fetch current settings to prepare audit log
-    const { data: existingSettings } = await adminSupabase
-      .from('cared_person_monitoring_settings')
-      .select('*')
-      .eq('cared_person_id', caredPersonId);
-
-    const existingMap = new Map<string, any>();
-    existingSettings?.forEach((es: any) => existingMap.set(es.monitoring_definition_id, es));
-
-    const enabledSet = new Set(enabledCodes);
     const now = new Date().toISOString();
 
-    // Batch upsert settings for each definition in database
-    const upsertRows: any[] = [];
-    const auditRows: any[] = [];
+    // 1. Fetch current organization settings
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('settings')
+      .eq('id', person.organization_id)
+      .single();
 
-    defMap.forEach((defId, code) => {
-      const isEnabled = enabledSet.has(code);
-      const prevSetting = existingMap.get(defId);
-      const prevEnabled = prevSetting?.enabled ?? false;
+    const currentOrgSettings = (org?.settings as any) || {};
+    const monitoringMap = { ...(currentOrgSettings.monitoring || {}) };
+    const prevPersonSettings = monitoringMap[caredPersonId] || null;
 
-      // Only prepare update if status changed or setting is enabled
-      if (isEnabled !== prevEnabled || isEnabled) {
-        const itemSettings = settingsPayload?.[code] || {};
-        upsertRows.push({
-          organization_id: person.organization_id,
-          cared_person_id: caredPersonId,
-          monitoring_definition_id: defId,
-          enabled: isEnabled,
-          enabled_at: isEnabled ? (prevSetting?.enabled_at || now) : prevSetting?.enabled_at || now,
-          disabled_at: !isEnabled ? now : null,
-          configured_by: user.id,
-          settings_json: itemSettings,
-          updated_at: now,
-        });
+    monitoringMap[caredPersonId] = {
+      enabled_codes: enabledCodes,
+      settings_payload: settingsPayload || {},
+      updated_at: now,
+      configured_by: user.id,
+    };
 
-        // Audit log on change
-        if (isEnabled !== prevEnabled) {
-          auditRows.push({
-            organization_id: person.organization_id,
-            cared_person_id: caredPersonId,
-            action: isEnabled ? 'enable' : 'disable',
-            target_type: 'definition',
-            target_id: defId,
-            details: { code, previous: prevEnabled, current: isEnabled },
-            performed_by: user.id,
-            created_at: now,
-          });
-        }
-      }
-    });
+    const updatedOrgSettings = {
+      ...currentOrgSettings,
+      monitoring: monitoringMap,
+    };
 
-    if (upsertRows.length > 0) {
-      const { error: upsertErr } = await adminSupabase
-        .from('cared_person_monitoring_settings')
-        .upsert(upsertRows, { onConflict: 'cared_person_id, monitoring_definition_id' });
+    // 2. Persist in organizations.settings in Supabase
+    const { error: updateErr } = await supabase
+      .from('organizations')
+      .update({
+        settings: updatedOrgSettings,
+        updated_at: now,
+      })
+      .eq('id', person.organization_id);
 
-      if (upsertErr) {
-        return NextResponse.json({ error: upsertErr.message }, { status: 500 });
-      }
+    if (updateErr) {
+      console.error('Error updating organization settings in Supabase:', updateErr);
+      return NextResponse.json({ error: updateErr.message }, { status: 500 });
     }
 
-    if (auditRows.length > 0) {
-      await adminSupabase.from('monitoring_configuration_audit').insert(auditRows);
+    // 3. Log to audit_logs in Supabase (safe insert)
+    try {
+      await supabase.from('audit_logs').insert({
+        organization_id: person.organization_id,
+        user_id: user.id,
+        action: 'monitoring_settings_updated',
+        table_name: 'organizations',
+        record_id: person.organization_id,
+        old_data: prevPersonSettings || {},
+        new_data: { cared_person_id: caredPersonId, enabled_codes: enabledCodes },
+      });
+    } catch (auditErr) {
+      console.warn('Audit log note:', auditErr);
+    }
+
+    // 4. Try updating dedicated table cared_person_monitoring_settings if available
+    try {
+      const adminSupabase = createAdminClient();
+      const { data: dbDefinitions } = await adminSupabase
+        .from('monitoring_definitions')
+        .select('id, code');
+
+      if (dbDefinitions && dbDefinitions.length > 0) {
+        const defMap = new Map<string, string>();
+        dbDefinitions.forEach((d: any) => defMap.set(d.code, d.id));
+
+        const enabledSet = new Set(enabledCodes);
+        const upsertRows: any[] = [];
+
+        defMap.forEach((defId, code) => {
+          const isEnabled = enabledSet.has(code);
+          upsertRows.push({
+            organization_id: person.organization_id,
+            cared_person_id: caredPersonId,
+            monitoring_definition_id: defId,
+            enabled: isEnabled,
+            enabled_at: isEnabled ? now : null,
+            disabled_at: !isEnabled ? now : null,
+            configured_by: user.id,
+            settings_json: settingsPayload?.[code] || {},
+            updated_at: now,
+          });
+        });
+
+        if (upsertRows.length > 0) {
+          await adminSupabase
+            .from('cared_person_monitoring_settings')
+            .upsert(upsertRows, { onConflict: 'cared_person_id,monitoring_definition_id' });
+        }
+      }
+    } catch (_) {
+      // Ignored if table doesn't exist
     }
 
     return NextResponse.json({
       success: true,
       message: 'Configuração de acompanhamento atualizada com sucesso!',
-      totalConfigured: upsertRows.length,
+      totalConfigured: enabledCodes.length,
     });
   } catch (error: any) {
+    console.error('Error in POST /api/monitoring/settings:', error);
     return NextResponse.json({ error: error?.message || 'Erro ao salvar configurações.' }, { status: 500 });
   }
 }

@@ -20,19 +20,45 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'caredPersonId é obrigatório.' }, { status: 400 });
     }
 
-    const adminSupabase = createAdminClient();
-    const { data, error } = await adminSupabase
-      .from('custom_monitoring_fields')
-      .select('*')
-      .eq('cared_person_id', caredPersonId)
-      .is('archived_at', null)
-      .order('created_at', { ascending: true });
+    const { data: person } = await supabase
+      .from('cared_people')
+      .select('organization_id')
+      .eq('id', caredPersonId)
+      .maybeSingle();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!person) {
+      return NextResponse.json({ error: 'Pessoa cuidada não encontrada.' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, fields: data || [] });
+    // Try reading from dedicated table if available
+    try {
+      const adminSupabase = createAdminClient();
+      const { data: dbFields, error: dbErr } = await adminSupabase
+        .from('custom_monitoring_fields')
+        .select('*')
+        .eq('cared_person_id', caredPersonId)
+        .is('archived_at', null)
+        .order('created_at', { ascending: true });
+
+      if (!dbErr && dbFields && dbFields.length > 0) {
+        return NextResponse.json({ success: true, fields: dbFields });
+      }
+    } catch (_) {
+      // Table doesn't exist
+    }
+
+    // Fallback to organizations.settings.custom_fields
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('settings')
+      .eq('id', person.organization_id)
+      .maybeSingle();
+
+    const orgSettings = (org?.settings as any) || {};
+    const personFields = orgSettings.custom_fields?.[caredPersonId] || [];
+    const activeFields = personFields.filter((f: any) => !f.archived_at);
+
+    return NextResponse.json({ success: true, fields: activeFields });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || 'Erro ao buscar campos personalizados.' }, { status: 500 });
   }
@@ -97,10 +123,74 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Permissão insuficiente para criar campos personalizados.' }, { status: 403 });
     }
 
-    const adminSupabase = createAdminClient();
-    const { data: newField, error: insertErr } = await adminSupabase
-      .from('custom_monitoring_fields')
-      .insert({
+    const now = new Date().toISOString();
+    const newFieldId = `cf_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+    const newField = {
+      id: newFieldId,
+      organization_id: person.organization_id,
+      cared_person_id: caredPersonId,
+      category_id: categoryId || null,
+      label: label.trim(),
+      description: description?.trim() || null,
+      field_type: fieldType,
+      options_json: Array.isArray(options) ? options : [],
+      required: !!required,
+      include_daily_summary: includeDailySummary !== false,
+      include_weekly_report: includeWeeklyReport !== false,
+      enabled: true,
+      created_by: user.id,
+      created_at: now,
+      archived_at: null,
+    };
+
+    // 1. Update organizations.settings.custom_fields
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('settings')
+      .eq('id', person.organization_id)
+      .single();
+
+    const currentOrgSettings = (org?.settings as any) || {};
+    const customFieldsMap = { ...(currentOrgSettings.custom_fields || {}) };
+    const personCustomFields = [...(customFieldsMap[caredPersonId] || []), newField];
+    customFieldsMap[caredPersonId] = personCustomFields;
+
+    const { error: orgErr } = await supabase
+      .from('organizations')
+      .update({
+        settings: {
+          ...currentOrgSettings,
+          custom_fields: customFieldsMap,
+        },
+        updated_at: now,
+      })
+      .eq('id', person.organization_id);
+
+    if (orgErr) {
+      console.error('Error saving custom field to organization settings:', orgErr);
+      return NextResponse.json({ error: orgErr.message }, { status: 500 });
+    }
+
+    // 2. Audit log
+    try {
+      await supabase.from('audit_logs').insert({
+        organization_id: person.organization_id,
+        user_id: user.id,
+        action: 'create_custom_field',
+        table_name: 'organizations',
+        record_id: person.organization_id,
+        old_data: {},
+        new_data: newField,
+      });
+    } catch (_) {
+      // safe
+    }
+
+    // 3. Try inserting into custom_monitoring_fields table if available
+    try {
+      const adminSupabase = createAdminClient();
+      await adminSupabase.from('custom_monitoring_fields').insert({
         organization_id: person.organization_id,
         cared_person_id: caredPersonId,
         category_id: categoryId || null,
@@ -113,23 +203,10 @@ export async function POST(req: NextRequest) {
         include_weekly_report: includeWeeklyReport !== false,
         enabled: true,
         created_by: user.id,
-      })
-      .select()
-      .single();
-
-    if (insertErr) {
-      return NextResponse.json({ error: insertErr.message }, { status: 500 });
+      });
+    } catch (_) {
+      // Ignored if table doesn't exist
     }
-
-    // Audit log
-    await adminSupabase.from('monitoring_configuration_audit').insert({
-      organization_id: person.organization_id,
-      cared_person_id: caredPersonId,
-      action: 'create_custom_field',
-      custom_field_id: newField.id,
-      new_value: { label, fieldType },
-      performed_by: user.id,
-    });
 
     return NextResponse.json({
       success: true,
