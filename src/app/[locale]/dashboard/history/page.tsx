@@ -115,35 +115,6 @@ export default function HistoryPage() {
     // Sort all events descending by timestamp
     events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    // If no events exist yet, provide standard initial logs for demonstration
-    if (events.length === 0) {
-      const now = new Date();
-      events.push(
-        {
-          id: 'initial-1',
-          type: 'medication',
-          title: 'Dose tomada: Losartana 50mg',
-          description: 'Horário previsto: 08:00 • Tomado no horário',
-          timestamp: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          id: 'initial-2',
-          type: 'hydration',
-          title: 'Hidratação: 250ml ingeridos',
-          description: 'Copo de água matinal',
-          timestamp: new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          id: 'initial-3',
-          type: 'note',
-          title: 'Anotação de Cuidado',
-          description: 'Acordou bem disposto, tomou café completo e sem queixas de dores.',
-          timestamp: new Date(now.getTime() - 4 * 60 * 60 * 1000).toISOString(),
-          category: 'observation',
-        }
-      );
-    }
-
     setItems(events);
     setLoading(false);
   }, [selectedPerson, currentOrganizationId, supabase]);

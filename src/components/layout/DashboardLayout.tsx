@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CaredPersonSelector } from '@/components/shared/CaredPersonSelector';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
+import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { 
@@ -271,6 +272,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           {/* Right: Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
+            <LanguageSwitcher className="hidden sm:inline-flex" />
             <ThemeToggle className="hidden sm:inline-flex" />
 
             {/* Desktop Cared Person button */}
