@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertCircle } from 'lucide-react';
 
 export default function NewCaredPersonPage() {
   const router = useRouter();
@@ -20,6 +21,7 @@ export default function NewCaredPersonPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createClient() as any;
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     full_name: '',
@@ -42,27 +44,40 @@ export default function NewCaredPersonPage() {
     if (currentOrganizationId) return currentOrganizationId;
     if (!user) return null;
 
-    // Check if the user already has an active organization they are a member of
+    // 1. Check if user is already a member of an organization
     const { data: existingMemberships } = await supabase
       .from('organization_members')
       .select('organization_id')
       .eq('user_id', user.id)
-      .eq('status', 'active');
+      .eq('status', 'active')
+      .limit(1);
     
     if (existingMemberships && existingMemberships.length > 0) {
-      setCurrentOrganizationId(existingMemberships[0].organization_id);
-      return existingMemberships[0].organization_id;
+      const orgId = existingMemberships[0].organization_id;
+      setCurrentOrganizationId(orgId);
+      return orgId;
     }
 
-    // Generate a unique ID and slug for the new org
+    // 2. Check if user already owns an organization
+    const { data: ownedOrgs } = await supabase
+      .from('organizations')
+      .select('id')
+      .eq('owner_id', user.id)
+      .limit(1);
+
+    if (ownedOrgs && ownedOrgs.length > 0) {
+      const orgId = ownedOrgs[0].id;
+      setCurrentOrganizationId(orgId);
+      return orgId;
+    }
+
+    // 3. Create a new organization
     const newOrgId = crypto.randomUUID();
     const uniqueSlug = `familia-${user.id.slice(0, 5)}-${Date.now()}`;
-    
     const orgName = formData.full_name
       ? `Família de ${formData.full_name.split(' ')[0]}`
       : 'Minha Família';
 
-    // 1. Insert organization (without selecting, to bypass RLS select policies)
     const { error: orgError } = await supabase
       .from('organizations')
       .insert({
@@ -74,23 +89,19 @@ export default function NewCaredPersonPage() {
 
     if (orgError) {
       console.error('Erro ao criar organização:', orgError);
+      setErrorMessage(`Erro ao criar família: ${orgError.message}`);
       return null;
     }
 
-    // 2. Insert member
-    const { error: memberError } = await supabase
+    // 4. Link user as admin/owner
+    await supabase
       .from('organization_members')
       .insert({
         organization_id: newOrgId,
         user_id: user.id,
-        role: 'admin',
+        role: 'owner',
         status: 'active',
       });
-      
-    if (memberError) {
-      console.error('Erro ao vincular membro:', memberError);
-      return null;
-    }
 
     setCurrentOrganizationId(newOrgId);
     return newOrgId;
@@ -98,36 +109,76 @@ export default function NewCaredPersonPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+
     if (!user) {
-      toast({ title: 'Erro', description: 'Você precisa estar logado.', variant: 'destructive' });
+      setErrorMessage('Você precisa estar autenticado para continuar.');
+      return;
+    }
+
+    if (!formData.full_name.trim()) {
+      setErrorMessage('Por favor, informe o nome completo.');
       return;
     }
 
     setLoading(true);
 
     try {
-      // Get or create an organization for the user
+      // Get or create organization
       const orgId = await getOrCreateOrganization();
       if (!orgId) {
-        toast({ title: 'Erro', description: 'Não foi possível criar sua família. Tente novamente.', variant: 'destructive' });
         setLoading(false);
         return;
       }
 
+      // Prepare payload
+      const payload: Record<string, any> = {
+        organization_id: orgId,
+        full_name: formData.full_name.trim(),
+        birth_date: formData.birth_date || null,
+        blood_type: formData.blood_type || null,
+        created_by: user.id,
+      };
+
+      if (formData.nickname?.trim()) {
+        payload.nickname = formData.nickname.trim();
+      }
+      if (formData.gender) {
+        payload.gender = formData.gender;
+      }
+
       const { data, error } = await supabase
         .from('cared_people')
-        .insert({
-          organization_id: orgId,
-          full_name: formData.full_name,
-          birth_date: formData.birth_date || null,
-          blood_type: formData.blood_type || null,
-          created_by: user.id,
-        })
+        .insert(payload)
         .select('id')
         .single();
 
       if (error) {
-        toast({ title: 'Erro ao cadastrar', description: error.message, variant: 'destructive' });
+        console.error('Erro ao cadastrar pessoa cuidada:', error);
+        // Fallback: If error mentions column nickname or gender, try inserting without them
+        if (error.message?.includes('nickname') || error.message?.includes('gender')) {
+          delete payload.nickname;
+          delete payload.gender;
+          const { data: retryData, error: retryError } = await supabase
+            .from('cared_people')
+            .insert(payload)
+            .select('id')
+            .single();
+
+          if (retryError) {
+            setErrorMessage(`Erro no cadastro: ${retryError.message}`);
+            setLoading(false);
+            return;
+          }
+
+          toast({ title: 'Sucesso!', description: 'Pessoa cadastrada com sucesso.' });
+          await refreshCaredPeople();
+          if (retryData?.id) setSelectedPersonId(retryData.id);
+          router.push('/pt-BR/dashboard');
+          return;
+        }
+
+        setErrorMessage(`Erro ao cadastrar: ${error.message}`);
         setLoading(false);
         return;
       }
@@ -139,8 +190,8 @@ export default function NewCaredPersonPage() {
       }
       router.push('/pt-BR/dashboard');
     } catch (err: any) {
-      console.error(err);
-      toast({ title: 'Erro inesperado', description: err.message || 'Ocorreu um erro no servidor', variant: 'destructive' });
+      console.error('Exceção ao salvar:', err);
+      setErrorMessage(err.message || 'Ocorreu um erro inesperado ao salvar.');
     } finally {
       setLoading(false);
     }
@@ -160,7 +211,13 @@ export default function NewCaredPersonPage() {
             <CardDescription>Estes dados ajudarão a personalizar o painel.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            
+            {errorMessage && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-500 mt-0.5" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="full_name">Nome Completo *</Label>
               <Input 

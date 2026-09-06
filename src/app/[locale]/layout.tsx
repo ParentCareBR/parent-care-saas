@@ -5,6 +5,7 @@ import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import CookieBanner from '@/components/shared/CookieBanner';
+import { Toaster } from '@/components/ui/toaster';
 import '../globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -49,6 +50,7 @@ export default async function LocaleLayout({
           {children}
         </NextIntlClientProvider>
         <CookieBanner />
+        <Toaster />
       </body>
     </html>
   );
