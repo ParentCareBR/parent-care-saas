@@ -21,6 +21,16 @@ function isPublicPath(pathname: string): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Bypass API routes completely - they handle their own responses and must never have locale prefixes
+  if (pathname.startsWith('/api')) {
+    return NextResponse.next();
+  }
+
+  // Bypass Admin panel routes
+  if (pathname.startsWith('/admin')) {
+    return NextResponse.next();
+  }
+
   // Handle i18n routing first
   const intlResponse = intlMiddleware(request);
 
@@ -67,5 +77,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|images|favicon.ico|manifest.json|icons|sw.js|workbox).*)'],
+  matcher: ['/((?!api|admin|_next/static|_next/image|images|favicon.ico|manifest.json|icons|sw.js|workbox).*)'],
 };
