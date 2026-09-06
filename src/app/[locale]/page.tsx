@@ -56,6 +56,16 @@ export default function Home({ params: { locale } }: { params: { locale: string 
             </Link>
           </div>
         </div>
+        
+        <div className="mt-16 max-w-5xl mx-auto rounded-3xl overflow-hidden shadow-2xl relative aspect-[16/9] border-4 border-white">
+          <Image 
+            src="/images/family-planning.jpg" 
+            alt="Família planejando o cuidado juntos" 
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
       </section>
 
       {/* Problem Section */}
@@ -107,64 +117,26 @@ export default function Home({ params: { locale } }: { params: { locale: string 
                 ))}
               </ul>
             </div>
-            <div className="bg-white p-6 rounded-3xl relative border border-gray-200 shadow-xl overflow-hidden min-h-[400px] flex flex-col gap-4">
-              {/* Fake Dashboard Header */}
-              <div className="flex justify-between items-center border-b pb-4 border-gray-100">
-                <div className="h-6 w-32 bg-gray-100 rounded-md"></div>
-                <div className="flex gap-2">
-                  <div className="h-8 w-8 bg-gray-100 rounded-full"></div>
-                  <div className="h-8 w-8 bg-emerald-100 rounded-full"></div>
-                </div>
-              </div>
-              {/* Fake Dashboard Cards */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="h-24 bg-blue-50 rounded-xl border border-blue-100 p-4 flex flex-col justify-between">
-                  <div className="h-4 w-16 bg-blue-200 rounded"></div>
-                  <div className="h-8 w-24 bg-blue-300 rounded"></div>
-                </div>
-                <div className="h-24 bg-emerald-50 rounded-xl border border-emerald-100 p-4 flex flex-col justify-between">
-                  <div className="h-4 w-20 bg-emerald-200 rounded"></div>
-                  <div className="h-8 w-16 bg-emerald-300 rounded"></div>
-                </div>
-              </div>
-              {/* Fake Dashboard List */}
-              <div className="flex-1 border border-gray-100 rounded-xl p-4 flex flex-col gap-3">
-                <div className="h-4 w-24 bg-gray-100 rounded mb-2"></div>
-                <div className="h-10 w-full bg-gray-50 rounded-lg"></div>
-                <div className="h-10 w-full bg-gray-50 rounded-lg"></div>
-                <div className="h-10 w-full bg-gray-50 rounded-lg"></div>
-              </div>
+            <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-gray-100 flex items-center justify-center bg-gray-50">
+              <Image 
+                src="/images/dashboard.png" 
+                alt="Dashboard Administrativo" 
+                width={800} 
+                height={600}
+                className="w-full h-auto object-cover"
+                priority
+              />
             </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-16 items-center mt-24 flex-col-reverse md:flex-row-reverse">
-            <div className="bg-gray-900 p-6 rounded-[2.5rem] relative border-8 border-gray-800 shadow-2xl overflow-hidden h-[500px] max-w-[280px] mx-auto w-full flex flex-col">
-              {/* Fake Mobile Status Bar */}
-              <div className="flex justify-between items-center mb-6 px-2">
-                <div className="h-3 w-10 bg-gray-700 rounded-full"></div>
-                <div className="flex gap-1">
-                  <div className="h-3 w-3 bg-gray-700 rounded-full"></div>
-                  <div className="h-3 w-4 bg-gray-700 rounded-sm"></div>
-                </div>
-              </div>
-              {/* Fake Mobile Content */}
-              <div className="flex flex-col items-center gap-2 mb-8 mt-4">
-                <div className="h-16 w-16 bg-emerald-500/20 rounded-full flex items-center justify-center">
-                  <div className="h-8 w-8 bg-emerald-500 rounded-full"></div>
-                </div>
-                <div className="h-4 w-32 bg-gray-700 rounded-full mt-2"></div>
-              </div>
-              {/* Fake Mobile Big Buttons */}
-              <div className="flex flex-col gap-4 mt-auto">
-                <div className="h-20 w-full bg-emerald-600 rounded-2xl flex items-center px-4 gap-4">
-                  <div className="h-8 w-8 bg-white/20 rounded-full"></div>
-                  <div className="h-4 w-24 bg-white/40 rounded"></div>
-                </div>
-                <div className="h-20 w-full bg-blue-600 rounded-2xl flex items-center px-4 gap-4">
-                  <div className="h-8 w-8 bg-white/20 rounded-full"></div>
-                  <div className="h-4 w-32 bg-white/40 rounded"></div>
-                </div>
-              </div>
+            <div className="relative rounded-[2.5rem] overflow-hidden shadow-2xl border-8 border-gray-100 mx-auto w-full max-w-md aspect-[3/4] flex items-center justify-center">
+              <Image 
+                src="/images/elderly-care.jpg" 
+                alt="Visão Simplificada para Idosos" 
+                fill
+                className="object-cover"
+              />
             </div>
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-sm font-medium mb-4">
