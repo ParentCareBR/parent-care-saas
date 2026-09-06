@@ -42,36 +42,58 @@ export default function NewCaredPersonPage() {
     if (currentOrganizationId) return currentOrganizationId;
     if (!user) return null;
 
-    // Create a new personal organization for this user
+    // Check if the user already has an active organization they are a member of
+    const { data: existingMemberships } = await supabase
+      .from('organization_members')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active');
+    
+    if (existingMemberships && existingMemberships.length > 0) {
+      setCurrentOrganizationId(existingMemberships[0].organization_id);
+      return existingMemberships[0].organization_id;
+    }
+
+    // Generate a unique ID and slug for the new org
+    const newOrgId = crypto.randomUUID();
+    const uniqueSlug = `familia-${user.id.slice(0, 5)}-${Date.now()}`;
+    
     const orgName = formData.full_name
       ? `Família de ${formData.full_name.split(' ')[0]}`
       : 'Minha Família';
 
-    const { data: org, error: orgError } = await supabase
+    // 1. Insert organization (without selecting, to bypass RLS select policies)
+    const { error: orgError } = await supabase
       .from('organizations')
       .insert({
+        id: newOrgId,
         name: orgName,
-        slug: `familia-${user.id.slice(0, 8)}`,
+        slug: uniqueSlug,
         owner_id: user.id,
-      })
-      .select('id')
-      .single();
+      });
 
     if (orgError) {
       console.error('Erro ao criar organização:', orgError);
       return null;
     }
 
-    // Add the user as admin member of the organization
-    await supabase.from('organization_members').insert({
-      organization_id: org.id,
-      user_id: user.id,
-      role: 'admin',
-      status: 'active',
-    });
+    // 2. Insert member
+    const { error: memberError } = await supabase
+      .from('organization_members')
+      .insert({
+        organization_id: newOrgId,
+        user_id: user.id,
+        role: 'admin',
+        status: 'active',
+      });
+      
+    if (memberError) {
+      console.error('Erro ao vincular membro:', memberError);
+      return null;
+    }
 
-    setCurrentOrganizationId(org.id);
-    return org.id;
+    setCurrentOrganizationId(newOrgId);
+    return newOrgId;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
