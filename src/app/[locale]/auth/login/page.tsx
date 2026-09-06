@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,19 +15,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const params = useParams();
+  const locale = (params?.locale as string) || 'pt-BR';
   const supabase = createClient();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    
-    // Check if SUPABASE is configured
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      alert("ATENÇÃO: Configure as variáveis de ambiente do Supabase no arquivo .env.local para testar o login com banco real.");
-      setLoading(false);
-      return;
-    }
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -38,7 +33,7 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
-      router.push('/dashboard');
+      router.push(`/${locale}/dashboard`);
       router.refresh();
     }
   };
@@ -84,7 +79,10 @@ export default function LoginPage() {
         </CardContent>
         <CardFooter className="flex justify-center">
           <div className="text-sm text-stone-500">
-            Não tem uma conta? <Link href="/auth/signup" className="text-brand-green font-medium hover:underline">Criar conta</Link>
+            Não tem uma conta?{' '}
+            <Link href={`/${locale}/auth/signup`} className="text-brand-green font-medium hover:underline">
+              Criar conta
+            </Link>
           </div>
         </CardFooter>
       </Card>
