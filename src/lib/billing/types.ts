@@ -20,5 +20,4 @@ export interface BillingGateway {
   cancelSubscription(subscriptionId: string, immediate?: boolean): Promise<void>;
   constructWebhookEvent(payload: string, signature: string): any;
 }
-
-export type GatewayProvider = 'stripe' | 'mercadopago' | 'paddle';
+export type GatewayProvider = 'paddle';

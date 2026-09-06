@@ -55,7 +55,7 @@ export default function FinancePage() {
               { href: '/admin/finance/revenue', title: 'Receitas & Assinaturas', desc: 'Entradas, reembolsos e taxas de gateway' },
               { href: '/admin/finance/expenses', title: 'Despesas & Fornecedores', desc: 'Custos operacionais e contas a pagar' },
               { href: '/admin/finance/cashflow', title: 'Fluxo de Caixa', desc: 'Entradas e saídas por período (últimos 6 meses)' },
-              { href: '/admin/finance/revenue', title: 'Conciliação por Gateway', desc: 'Stripe, Mercado Pago e outras moedas' },
+              { href: '/admin/finance/revenue', title: 'Conciliação por Gateway', desc: 'Paddle Billing, moedas e conciliação' },
             ].map(item => (
               <Link key={item.href + item.title} href={item.href}
                 className="bg-white rounded-xl border border-gray-200 p-6 hover:border-emerald-300 hover:shadow-sm transition-all">

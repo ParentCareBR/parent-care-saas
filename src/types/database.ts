@@ -11,15 +11,15 @@ export type Database = {
         Relationships: [];
       };
       organizations: {
-        Row: { id: string; name: string; slug: string; owner_id: string; subscription_status: string | null; plan_id: string | null; trial_ends_at?: string | null; paddle_customer_id?: string | null; };
-        Insert: { id?: string; name: string; slug: string; owner_id: string; subscription_status?: string | null; plan_id?: string | null; trial_ends_at?: string | null; paddle_customer_id?: string | null; };
-        Update: { id?: string; name?: string; slug?: string; owner_id?: string; subscription_status?: string | null; plan_id?: string | null; trial_ends_at?: string | null; paddle_customer_id?: string | null; };
+        Row: { id: string; name: string; slug: string; owner_id: string; subscription_status: string | null; plan_id: string | null; trial_ends_at?: string | null; paddle_customer_id?: string | null; created_at?: string | null; updated_at?: string | null; };
+        Insert: { id?: string; name: string; slug: string; owner_id: string; subscription_status?: string | null; plan_id?: string | null; trial_ends_at?: string | null; paddle_customer_id?: string | null; created_at?: string | null; updated_at?: string | null; };
+        Update: { id?: string; name?: string; slug?: string; owner_id?: string; subscription_status?: string | null; plan_id?: string | null; trial_ends_at?: string | null; paddle_customer_id?: string | null; created_at?: string | null; updated_at?: string | null; };
         Relationships: [];
       };
       organization_members: {
-        Row: { id: string; organization_id: string; user_id: string; role: string; status: string; };
-        Insert: { id?: string; organization_id: string; user_id: string; role: string; status?: string; };
-        Update: { id?: string; organization_id?: string; user_id?: string; role?: string; status?: string; };
+        Row: { id: string; organization_id: string; user_id: string; role: string; status: string; invited_email?: string | null; invited_at?: string | null; joined_at?: string | null; created_at?: string; };
+        Insert: { id?: string; organization_id: string; user_id: string; role: string; status?: string; invited_email?: string | null; invited_at?: string | null; joined_at?: string | null; created_at?: string; };
+        Update: { id?: string; organization_id?: string; user_id?: string; role?: string; status?: string; invited_email?: string | null; invited_at?: string | null; joined_at?: string | null; };
         Relationships: [];
       };
       cared_people: {
@@ -89,15 +89,51 @@ export type Database = {
         Relationships: [];
       };
       plan_prices: {
-        Row: { id: string; plan_id: string; currency: string; monthly_price: number; yearly_price: number; stripe_price_monthly_id: string | null; stripe_price_yearly_id: string | null; paddle_price_monthly_id?: string | null; paddle_price_yearly_id?: string | null; created_at: string; };
-        Insert: { id?: string; plan_id: string; currency: string; monthly_price: number; yearly_price: number; stripe_price_monthly_id?: string | null; stripe_price_yearly_id?: string | null; paddle_price_monthly_id?: string | null; paddle_price_yearly_id?: string | null; created_at?: string; };
-        Update: { id?: string; plan_id?: string; currency?: string; monthly_price?: number; yearly_price?: number; stripe_price_monthly_id?: string | null; stripe_price_yearly_id?: string | null; paddle_price_monthly_id?: string | null; paddle_price_yearly_id?: string | null; };
+        Row: { id: string; plan_id: string; currency: string; monthly_price: number; yearly_price: number; paddle_price_monthly_id?: string | null; paddle_price_yearly_id?: string | null; created_at: string; };
+        Insert: { id?: string; plan_id: string; currency: string; monthly_price: number; yearly_price: number; paddle_price_monthly_id?: string | null; paddle_price_yearly_id?: string | null; created_at?: string; };
+        Update: { id?: string; plan_id?: string; currency?: string; monthly_price?: number; yearly_price?: number; paddle_price_monthly_id?: string | null; paddle_price_yearly_id?: string | null; };
         Relationships: [];
       };
       subscriptions: {
-        Row: { id: string; organization_id: string; plan_id: string; status: string; gateway: string; stripe_customer_id: string | null; stripe_subscription_id: string | null; paddle_customer_id?: string | null; paddle_subscription_id?: string | null; cancel_at_period_end: boolean | null; grace_period_ends_at: string | null; cancel_reason: string | null; trial_ends_at?: string | null; current_period_start?: string | null; current_period_end?: string | null; created_at: string; };
-        Insert: { id?: string; organization_id: string; plan_id: string; status?: string; gateway?: string; stripe_customer_id?: string | null; stripe_subscription_id?: string | null; paddle_customer_id?: string | null; paddle_subscription_id?: string | null; cancel_at_period_end?: boolean | null; grace_period_ends_at?: string | null; cancel_reason?: string | null; trial_ends_at?: string | null; current_period_start?: string | null; current_period_end?: string | null; created_at?: string; };
-        Update: { id?: string; organization_id?: string; plan_id?: string; status?: string; gateway?: string; stripe_customer_id?: string | null; stripe_subscription_id?: string | null; paddle_customer_id?: string | null; paddle_subscription_id?: string | null; cancel_at_period_end?: boolean | null; grace_period_ends_at?: string | null; cancel_reason?: string | null; trial_ends_at?: string | null; current_period_start?: string | null; current_period_end?: string | null; };
+        Row: { id: string; organization_id: string; plan_id?: string | null; status: string; gateway?: string; paddle_customer_id?: string | null; paddle_subscription_id?: string | null; cancel_at_period_end?: boolean | null; grace_period_ends_at?: string | null; cancel_reason?: string | null; trial_ends_at?: string | null; current_period_start?: string | null; current_period_end?: string | null; created_at?: string; updated_at?: string | null; };
+        Insert: { id?: string; organization_id: string; plan_id?: string | null; status?: string; gateway?: string; paddle_customer_id?: string | null; paddle_subscription_id?: string | null; cancel_at_period_end?: boolean | null; grace_period_ends_at?: string | null; cancel_reason?: string | null; trial_ends_at?: string | null; current_period_start?: string | null; current_period_end?: string | null; created_at?: string; updated_at?: string | null; };
+        Update: { id?: string; organization_id?: string; plan_id?: string | null; status?: string; gateway?: string; paddle_customer_id?: string | null; paddle_subscription_id?: string | null; cancel_at_period_end?: boolean | null; grace_period_ends_at?: string | null; cancel_reason?: string | null; trial_ends_at?: string | null; current_period_start?: string | null; current_period_end?: string | null; updated_at?: string | null; };
+        Relationships: [];
+      };
+      billing_customers: {
+        Row: { id: string; organization_id: string; owner_user_id: string | null; paddle_customer_id: string; email: string; country_code: string | null; preferred_currency: string; created_at: string; updated_at: string; };
+        Insert: { id?: string; organization_id: string; owner_user_id?: string | null; paddle_customer_id: string; email: string; country_code?: string | null; preferred_currency?: string; created_at?: string; updated_at?: string; };
+        Update: { id?: string; organization_id?: string; owner_user_id?: string | null; paddle_customer_id?: string; email?: string; country_code?: string | null; preferred_currency?: string; updated_at?: string; };
+        Relationships: [];
+      };
+      billing_subscriptions: {
+        Row: { id: string; organization_id: string; paddle_subscription_id: string; paddle_customer_id: string; paddle_product_id: string | null; paddle_price_id: string; status: string; seat_limit: number; cared_people_limit: number; currency_code: string; unit_price: number; recurring_total: number; billing_interval: string; current_period_start: string; current_period_end: string; next_billed_at: string | null; canceled_at: string | null; scheduled_change: Json | null; created_at: string; updated_at: string; };
+        Insert: { id?: string; organization_id: string; paddle_subscription_id: string; paddle_customer_id: string; paddle_product_id?: string | null; paddle_price_id: string; status?: string; seat_limit?: number; cared_people_limit?: number; currency_code?: string; unit_price?: number; recurring_total?: number; billing_interval?: string; current_period_start?: string; current_period_end?: string; next_billed_at?: string | null; canceled_at?: string | null; scheduled_change?: Json | null; created_at?: string; updated_at?: string; };
+        Update: { id?: string; organization_id?: string; paddle_subscription_id?: string; paddle_customer_id?: string; paddle_product_id?: string | null; paddle_price_id?: string; status?: string; seat_limit?: number; cared_people_limit?: number; currency_code?: string; unit_price?: number; recurring_total?: number; billing_interval?: string; current_period_start?: string; current_period_end?: string; next_billed_at?: string | null; canceled_at?: string | null; scheduled_change?: Json | null; updated_at?: string; };
+        Relationships: [];
+      };
+      billing_price_mappings: {
+        Row: { id: string; environment: string; seat_quantity: number; paddle_product_id: string | null; paddle_price_id: string; billing_interval: string; cared_people_limit: number; unit_price_brl: number; total_monthly_brl: number; status: string; created_at: string; updated_at: string; };
+        Insert: { id?: string; environment?: string; seat_quantity: number; paddle_product_id?: string | null; paddle_price_id: string; billing_interval?: string; cared_people_limit?: number; unit_price_brl: number; total_monthly_brl: number; status?: string; created_at?: string; updated_at?: string; };
+        Update: { id?: string; environment?: string; seat_quantity?: number; paddle_product_id?: string | null; paddle_price_id?: string; billing_interval?: string; cared_people_limit?: number; unit_price_brl?: number; total_monthly_brl?: number; status?: string; updated_at?: string; };
+        Relationships: [];
+      };
+      billing_events: {
+        Row: { id: string; paddle_event_id: string; event_type: string; occurred_at: string | null; processed_at: string; status: string; attempts: number; error_message: string | null; payload: Json; created_at: string; };
+        Insert: { id?: string; paddle_event_id: string; event_type: string; occurred_at?: string | null; processed_at?: string; status?: string; attempts?: number; error_message?: string | null; payload: Json; created_at?: string; };
+        Update: { id?: string; paddle_event_id?: string; event_type?: string; occurred_at?: string | null; processed_at?: string; status?: string; attempts?: number; error_message?: string | null; payload?: Json; };
+        Relationships: [];
+      };
+      organization_entitlements: {
+        Row: { organization_id: string; subscription_id: string | null; seat_limit: number; cared_people_limit: number; active_members_count: number; reserved_invites_count: number; subscription_status: string; access_valid_until: string; updated_at: string; };
+        Insert: { organization_id: string; subscription_id?: string | null; seat_limit?: number; cared_people_limit?: number; active_members_count?: number; reserved_invites_count?: number; subscription_status?: string; access_valid_until?: string; updated_at?: string; };
+        Update: { organization_id?: string; subscription_id?: string | null; seat_limit?: number; cared_people_limit?: number; active_members_count?: number; reserved_invites_count?: number; subscription_status?: string; access_valid_until?: string; updated_at?: string; };
+        Relationships: [];
+      };
+      organization_invitations: {
+        Row: { id: string; organization_id: string; invited_email: string; role: string; status: string; expires_at: string; reserved_seat: boolean; invited_by: string | null; accepted_by: string | null; created_at: string; accepted_at: string | null; canceled_at: string | null; };
+        Insert: { id?: string; organization_id: string; invited_email: string; role?: string; status?: string; expires_at?: string; reserved_seat?: boolean; invited_by?: string | null; accepted_by?: string | null; created_at?: string; accepted_at?: string | null; canceled_at?: string | null; };
+        Update: { id?: string; organization_id?: string; invited_email?: string; role?: string; status?: string; expires_at?: string; reserved_seat?: boolean; invited_by?: string | null; accepted_by?: string | null; accepted_at?: string | null; canceled_at?: string | null; };
         Relationships: [];
       };
       billing_history: {

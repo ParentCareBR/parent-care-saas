@@ -9,7 +9,7 @@ export default function RevenuePage() {
   const [entries, setEntries] = useState<RevenueEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ type: 'subscription', amount: '', currency: 'BRL', gateway: 'stripe', description: '' });
+  const [form, setForm] = useState({ type: 'subscription', amount: '', currency: 'BRL', gateway: 'paddle', description: '' });
   const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
   const fetchEntries = async () => {
@@ -21,7 +21,7 @@ export default function RevenuePage() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     await supabase.from('erp_revenue').insert({ ...form, amount: parseFloat(form.amount) });
-    setForm({ type: 'subscription', amount: '', currency: 'BRL', gateway: 'stripe', description: '' });
+    setForm({ type: 'subscription', amount: '', currency: 'BRL', gateway: 'paddle', description: '' });
     setShowForm(false); fetchEntries();
   };
 
@@ -50,7 +50,7 @@ export default function RevenuePage() {
             </select></div>
           <div><label className="text-xs text-gray-500 block mb-1">Gateway</label>
             <select value={form.gateway} onChange={e => setForm({ ...form, gateway: e.target.value })} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
-              <option value="stripe">Stripe</option><option value="mercado_pago">Mercado Pago</option><option value="paddle">Paddle</option>
+              <option value="paddle">Paddle Billing (Exclusivo)</option>
             </select></div>
           <div className="col-span-2"><label className="text-xs text-gray-500 block mb-1">Descrição</label>
             <input type="text" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" /></div>

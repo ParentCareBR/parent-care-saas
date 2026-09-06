@@ -367,7 +367,7 @@ export default function SettingsPage() {
                   <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">Plano Atual</span>
                   <h4 className="text-lg font-bold text-emerald-950 mt-0.5">Plano Familiar — 30 Dias de Teste Grátis</h4>
                   <p className="text-xs text-emerald-700 mt-1">
-                    Cartão cadastrado com segurança no Stripe. R$ 0,00 cobrado hoje. Primeira fatura no 31º dia.
+                    Cartão cadastrado com segurança na Paddle. Cobrança segura e transparente.
                   </p>
                 </div>
                 <Button asChild className="bg-emerald-600 hover:bg-emerald-700 rounded-xl">

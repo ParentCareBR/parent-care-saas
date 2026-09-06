@@ -1,23 +1,23 @@
-import { Environment, LogLevel, Paddle } from '@paddle/paddle-node-sdk';
+import { getPaddleClient } from './paddle-client';
 import { BillingGateway, CreateCheckoutSessionParams, CreateCustomerParams } from './types';
 
+export interface PricePreviewItem {
+  priceId: string;
+  quantity: number;
+}
+
+export interface PricePreviewResult {
+  currencyCode: string;
+  unitPriceFormatted: string;
+  totalFormatted: string;
+  subtotal: string;
+  tax: string;
+  total: string;
+}
+
 export class PaddleProvider implements BillingGateway {
-  private paddle: Paddle;
-
-  constructor() {
-    const apiKey = process.env.PADDLE_API_KEY;
-    if (!apiKey) {
-      console.warn('PADDLE_API_KEY is not set. Initializing Paddle in sandbox mode with placeholder.');
-    }
-
-    const environment = process.env.PADDLE_ENVIRONMENT === 'production'
-      ? Environment.production
-      : Environment.sandbox;
-
-    this.paddle = new Paddle(apiKey || 'pdl_dummy_key_placeholder', {
-      environment,
-      logLevel: LogLevel.warn,
-    });
+  private get paddle() {
+    return getPaddleClient();
   }
 
   async createCustomer(params: CreateCustomerParams): Promise<string> {
@@ -29,7 +29,7 @@ export class PaddleProvider implements BillingGateway {
     return customer.id;
   }
 
-  async createCheckoutSession(params: CreateCheckoutSessionParams): Promise<{ url: string }> {
+  async createCheckoutSession(params: CreateCheckoutSessionParams): Promise<{ url: string; transactionId: string }> {
     const customData: Record<string, any> = {
       ...params.metadata,
       trial_days: params.trialPeriodDays ?? 30,
@@ -50,14 +50,14 @@ export class PaddleProvider implements BillingGateway {
       },
     });
 
-    const isSandbox = process.env.PADDLE_ENVIRONMENT !== 'production';
+    const isSandbox = (process.env.PADDLE_ENVIRONMENT || process.env.NEXT_PUBLIC_PADDLE_ENV) !== 'production';
     const fallbackUrl = isSandbox
       ? `https://sandbox-checkout.paddle.com/checkout/tx_${transaction.id}`
       : `https://checkout.paddle.com/checkout/tx_${transaction.id}`;
 
     const checkoutUrl = transaction.checkout?.url || fallbackUrl;
 
-    return { url: checkoutUrl };
+    return { url: checkoutUrl, transactionId: transaction.id };
   }
 
   async createPortalSession(customerId: string, returnUrl: string, subscriptionIds: string[] = []): Promise<{ url: string }> {
@@ -73,6 +73,29 @@ export class PaddleProvider implements BillingGateway {
   async cancelSubscription(subscriptionId: string, immediate: boolean = false): Promise<void> {
     await this.paddle.subscriptions.cancel(subscriptionId, {
       effectiveFrom: immediate ? 'immediately' : 'next_billing_period',
+    });
+  }
+
+  async resumeSubscription(subscriptionId: string): Promise<any> {
+    return await this.paddle.subscriptions.update(subscriptionId, {
+      scheduledChange: null,
+    });
+  }
+
+  async updateSubscriptionSeats(
+    subscriptionId: string,
+    newPriceId: string,
+    newQuantity: number,
+    prorationBillingMode: 'prorated_immediately' | 'prorated_next_billing_period' | 'do_not_bill' = 'prorated_immediately'
+  ): Promise<any> {
+    return await this.paddle.subscriptions.update(subscriptionId, {
+      items: [
+        {
+          priceId: newPriceId,
+          quantity: newQuantity,
+        },
+      ],
+      prorationBillingMode,
     });
   }
 

@@ -37,8 +37,8 @@ CREATE TABLE IF NOT EXISTS public.plans (
   max_members INT NOT NULL DEFAULT 5,
   features JSONB NOT NULL DEFAULT '{}',
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  stripe_price_id_monthly TEXT,
-  stripe_price_id_yearly TEXT,
+  paddle_price_id_monthly TEXT,
+  paddle_price_id_yearly TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -304,9 +304,9 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
   status TEXT NOT NULL DEFAULT 'trial'
     CHECK (status IN ('trial', 'active', 'past_due', 'canceled', 'paused')),
   current_period_start TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  current_period_end TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '14 days',
-  stripe_subscription_id TEXT UNIQUE,
-  stripe_customer_id TEXT,
+  current_period_end TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '30 days',
+  paddle_subscription_id TEXT UNIQUE,
+  paddle_customer_id TEXT,
   cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

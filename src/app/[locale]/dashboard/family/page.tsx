@@ -10,8 +10,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, UserPlus, Mail, Shield, Share2, Check, Copy } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Users, UserPlus, Mail, Shield, Share2, Check, Copy, AlertCircle, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 
 interface Member {
   id: string;
@@ -27,29 +30,43 @@ interface Member {
   };
 }
 
+interface EntitlementInfo {
+  seatLimit: number;
+  totalUsedSeats: number;
+  availableSeats: number;
+  canInvite: boolean;
+  activeMembersCount: number;
+  reservedInvitesCount: number;
+  subscriptionStatus: string;
+}
+
 export default function FamilyPage() {
   const { user, currentOrganizationId } = useAuth();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createClient() as any;
   const { toast } = useToast();
+  const params = useParams();
+  const locale = (params?.locale as string) || 'pt-BR';
 
   const [members, setMembers] = useState<Member[]>([]);
+  const [entitlements, setEntitlements] = useState<EntitlementInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [inviteForm, setInviteForm] = useState({
-    name: '',
     email: '',
     role: 'collaborator',
   });
 
-  const fetchMembers = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!currentOrganizationId) {
       setLoading(false);
       return;
     }
     setLoading(true);
 
+    // Fetch members
     const { data, error } = await supabase
       .from('organization_members')
       .select(`
@@ -68,52 +85,84 @@ export default function FamilyPage() {
       .eq('organization_id', currentOrganizationId);
 
     if (error) {
-      console.error('Erro ao buscar membros:', error);
-      // Fallback: If joined query fails due to RLS, fetch members directly
+      // Fallback: direct query
       const { data: rawMembers } = await supabase
         .from('organization_members')
         .select('*')
         .eq('organization_id', currentOrganizationId);
-
-      if (rawMembers) {
-        setMembers(rawMembers);
-      }
+      if (rawMembers) setMembers(rawMembers);
     } else if (data) {
       setMembers(data);
     }
+
+    // Fetch entitlements from organization_entitlements table
+    const { data: entData } = await supabase
+      .from('organization_entitlements')
+      .select('*')
+      .eq('organization_id', currentOrganizationId)
+      .maybeSingle();
+
+    if (entData) {
+      const used = entData.active_members_count + entData.reserved_invites_count;
+      setEntitlements({
+        seatLimit: entData.seat_limit,
+        totalUsedSeats: used,
+        availableSeats: Math.max(0, entData.seat_limit - used),
+        canInvite: entData.seat_limit > used,
+        activeMembersCount: entData.active_members_count,
+        reservedInvitesCount: entData.reserved_invites_count,
+        subscriptionStatus: entData.subscription_status,
+      });
+    }
+
     setLoading(false);
   }, [currentOrganizationId, supabase]);
 
   useEffect(() => {
-    fetchMembers();
-  }, [fetchMembers]);
+    fetchData();
+  }, [fetchData]);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentOrganizationId) return;
 
-    const { error } = await supabase
-      .from('organization_members')
-      .insert({
-        organization_id: currentOrganizationId,
-        user_id: user?.id, // Temporary link until accepted
-        invited_email: inviteForm.email,
-        role: inviteForm.role,
-        status: 'invited',
+    setInviteError(null);
+    setInviteLoading(true);
+
+    try {
+      const res = await fetch('/api/organizations/invitations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          organizationId: currentOrganizationId,
+          email: inviteForm.email,
+          role: inviteForm.role,
+        }),
       });
 
-    if (error) {
-      toast({ title: 'Erro ao convidar', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Convite enviado!', description: `Convite enviado para ${inviteForm.email}.` });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setInviteError(data.error || 'Erro ao enviar convite');
+        return;
+      }
+
+      toast({
+        title: '✅ Convite enviado!',
+        description: `Convite enviado para ${inviteForm.email}. 1 assento reservado.`,
+      });
       setInviteOpen(false);
-      setInviteForm({ name: '', email: '', role: 'collaborator' });
-      fetchMembers();
+      setInviteForm({ email: '', role: 'collaborator' });
+      await fetchData();
+    } catch (err: any) {
+      setInviteError(err.message || 'Falha ao enviar convite');
+    } finally {
+      setInviteLoading(false);
     }
   };
 
   const copyInviteLink = () => {
-    const inviteUrl = `${window.location.origin}/pt-BR/auth/signup?ref=${currentOrganizationId}`;
+    const inviteUrl = `${window.location.origin}/${locale}/auth/signup?ref=${currentOrganizationId}`;
     navigator.clipboard.writeText(inviteUrl);
     setCopied(true);
     toast({ title: 'Link copiado!', description: 'Envie este link para seu familiar entrar na rede de cuidados.' });
@@ -138,6 +187,8 @@ export default function FamilyPage() {
     }
   };
 
+  const seatsFull = entitlements ? !entitlements.canInvite : false;
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
@@ -158,37 +209,47 @@ export default function FamilyPage() {
             {copied ? 'Link Copiado!' : 'Copiar Link de Convite'}
           </Button>
 
-          <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+          <Dialog open={inviteOpen} onOpenChange={(open) => { setInviteOpen(open); if (!open) setInviteError(null); }}>
             <DialogTrigger asChild>
-              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 rounded-xl">
-                <UserPlus className="h-4 w-4 mr-2" /> Convidar Membro
+              <Button
+                size="sm"
+                className={`rounded-xl ${seatsFull ? 'bg-stone-400 hover:bg-stone-500 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                onClick={(e) => {
+                  if (seatsFull) {
+                    e.preventDefault();
+                    toast({
+                      title: 'Limite de assentos atingido',
+                      description: `O plano atual (${entitlements?.seatLimit} assentos) está cheio. Acesse Configurações > Assinatura para adicionar mais assentos.`,
+                      variant: 'destructive',
+                    });
+                    return;
+                  }
+                }}
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                Convidar Membro
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[440px]">
               <form onSubmit={handleInvite}>
                 <DialogHeader>
                   <DialogTitle>Convidar Familiar ou Cuidador</DialogTitle>
                   <DialogDescription>
                     Envie um convite para que outro membro da família acompanhe o dia a dia.
+                    {entitlements && (
+                      <span className="block mt-1.5 text-emerald-700 font-medium">
+                        Assentos disponíveis: {entitlements.availableSeats} de {entitlements.seatLimit}
+                      </span>
+                    )}
                   </DialogDescription>
                 </DialogHeader>
 
                 <div className="grid gap-4 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Nome (opcional)</Label>
-                    <Input 
-                      id="name" 
-                      placeholder="Ex: Tio João, Enfermeira Ana"
-                      value={inviteForm.name}
-                      onChange={(e) => setInviteForm(prev => ({ ...prev, name: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
                     <Label htmlFor="email">E-mail *</Label>
-                    <Input 
-                      id="email" 
-                      type="email" 
+                    <Input
+                      id="email"
+                      type="email"
                       required
                       placeholder="familiar@email.com"
                       value={inviteForm.email}
@@ -198,7 +259,7 @@ export default function FamilyPage() {
 
                   <div className="space-y-2">
                     <Label htmlFor="role">Papel nos Cuidados</Label>
-                    <Select 
+                    <Select
                       value={inviteForm.role}
                       onValueChange={(val) => setInviteForm(prev => ({ ...prev, role: val }))}
                     >
@@ -212,17 +273,93 @@ export default function FamilyPage() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {inviteError && (
+                    <Alert variant="destructive" className="text-sm">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        {inviteError}
+                        {inviteError.includes('assentos') && (
+                          <Link
+                            href={`/${locale}/dashboard/settings/subscription`}
+                            className="block mt-1.5 font-bold underline"
+                          >
+                            Clique aqui para adicionar mais assentos →
+                          </Link>
+                        )}
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </div>
 
                 <DialogFooter>
                   <Button type="button" variant="ghost" onClick={() => setInviteOpen(false)}>Cancelar</Button>
-                  <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">Enviar Convite</Button>
+                  <Button
+                    type="submit"
+                    disabled={inviteLoading}
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    {inviteLoading ? 'Enviando...' : 'Enviar Convite (1 assento reservado)'}
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
         </div>
       </div>
+
+      {/* Seat Usage Badge */}
+      {entitlements && (
+        <Card className={`border ${seatsFull ? 'border-amber-200 bg-amber-50' : 'border-emerald-100 bg-emerald-50/60'} rounded-2xl`}>
+          <CardContent className="py-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Users className={`h-5 w-5 ${seatsFull ? 'text-amber-600' : 'text-emerald-600'}`} />
+                <div>
+                  <span className="font-bold text-stone-900 text-sm">
+                    {entitlements.totalUsedSeats} de {entitlements.seatLimit} assentos utilizados
+                  </span>
+                  <div className="text-xs text-stone-500 mt-0.5">
+                    {entitlements.activeMembersCount} membro(s) ativo(s) + {entitlements.reservedInvitesCount} convite(s) pendente(s)
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {seatsFull ? (
+                  <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-xs font-bold">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    Plano Completo
+                  </Badge>
+                ) : (
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-xs font-bold">
+                    {entitlements.availableSeats} vaga(s) disponível(is)
+                  </Badge>
+                )}
+
+                {seatsFull && (
+                  <Button asChild size="sm" className="h-8 text-xs bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg gap-1.5">
+                    <Link href={`/${locale}/dashboard/settings/subscription`}>
+                      <ExternalLink className="h-3 w-3" />
+                      Adicionar Assentos
+                    </Link>
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Seat Progress Bar */}
+            <div className="mt-3">
+              <div className="w-full bg-white/70 rounded-full h-2 overflow-hidden border border-stone-200/50">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${seatsFull ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                  style={{ width: `${Math.min(100, (entitlements.totalUsedSeats / entitlements.seatLimit) * 100)}%` }}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Members Grid / List */}
       <Card className="rounded-2xl border-stone-200">

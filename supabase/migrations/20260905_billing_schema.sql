@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS public.plan_prices (
   currency TEXT NOT NULL, -- e.g., 'BRL', 'USD', 'EUR'
   monthly_price NUMERIC(10,2) NOT NULL,
   yearly_price NUMERIC(10,2) NOT NULL,
-  stripe_price_monthly_id TEXT,
-  stripe_price_yearly_id TEXT,
+  paddle_price_monthly_id TEXT,
+  paddle_price_yearly_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(plan_id, currency)
 );
@@ -22,16 +22,16 @@ CREATE POLICY "plan_prices_select_all" ON public.plan_prices
 
 -- Altering subscriptions to add gateway and grace periods
 ALTER TABLE public.subscriptions 
-  ADD COLUMN IF NOT EXISTS gateway TEXT NOT NULL DEFAULT 'stripe',
+  ADD COLUMN IF NOT EXISTS gateway TEXT NOT NULL DEFAULT 'paddle',
   ADD COLUMN IF NOT EXISTS grace_period_ends_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS cancel_reason TEXT;
 
--- Invoices / Billing history to decouple from stripe directly
+-- Invoices / Billing history via Paddle Billing
 CREATE TABLE IF NOT EXISTS public.billing_history (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   subscription_id UUID REFERENCES public.subscriptions(id) ON DELETE SET NULL,
-  gateway TEXT NOT NULL DEFAULT 'stripe',
+  gateway TEXT NOT NULL DEFAULT 'paddle',
   gateway_invoice_id TEXT UNIQUE,
   amount_due NUMERIC(10,2) NOT NULL,
   amount_paid NUMERIC(10,2) NOT NULL,
@@ -47,7 +47,7 @@ ALTER TABLE public.billing_history ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "billing_history_select" ON public.billing_history
   FOR SELECT USING (public.is_org_admin(organization_id));
 
--- Stripe Webhook Events Log (for idempotency and audit)
+-- Paddle Webhook Events Log (for idempotency and audit)
 CREATE TABLE IF NOT EXISTS public.gateway_events (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   gateway TEXT NOT NULL,

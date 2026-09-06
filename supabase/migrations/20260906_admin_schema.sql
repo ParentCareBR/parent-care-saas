@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS public.erp_revenue (
   type TEXT NOT NULL CHECK (type IN ('subscription', 'one_time', 'refund', 'chargeback')),
   amount NUMERIC(12,2) NOT NULL,
   currency TEXT NOT NULL DEFAULT 'BRL',
-  gateway TEXT NOT NULL DEFAULT 'stripe',
+  gateway TEXT NOT NULL DEFAULT 'paddle',
   gateway_ref TEXT,
   discount_amount NUMERIC(10,2) DEFAULT 0,
   gateway_fee NUMERIC(10,2) DEFAULT 0,
