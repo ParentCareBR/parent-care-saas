@@ -137,6 +137,8 @@ export async function POST(req: NextRequest) {
     let message = error?.detail || error?.message || 'Erro ao iniciar checkout.';
     if (error?.code === 'authentication_malformed' || String(message).includes('authentication_malformed')) {
       message = 'Chave de API do Paddle inválida. Certifique-se de usar a Secret Key completa (começa com pdl_live_apikey_ ou pdl_sdbx_apikey_), não apenas o Key ID.';
+    } else if (error?.code === 'transaction_checkout_not_enabled' || String(message).includes('transaction_checkout_not_enabled') || String(message).includes("Checkouts aren't enabled")) {
+      message = 'Os checkouts ainda não foram liberados para esta conta de produção do Paddle. Acesse o Paddle Dashboard e conclua o onboarding/verificação de identidade da empresa.';
     } else if (error?.code === 'not_found' || String(message).includes('not found') || String(message).includes('price')) {
       message = 'Preço do plano não encontrado no Paddle. Cadastre os preços no Paddle Dashboard e informe os Price IDs no Vercel.';
     }

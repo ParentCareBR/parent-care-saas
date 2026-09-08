@@ -34,7 +34,7 @@ export const PADDLE_TIERS: Record<number, PricingTier> = {
     caredPeopleLimit: 3,
     savingsPercentage: 0,
     sandboxPriceId: process.env.PADDLE_PRICE_ID_1_SEAT_SANDBOX || 'pri_01jm_parentcare_1seat_sdbx',
-    livePriceId: process.env.PADDLE_PRICE_ID_1_SEAT_LIVE || 'pri_01jm_parentcare_1seat_live',
+    livePriceId: process.env.PADDLE_PRICE_ID_1_SEAT_LIVE || 'pri_01m1tphk5zpr086ywdabthfwyf',
   },
   2: {
     seats: 2,
@@ -43,7 +43,7 @@ export const PADDLE_TIERS: Record<number, PricingTier> = {
     caredPeopleLimit: 4,
     savingsPercentage: 8,
     sandboxPriceId: process.env.PADDLE_PRICE_ID_2_SEATS_SANDBOX || 'pri_01jm_parentcare_2seats_sdbx',
-    livePriceId: process.env.PADDLE_PRICE_ID_2_SEATS_LIVE || 'pri_01jm_parentcare_2seats_live',
+    livePriceId: process.env.PADDLE_PRICE_ID_2_SEATS_LIVE || 'pri_01m1zj2dve9kjxszarfamj90ks',
   },
   3: {
     seats: 3,
@@ -52,7 +52,7 @@ export const PADDLE_TIERS: Record<number, PricingTier> = {
     caredPeopleLimit: 5,
     savingsPercentage: 22,
     sandboxPriceId: process.env.PADDLE_PRICE_ID_3_SEATS_SANDBOX || 'pri_01jm_parentcare_3seats_sdbx',
-    livePriceId: process.env.PADDLE_PRICE_ID_3_SEATS_LIVE || 'pri_01jm_parentcare_3seats_live',
+    livePriceId: process.env.PADDLE_PRICE_ID_3_SEATS_LIVE || 'pri_01m1zj5s005v7fky76sgy0qh4q',
   },
   4: {
     seats: 4,
