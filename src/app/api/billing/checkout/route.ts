@@ -99,7 +99,11 @@ export async function POST(req: NextRequest) {
         }).eq('id', organizationId);
       } catch (custErr: any) {
         console.error('[Paddle Checkout] Error creating customer:', custErr);
-        return NextResponse.json({ error: `Falha ao criar cliente no Paddle: ${custErr?.message}` }, { status: 502 });
+        let msg = custErr?.detail || custErr?.message || 'Falha ao criar cliente no Paddle';
+        if (custErr?.code === 'authentication_malformed' || String(msg).includes('authentication_malformed')) {
+          msg = 'Chave de API do Paddle inválida. Certifique-se de usar a Secret Key completa (começa com pdl_live_apikey_ ou pdl_sdbx_apikey_), não apenas o Key ID.';
+        }
+        return NextResponse.json({ error: msg, code: custErr?.code }, { status: 502 });
       }
     }
 
@@ -130,6 +134,12 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('[Paddle Checkout Error]:', error);
-    return NextResponse.json({ error: error?.message || 'Erro ao iniciar checkout.' }, { status: 500 });
+    let message = error?.detail || error?.message || 'Erro ao iniciar checkout.';
+    if (error?.code === 'authentication_malformed' || String(message).includes('authentication_malformed')) {
+      message = 'Chave de API do Paddle inválida. Certifique-se de usar a Secret Key completa (começa com pdl_live_apikey_ ou pdl_sdbx_apikey_), não apenas o Key ID.';
+    } else if (error?.code === 'not_found' || String(message).includes('not found') || String(message).includes('price')) {
+      message = 'Preço do plano não encontrado no Paddle. Cadastre os preços no Paddle Dashboard e informe os Price IDs no Vercel.';
+    }
+    return NextResponse.json({ error: message, code: error?.code || 'CHECKOUT_ERROR' }, { status: 500 });
   }
 }

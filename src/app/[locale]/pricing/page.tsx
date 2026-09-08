@@ -7,11 +7,34 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Heart, ShieldCheck, Star, Zap, CreditCard, ArrowLeft } from 'lucide-react';
+import { CheckCircle, Heart, ShieldCheck, Star, Zap, CreditCard, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { PADDLE_TIERS, getTierPricing } from '@/lib/billing/paddle-catalog';
 import { useAuth } from '@/contexts/AuthContext';
+
+declare global {
+  interface Window { Paddle?: any; }
+}
+
+async function loadPaddleScript(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  if (window.Paddle) return true;
+  return new Promise((resolve) => {
+    if (document.querySelector('script[src*="paddle.js"]')) {
+      const poll = setInterval(() => {
+        if (window.Paddle) { clearInterval(poll); resolve(true); }
+      }, 100);
+      setTimeout(() => { clearInterval(poll); resolve(false); }, 6000);
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.paddle.com/paddle/v2/paddle.js';
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
 
 export default function PricingPage() {
   const tPlan = useTranslations('PlanCards');
@@ -22,36 +45,67 @@ export default function PricingPage() {
   const { user, currentOrganizationId } = useAuth();
 
   const [checkoutLoadingSeats, setCheckoutLoadingSeats] = useState<number | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const tiersArray = Object.values(PADDLE_TIERS).sort((a, b) => a.seats - b.seats);
 
   const handleAction = async (seats: number) => {
-    // If not logged in or has no organization, redirect to signup with seat selection
     if (!user || !currentOrganizationId) {
       router.push(`/${locale}/auth/signup?seats=${seats}`);
       return;
     }
 
     setCheckoutLoadingSeats(seats);
+    setCheckoutError(null);
+
     try {
       const res = await fetch('/api/billing/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          organizationId: currentOrganizationId,
-          seatQuantity: seats,
-          locale,
-        }),
+        body: JSON.stringify({ organizationId: currentOrganizationId, seatQuantity: seats, locale }),
       });
 
       const data = await res.json();
+
+      if (!res.ok) {
+        setCheckoutError(data?.error || 'Erro ao iniciar o checkout. Tente novamente.');
+        setCheckoutLoadingSeats(null);
+        return;
+      }
+
+      // --- Try Paddle overlay first (best UX) ---
+      if (data.transactionId) {
+        const loaded = await loadPaddleScript();
+        if (loaded && window.Paddle) {
+          try {
+            const paddleEnv = process.env.NEXT_PUBLIC_PADDLE_ENV;
+            if (paddleEnv !== 'production') window.Paddle.Environment.set('sandbox');
+            const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN;
+            if (token) window.Paddle.Setup({ token });
+
+            window.Paddle.Checkout.open({
+              transactionId: data.transactionId,
+              settings: {
+                displayMode: 'overlay',
+                theme: 'light',
+                locale: locale === 'pt-BR' ? 'pt' : (locale.split('-')[0] || 'pt'),
+                successUrl: `${window.location.origin}/${locale}/dashboard/settings/subscription?success=true`,
+              },
+            });
+            setCheckoutLoadingSeats(null);
+            return;
+          } catch (overlayErr) {
+            console.warn('[Paddle] Overlay failed, redirecting:', overlayErr);
+          }
+        }
+      }
+
+      // --- Fallback: redirect to hosted checkout ---
       if (data.url) {
         window.location.href = data.url;
-      } else {
-        router.push(`/${locale}/dashboard/settings/subscription`);
+        return;
       }
-    } catch (err: any) {
-      console.error(err);
+
       router.push(`/${locale}/dashboard/settings/subscription`);
     } finally {
       setCheckoutLoadingSeats(null);
@@ -120,6 +174,15 @@ export default function PricingPage() {
             {tPlan('subtitle')}
           </p>
         </div>
+
+        {/* Checkout Error Banner */}
+        {checkoutError && (
+          <div className="max-w-2xl mx-auto flex items-start gap-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 rounded-xl px-4 py-3 text-sm">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span className="flex-1">{checkoutError}</span>
+            <button onClick={() => setCheckoutError(null)} className="ml-2 text-red-500 hover:text-red-700 font-bold text-base leading-none">&times;</button>
+          </div>
+        )}
 
         {/* Plan Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -70,6 +70,7 @@ export default function SubscriptionSettingsPage() {
   const [resumeLoading, setResumeLoading] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<number | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [downgradeError, setDowngradeError] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -221,6 +222,7 @@ export default function SubscriptionSettingsPage() {
 
   const handleCheckout = async (seats: number) => {
     setCheckoutLoading(seats);
+    setCheckoutError(null);
     try {
       const res = await fetch('/api/billing/checkout', {
         method: 'POST',
@@ -228,9 +230,43 @@ export default function SubscriptionSettingsPage() {
         body: JSON.stringify({ organizationId: currentOrganizationId, seatQuantity: seats, locale }),
       });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
+      if (!res.ok) {
+        setCheckoutError(data.error || 'Erro ao iniciar o checkout.');
+        setCheckoutLoading(null);
+        return;
+      }
+
+      // Try Paddle overlay first if available
+      if (data.transactionId && typeof window !== 'undefined' && window.Paddle) {
+        try {
+          const env = process.env.NEXT_PUBLIC_PADDLE_ENV;
+          if (env !== 'production') window.Paddle.Environment?.set('sandbox');
+          const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN;
+          if (token) window.Paddle.Setup?.({ token });
+
+          window.Paddle.Checkout?.open({
+            transactionId: data.transactionId,
+            settings: {
+              displayMode: 'overlay',
+              theme: 'light',
+              locale: locale === 'pt-BR' ? 'pt' : (locale.split('-')[0] || 'pt'),
+              successUrl: `${window.location.origin}/${locale}/dashboard/settings/subscription?success=true`,
+            },
+          });
+          setCheckoutLoading(null);
+          return;
+        } catch {
+          // overlay fallback to redirect
+        }
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
     } catch (err: any) {
       console.error(err);
+      setCheckoutError('Falha ao conectar ao sistema de pagamento. Verifique sua conexão.');
     }
     setCheckoutLoading(null);
   };
@@ -639,6 +675,14 @@ export default function SubscriptionSettingsPage() {
           </h2>
           <p className="text-stone-500 text-sm mt-1">{tPlan('subtitle')}</p>
         </div>
+
+        {checkoutError && (
+          <div className="mb-6 flex items-start gap-3 bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 text-sm">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-red-600" />
+            <span className="flex-1">{checkoutError}</span>
+            <button onClick={() => setCheckoutError(null)} className="ml-2 text-red-500 hover:text-red-700 font-bold text-base leading-none">&times;</button>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {tiersArray.map((tier) => {
