@@ -60,21 +60,33 @@ export async function POST(req: NextRequest) {
     const paddleEnv = isProduction ? 'production' : 'sandbox';
     const priceId = getAuthorizedPriceId(numSeats, paddleEnv);
 
-    // 4. Retrieve or create customer record
+    // 4. Retrieve or create customer record safely
     const { data: org } = await adminSupabase
       .from('organizations')
-      .select('name, paddle_customer_id')
+      .select('name, settings')
       .eq('id', organizationId)
-      .single();
-
-    const { data: billingCust } = await adminSupabase
-      .from('billing_customers')
-      .select('paddle_customer_id')
-      .eq('organization_id', organizationId)
       .maybeSingle();
 
+    const orgSettings = (org?.settings as any) || {};
+    let customerId = orgSettings.paddle_customer_id || null;
+
+    // Optional lookup in billing_customers if table exists
+    if (!customerId) {
+      try {
+        const { data: billingCust } = await adminSupabase
+          .from('billing_customers')
+          .select('paddle_customer_id')
+          .eq('organization_id', organizationId)
+          .maybeSingle();
+        if (billingCust?.paddle_customer_id) {
+          customerId = billingCust.paddle_customer_id;
+        }
+      } catch {
+        // non-fatal if table doesn't exist
+      }
+    }
+
     const gateway = getBillingGateway();
-    let customerId = billingCust?.paddle_customer_id || org?.paddle_customer_id;
 
     if (!customerId) {
       try {
@@ -84,19 +96,28 @@ export async function POST(req: NextRequest) {
           metadata: { organization_id: organizationId },
         });
 
-        await adminSupabase.from('billing_customers').upsert({
-          organization_id: organizationId,
-          owner_user_id: user.id,
-          paddle_customer_id: customerId,
-          email: user.email!,
-          country_code: 'BR',
-          preferred_currency: 'BRL',
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'organization_id' });
-
+        // Save in organizations.settings (guaranteed to exist)
         await adminSupabase.from('organizations').update({
-          paddle_customer_id: customerId,
+          settings: {
+            ...orgSettings,
+            paddle_customer_id: customerId,
+          },
         }).eq('id', organizationId);
+
+        // Try saving in billing_customers if table exists
+        try {
+          await adminSupabase.from('billing_customers').upsert({
+            organization_id: organizationId,
+            owner_user_id: user.id,
+            paddle_customer_id: customerId,
+            email: user.email!,
+            country_code: 'BR',
+            preferred_currency: 'BRL',
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'organization_id' });
+        } catch {
+          // ignore if table doesn't exist
+        }
       } catch (custErr: any) {
         console.error('[Paddle Checkout] Error creating customer:', custErr);
         let msg = custErr?.detail || custErr?.message || 'Falha ao criar cliente no Paddle';
