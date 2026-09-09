@@ -143,59 +143,34 @@ export interface FormattedTierPricing {
   savingsPercentage: number;
 }
 
+/**
+ * Format a BRL amount according to the user's locale.
+ * All prices are always in BRL (the only Paddle-configured currency).
+ * The locale only affects number formatting (decimal/thousands separators).
+ */
+function formatBRL(amount: number, locale: string): string {
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    // fallback for unsupported locales
+    return `R$ ${amount.toFixed(2).replace('.', ',')}`;
+  }
+}
+
 export function getTierPricing(seats: number, locale: string = 'pt-BR'): FormattedTierPricing {
   const tier = PADDLE_TIERS[seats] || PADDLE_TIERS[1];
-  const isEn = locale.startsWith('en');
-  const isEur = locale.startsWith('fr') || locale.startsWith('de');
-  const isEs = locale.startsWith('es');
 
-  if (isEn || isEs) {
-    const usdPrices: Record<number, { total: number; unit: number }> = {
-      1: { total: 9.90, unit: 9.90 },
-      2: { total: 18.90, unit: 9.45 },
-      3: { total: 24.90, unit: 8.30 },
-      4: { total: 29.90, unit: 7.47 },
-      5: { total: 34.90, unit: 6.98 },
-      6: { total: 39.90, unit: 6.65 },
-    };
-    const p = usdPrices[seats] || { total: 9.90, unit: 9.90 };
-    return {
-      currency: 'USD',
-      totalFormatted: `$${p.total.toFixed(2)}`,
-      unitFormatted: `$${p.unit.toFixed(2)}`,
-      rawTotal: p.total,
-      rawUnit: p.unit,
-      caredPeopleLimit: tier.caredPeopleLimit,
-      savingsPercentage: tier.savingsPercentage,
-    };
-  }
-
-  if (isEur) {
-    const eurPrices: Record<number, { total: number; unit: number }> = {
-      1: { total: 9.90, unit: 9.90 },
-      2: { total: 18.90, unit: 9.45 },
-      3: { total: 24.90, unit: 8.30 },
-      4: { total: 29.90, unit: 7.47 },
-      5: { total: 34.90, unit: 6.98 },
-      6: { total: 39.90, unit: 6.65 },
-    };
-    const p = eurPrices[seats] || { total: 9.90, unit: 9.90 };
-    return {
-      currency: 'EUR',
-      totalFormatted: `${p.total.toFixed(2).replace('.', ',')} €`,
-      unitFormatted: `${p.unit.toFixed(2).replace('.', ',')} €`,
-      rawTotal: p.total,
-      rawUnit: p.unit,
-      caredPeopleLimit: tier.caredPeopleLimit,
-      savingsPercentage: tier.savingsPercentage,
-    };
-  }
-
-  // Default BRL
+  // Always BRL — only currency configured in Paddle
+  // Locale only affects number formatting, not the currency
   return {
     currency: 'BRL',
-    totalFormatted: `R$ ${tier.totalMonthlyBrl.toFixed(2).replace('.', ',')}`,
-    unitFormatted: `R$ ${tier.unitPriceBrl.toFixed(2).replace('.', ',')}`,
+    totalFormatted: formatBRL(tier.totalMonthlyBrl, locale),
+    unitFormatted: formatBRL(tier.unitPriceBrl, locale),
     rawTotal: tier.totalMonthlyBrl,
     rawUnit: tier.unitPriceBrl,
     caredPeopleLimit: tier.caredPeopleLimit,

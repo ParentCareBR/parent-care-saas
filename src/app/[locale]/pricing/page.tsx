@@ -87,12 +87,17 @@ export default function PricingPage() {
               window.Paddle.Setup({ token });
             }
 
+            const paddleLocaleMap: Record<string, string> = {
+              'pt-BR': 'pt', 'en': 'en', 'es': 'es', 'fr': 'fr', 'de': 'de',
+            };
+            const paddleLocale = paddleLocaleMap[locale] || locale.split('-')[0] || 'pt';
+
             window.Paddle.Checkout.open({
               transactionId: data.transactionId,
               settings: {
                 displayMode: 'overlay',
                 theme: 'light',
-                locale: locale === 'pt-BR' ? 'pt' : (locale.split('-')[0] || 'pt'),
+                locale: paddleLocale,
                 successUrl: `${window.location.origin}/${locale}/dashboard/settings/subscription?success=true`,
               },
             });
