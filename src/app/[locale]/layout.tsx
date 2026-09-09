@@ -5,6 +5,7 @@ import { getMessages, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import CookieBanner from '@/components/shared/CookieBanner';
+import PaddleInitializer from '@/components/shared/PaddleInitializer';
 import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import '../globals.css';
@@ -52,6 +53,7 @@ export default async function LocaleLayout({
         <ThemeProvider>
           <NextIntlClientProvider messages={messages} locale={locale}>
             {children}
+            <PaddleInitializer />
             <CookieBanner />
             <Toaster />
           </NextIntlClientProvider>
