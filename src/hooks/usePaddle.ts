@@ -55,15 +55,15 @@ export function usePaddle() {
     if (!window.Paddle || _initialized) return;
 
     try {
-      const env = process.env.NEXT_PUBLIC_PADDLE_ENV;
-      if (env !== 'production') {
-        window.Paddle.Environment.set('sandbox');
-      }
-
-      const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN;
+      const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || 'live_8b221e28dc09462a981f134d24f';
       if (!token) {
         console.warn('[Paddle] NEXT_PUBLIC_PADDLE_CLIENT_TOKEN is not set.');
         return;
+      }
+
+      const isSandbox = token.startsWith('test_') || process.env.NEXT_PUBLIC_PADDLE_ENV === 'sandbox';
+      if (isSandbox) {
+        window.Paddle.Environment.set('sandbox');
       }
 
       window.Paddle.Setup({

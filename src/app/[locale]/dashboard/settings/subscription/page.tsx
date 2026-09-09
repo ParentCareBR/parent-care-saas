@@ -239,10 +239,14 @@ export default function SubscriptionSettingsPage() {
       // Try Paddle overlay first if available
       if (data.transactionId && typeof window !== 'undefined' && window.Paddle) {
         try {
-          const env = process.env.NEXT_PUBLIC_PADDLE_ENV;
-          if (env !== 'production') window.Paddle.Environment?.set('sandbox');
-          const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN;
-          if (token) window.Paddle.Setup?.({ token });
+          const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || 'live_8b221e28dc09462a981f134d24f';
+          const isSandbox = token.startsWith('test_') || process.env.NEXT_PUBLIC_PADDLE_ENV === 'sandbox';
+          if (isSandbox) {
+            window.Paddle.Environment?.set('sandbox');
+          }
+          if (token) {
+            window.Paddle.Setup?.({ token });
+          }
 
           window.Paddle.Checkout?.open({
             transactionId: data.transactionId,
