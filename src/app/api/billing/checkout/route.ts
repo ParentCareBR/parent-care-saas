@@ -56,8 +56,7 @@ export async function POST(req: NextRequest) {
     const adminSupabase = createAdminClient();
 
     // 3. Resolve authorized price ID server-side (prevents client tampering)
-    const isProduction = (process.env.PADDLE_ENVIRONMENT || process.env.NEXT_PUBLIC_PADDLE_ENV) === 'production';
-    const paddleEnv = isProduction ? 'production' : 'sandbox';
+    const paddleEnv = getPaddleEnvironment() === 'production' ? 'production' : 'sandbox';
     const priceId = getAuthorizedPriceId(numSeats, paddleEnv);
 
     // 4. Retrieve or create customer record safely
@@ -119,12 +118,8 @@ export async function POST(req: NextRequest) {
           // ignore if table doesn't exist
         }
       } catch (custErr: any) {
-        console.error('[Paddle Checkout] Error creating customer:', custErr);
-        let msg = custErr?.detail || custErr?.message || 'Falha ao criar cliente no Paddle';
-        if (custErr?.code === 'authentication_malformed' || String(msg).includes('authentication_malformed')) {
-          msg = 'Chave de API do Paddle inválida. Certifique-se de usar a Secret Key completa (começa com pdl_live_apikey_ ou pdl_sdbx_apikey_), não apenas o Key ID.';
-        }
-        return NextResponse.json({ error: msg, code: custErr?.code }, { status: 502 });
+        console.warn('[Paddle Checkout] Customer pre-creation skipped (Paddle checkout will create customer automatically):', custErr?.message || custErr);
+        customerId = undefined;
       }
     }
 

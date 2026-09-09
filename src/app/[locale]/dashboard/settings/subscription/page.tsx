@@ -15,6 +15,29 @@ import {
 import { useSearchParams, useParams } from 'next/navigation';
 import { PADDLE_TIERS, MAX_STANDARD_SEATS, getTierPricing } from '@/lib/billing/paddle-catalog';
 
+declare global {
+  interface Window { Paddle?: any; }
+}
+
+async function loadPaddleScript(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  if (window.Paddle) return true;
+  return new Promise((resolve) => {
+    if (document.querySelector('script[src*="paddle.js"]')) {
+      const poll = setInterval(() => {
+        if (window.Paddle) { clearInterval(poll); resolve(true); }
+      }, 100);
+      setTimeout(() => { clearInterval(poll); resolve(false); }, 6000);
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.paddle.com/paddle/v2/paddle.js';
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
+
 type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'paused' | 'canceled' | null;
 
 interface BillingSubscription {
@@ -237,30 +260,33 @@ export default function SubscriptionSettingsPage() {
       }
 
       // Try Paddle overlay first if available
-      if (data.transactionId && typeof window !== 'undefined' && window.Paddle) {
-        try {
-          const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || 'live_8b221e28dc09462a981f134d24f';
-          const isSandbox = token.startsWith('test_') || process.env.NEXT_PUBLIC_PADDLE_ENV === 'sandbox';
-          if (isSandbox) {
-            window.Paddle.Environment?.set('sandbox');
-          }
-          if (token) {
-            window.Paddle.Setup?.({ token });
-          }
+      if (data.transactionId && typeof window !== 'undefined') {
+        const loaded = await loadPaddleScript();
+        if (loaded && window.Paddle) {
+          try {
+            const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || 'live_8b221e28dc09462a981f134d24f';
+            const isSandbox = token.startsWith('test_') || process.env.NEXT_PUBLIC_PADDLE_ENV === 'sandbox';
+            if (isSandbox) {
+              window.Paddle.Environment?.set('sandbox');
+            }
+            if (token) {
+              window.Paddle.Setup?.({ token });
+            }
 
-          window.Paddle.Checkout?.open({
-            transactionId: data.transactionId,
-            settings: {
-              displayMode: 'overlay',
-              theme: 'light',
-              locale: locale === 'pt-BR' ? 'pt' : (locale.split('-')[0] || 'pt'),
-              successUrl: `${window.location.origin}/${locale}/dashboard/settings/subscription?success=true`,
-            },
-          });
-          setCheckoutLoading(null);
-          return;
-        } catch {
-          // overlay fallback to redirect
+            window.Paddle.Checkout?.open({
+              transactionId: data.transactionId,
+              settings: {
+                displayMode: 'overlay',
+                theme: 'light',
+                locale: locale === 'pt-BR' ? 'pt' : (locale.split('-')[0] || 'pt'),
+                successUrl: `${window.location.origin}/${locale}/dashboard/settings/subscription?success=true`,
+              },
+            });
+            setCheckoutLoading(null);
+            return;
+          } catch {
+            // overlay fallback to redirect
+          }
         }
       }
 

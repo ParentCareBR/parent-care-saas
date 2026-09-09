@@ -5,7 +5,7 @@ export interface CreateCustomerParams {
 }
 
 export interface CreateCheckoutSessionParams {
-  customerId: string;
+  customerId?: string;
   priceId: string;
   successUrl: string;
   cancelUrl: string;

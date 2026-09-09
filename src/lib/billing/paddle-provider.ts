@@ -35,20 +35,25 @@ export class PaddleProvider implements BillingGateway {
       trial_days: params.trialPeriodDays ?? 30,
     };
 
-    const transaction = await this.paddle.transactions.create({
+    const payload: any = {
       items: [
         {
           priceId: params.priceId,
           quantity: 1,
         },
       ],
-      customerId: params.customerId,
       customData: {
         ...customData,
         success_url: params.successUrl,
         cancel_url: params.cancelUrl,
       },
-    });
+    };
+
+    if (params.customerId) {
+      payload.customerId = params.customerId;
+    }
+
+    const transaction = await this.paddle.transactions.create(payload);
 
     const isSandbox = (process.env.PADDLE_ENVIRONMENT || process.env.NEXT_PUBLIC_PADDLE_ENV) !== 'production';
     const fallbackUrl = isSandbox

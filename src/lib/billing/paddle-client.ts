@@ -11,7 +11,13 @@ export function isValidPaddleApiKey(key?: string): boolean {
 
 export function getPaddleEnvironment(): Environment {
   const env = process.env.PADDLE_ENVIRONMENT || process.env.NEXT_PUBLIC_PADDLE_ENV;
-  return env === 'production' ? Environment.production : Environment.sandbox;
+  if (env === 'production') return Environment.production;
+  if (env === 'sandbox') return Environment.sandbox;
+  const rawKey = process.env.PADDLE_API_KEY || '';
+  if (rawKey?.startsWith('pdl_live_')) return Environment.production;
+  const clientToken = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN;
+  if (clientToken?.startsWith('live_')) return Environment.production;
+  return Environment.production;
 }
 
 let paddleClientInstance: Paddle | null = null;
@@ -21,18 +27,19 @@ export function getPaddleClient(): Paddle {
     return paddleClientInstance;
   }
 
-  const apiKey = process.env.PADDLE_API_KEY || '';
+  const rawKey = process.env.PADDLE_API_KEY || '';
+  const apiKey = rawKey.trim();
   const environment = getPaddleEnvironment();
 
   if (!apiKey) {
     console.warn('[Paddle] Warning: PADDLE_API_KEY environment variable is not defined.');
   } else if (!isValidPaddleApiKey(apiKey)) {
     console.warn(
-      `[Paddle] Notice: PADDLE_API_KEY ("${apiKey.substring(0, 16)}...") does not match the full secret token format (pdl_${environment === Environment.production ? 'live' : 'sdbx'}_apikey_...). Ensure you paste the full secret key from Paddle Dashboard -> API Keys.`
+      `[Paddle] Notice: PADDLE_API_KEY ("${apiKey.substring(0, 16)}...") does not match the full secret token format.`
     );
   }
 
-  paddleClientInstance = new Paddle(apiKey || 'pdl_dummy_key_placeholder', {
+  paddleClientInstance = new Paddle(apiKey, {
     environment,
     logLevel: process.env.NODE_ENV === 'development' ? LogLevel.warn : LogLevel.error,
   });
