@@ -234,9 +234,31 @@ export function getAuthorizedPriceId(
 }
 
 /**
+ * Known static and auto-created recurring price IDs (e.g. Annual BRL and Custom tiers).
+ * Ensures webhooks, entitlement calculations, and reverse lookups resolve accurately.
+ */
+export const KNOWN_EXTRA_PRICE_IDS: Record<
+  string,
+  { seats: number; currency: CurrencyCode; interval: 'month' | 'year' }
+> = {
+  // Annual BRL (with absorbed 3.5% IOF so Pix QR shows exact advertised price)
+  'pri_01m2eejcv8kt1ns5j5r97cnzbk': { seats: 1, currency: 'BRL', interval: 'year' },
+  'pri_01m2ef67aejkdwqjk15kr6yc27': { seats: 2, currency: 'BRL', interval: 'year' },
+  'pri_01m2eg902f0jqt7087n73zvhn6': { seats: 3, currency: 'BRL', interval: 'year' },
+  'pri_01m2eg909eh1nn1e1sk5mx3rn3': { seats: 4, currency: 'BRL', interval: 'year' },
+  'pri_01m2eg90ep3m9k4359qpksg019': { seats: 5, currency: 'BRL', interval: 'year' },
+  'pri_01m2eg90kz05gm6m0dv093yqka': { seats: 6, currency: 'BRL', interval: 'year' },
+  // Custom monthly BRL
+  'pri_01m2dvx8wdde95w3kjjq6awnqp': { seats: 10, currency: 'BRL', interval: 'month' },
+};
+
+/**
  * Reverse lookup: get currency code from a Paddle Price ID.
  */
 export function getCurrencyFromPriceId(priceId: string): CurrencyCode | null {
+  if (KNOWN_EXTRA_PRICE_IDS[priceId]) {
+    return KNOWN_EXTRA_PRICE_IDS[priceId].currency;
+  }
   for (const tier of Object.values(PADDLE_TIERS)) {
     if (tier.livePriceIds) {
       for (const [curr, id] of Object.entries(tier.livePriceIds)) {
@@ -245,6 +267,16 @@ export function getCurrencyFromPriceId(priceId: string): CurrencyCode | null {
     }
   }
   return null;
+}
+
+/**
+ * Reverse lookup: get billing interval from a Paddle Price ID.
+ */
+export function getIntervalFromPriceId(priceId: string): 'month' | 'year' {
+  if (KNOWN_EXTRA_PRICE_IDS[priceId]) {
+    return KNOWN_EXTRA_PRICE_IDS[priceId].interval;
+  }
+  return 'month';
 }
 
 /**
@@ -258,6 +290,9 @@ export function getTierBySeats(seats: number): PricingTier | null {
  * Reverse lookup: get seat count from price ID across all supported currencies.
  */
 export function getSeatsFromPriceId(priceId: string): number | null {
+  if (KNOWN_EXTRA_PRICE_IDS[priceId]) {
+    return KNOWN_EXTRA_PRICE_IDS[priceId].seats;
+  }
   for (const tier of Object.values(PADDLE_TIERS)) {
     if (tier.sandboxPriceId === priceId || tier.livePriceId === priceId) {
       return tier.seats;
@@ -330,13 +365,16 @@ export function getTierPricing(
       const annualTotal = Number((p.totalMonthly * 10).toFixed(2));
       const monthlyEquivalent = Number((annualTotal / 12).toFixed(2));
       const annualSavings = Number((p.totalMonthly * 2).toFixed(2));
+      // BRL via Pix: absorb the 3.5% dLocal/IOF fee so the Pix QR shows exactly the advertised price.
+      // The Paddle base price is set to annualTotal / 1.035; the displayed price stays annualTotal.
+      const paddleRawTotal = currency === 'BRL' ? Number((annualTotal / 1.035).toFixed(2)) : annualTotal;
 
       return {
         currency,
         billingInterval: 'year',
         totalFormatted: formatCurrencyValue(annualTotal, currency, locale),
         unitFormatted: formatCurrencyValue(Number((p.unitPrice * 10 / 12).toFixed(2)), currency, locale),
-        rawTotal: annualTotal,
+        rawTotal: paddleRawTotal,
         rawUnit: p.unitPrice,
         caredPeopleLimit: tier.caredPeopleLimit,
         savingsPercentage: 17,
@@ -369,13 +407,14 @@ export function getTierPricing(
     const annualTotal = Number((monthlyTotal * 10).toFixed(2));
     const monthlyEquivalent = Number((annualTotal / 12).toFixed(2));
     const annualSavings = Number((monthlyTotal * 2).toFixed(2));
+    const paddleRawTotal = currency === 'BRL' ? Number((annualTotal / 1.035).toFixed(2)) : annualTotal;
 
     return {
       currency,
       billingInterval: 'year',
       totalFormatted: formatCurrencyValue(annualTotal, currency, locale),
       unitFormatted: formatCurrencyValue(unitRate, currency, locale),
-      rawTotal: annualTotal,
+      rawTotal: paddleRawTotal,
       rawUnit: unitRate,
       caredPeopleLimit: Math.min(seats + 4, 30),
       savingsPercentage: 17,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBillingGateway } from '@/lib/billing';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getSeatsFromPriceId, getTierPricing, PADDLE_TIERS } from '@/lib/billing/paddle-catalog';
+import { getSeatsFromPriceId, getIntervalFromPriceId, getTierPricing, PADDLE_TIERS } from '@/lib/billing/paddle-catalog';
 import { syncOrganizationEntitlementCounts } from '@/lib/billing/entitlements';
 
 export async function POST(req: NextRequest) {
@@ -81,10 +81,17 @@ export async function POST(req: NextRequest) {
           seatLimit = getSeatsFromPriceId(priceId) || 1;
         }
 
+        const interval: 'month' | 'year' =
+          sub.billingCycle?.interval === 'year' ||
+          sub.customData?.billing_interval === 'year' ||
+          getIntervalFromPriceId(priceId) === 'year'
+            ? 'year'
+            : 'month';
+
         const currency = sub.currencyCode || 'BRL';
-        const pricing = getTierPricing(seatLimit, currency);
+        const pricing = getTierPricing(seatLimit, currency, interval);
         const currentPeriodStart = sub.currentBillingPeriod?.startsAt || new Date().toISOString();
-        const currentPeriodEnd = sub.currentBillingPeriod?.endsAt || new Date(Date.now() + 30 * 86400000).toISOString();
+        const currentPeriodEnd = sub.currentBillingPeriod?.endsAt || new Date(Date.now() + (interval === 'year' ? 365 : 30) * 86400000).toISOString();
         const nextBilledAt = sub.nextBilledAt || sub.currentBillingPeriod?.endsAt || null;
 
         if (orgId) {
@@ -102,7 +109,7 @@ export async function POST(req: NextRequest) {
               currency_code: currency,
               unit_price: pricing.rawUnit,
               recurring_total: pricing.rawTotal,
-              billing_interval: 'month',
+              billing_interval: interval,
               current_period_start: currentPeriodStart,
               current_period_end: currentPeriodEnd,
               next_billed_at: nextBilledAt,
