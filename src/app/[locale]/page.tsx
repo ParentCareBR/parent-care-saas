@@ -39,6 +39,10 @@ export default function Home({ params: { locale } }: { params: { locale: string 
       {/* Hero Section */}
       <section className="pt-32 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="text-center max-w-4xl mx-auto">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 text-emerald-800 text-xs sm:text-sm font-bold border border-emerald-200 shadow-2xs mb-6">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            {t('hero_tagline')}
+          </div>
 
           <h1 className="text-5xl md:text-7xl font-extrabold text-gray-900 tracking-tight mb-6">
             {t('hero_title')} <span className="text-emerald-600">{t('hero_subtitle')}</span>
@@ -73,27 +77,66 @@ export default function Home({ params: { locale } }: { params: { locale: string 
       </section>
 
       {/* Problem Section */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-20 bg-stone-50/80 border-y border-stone-200/70">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-12">{t('problem_title')}</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-              <div className="h-12 w-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mx-auto mb-6">
-                <Activity className="h-6 w-6" />
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-10 tracking-tight">
+            {t('problem_title')}
+          </h2>
+
+          {/* Two Key Realities / Personas */}
+          <div className="grid md:grid-cols-2 gap-8 text-left mb-10">
+            <div className="bg-white p-8 sm:p-9 rounded-3xl shadow-sm border-2 border-rose-100 hover:border-rose-300 transition-all relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 rounded-bl-full pointer-events-none" />
+              <div className="relative z-10">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-extrabold border border-rose-200 mb-4">
+                  <Users className="h-3.5 w-3.5" />
+                  {t('problem_family_badge')}
+                </span>
+                <h3 className="text-xl sm:text-2xl font-black text-gray-900 mb-3">
+                  {t('problem_family_title')}
+                </h3>
+                <p className="text-gray-600 leading-relaxed text-base">
+                  {t('problem_family_desc')}
+                </p>
               </div>
-              <p className="text-gray-600 font-medium">{t('problem_desc_1')}</p>
             </div>
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-              <div className="h-12 w-12 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center mx-auto mb-6">
-                <Users className="h-6 w-6" />
+
+            <div className="bg-white p-8 sm:p-9 rounded-3xl shadow-sm border-2 border-amber-100 hover:border-amber-300 transition-all relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 rounded-bl-full pointer-events-none" />
+              <div className="relative z-10">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 text-xs font-extrabold border border-amber-200 mb-4">
+                  <Heart className="h-3.5 w-3.5 text-amber-600" />
+                  {t('problem_elderly_badge')}
+                </span>
+                <h3 className="text-xl sm:text-2xl font-black text-gray-900 mb-3">
+                  {t('problem_elderly_title')}
+                </h3>
+                <p className="text-gray-600 leading-relaxed text-base">
+                  {t('problem_elderly_desc')}
+                </p>
               </div>
-              <p className="text-gray-600 font-medium">{t('problem_desc_2')}</p>
             </div>
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-              <div className="h-12 w-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mx-auto mb-6">
-                <CreditCard className="h-6 w-6" />
+          </div>
+
+          {/* 3 Core Friction Points */}
+          <div className="grid md:grid-cols-3 gap-6 text-left">
+            <div className="bg-white p-6 rounded-2xl shadow-xs border border-stone-200">
+              <div className="h-11 w-11 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mb-4">
+                <Activity className="h-5 w-5" />
               </div>
-              <p className="text-gray-600 font-medium">{t('problem_desc_3')}</p>
+              <p className="text-gray-700 font-semibold text-sm sm:text-base leading-relaxed">{t('problem_desc_1')}</p>
+            </div>
+            <div className="bg-white p-6 rounded-2xl shadow-xs border border-stone-200">
+              <div className="h-11 w-11 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center mb-4">
+                <Users className="h-5 w-5" />
+              </div>
+              <p className="text-gray-700 font-semibold text-sm sm:text-base leading-relaxed">{t('problem_desc_2')}</p>
+            </div>
+            <div className="bg-white p-6 rounded-2xl shadow-xs border border-stone-200">
+              <div className="h-11 w-11 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center mb-4">
+                <CreditCard className="h-5 w-5" />
+              </div>
+              <p className="text-gray-700 font-semibold text-sm sm:text-base leading-relaxed">{t('problem_desc_3')}</p>
             </div>
           </div>
         </div>
