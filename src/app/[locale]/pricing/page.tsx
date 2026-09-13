@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Heart, ShieldCheck, Star, Zap, CreditCard, ArrowLeft, AlertTriangle, Sparkles, Plus, Minus, MessageCircle } from 'lucide-react';
+import { CheckCircle, Heart, ShieldCheck, Star, Zap, CreditCard, ArrowLeft, AlertTriangle, Sparkles, Plus, Minus } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { PADDLE_TIERS, getTierPricing } from '@/lib/billing/paddle-catalog';
@@ -209,18 +209,12 @@ export default function PricingPage() {
             selectedTag: isPt ? 'Plano Selecionado' : (isEs ? 'Plan Seleccionado' : (isFr ? 'Forfait Sélectionné' : (isDe ? 'Ausgewählter Tarif' : 'Selected Plan'))),
             customTag: isPt ? 'Plano Sob Medida' : (isEs ? 'Plan a Medida' : (isFr ? 'Forfait Sur-Mesure' : (isDe ? 'Maßgeschneiderter Tarif' : 'Tailored Plan'))),
             subscribeBtn: isPt ? `Assinar Agora (${calculatorSeats} ${calculatorSeats === 1 ? 'Acesso' : 'Acessos'})` : (isEs ? `Suscribir Ahora (${calculatorSeats} ${calculatorSeats === 1 ? 'Acceso' : 'Accesos'})` : (isFr ? `S'abonner Maintenant (${calculatorSeats} ${calculatorSeats === 1 ? 'Accès' : 'Accès'})` : (isDe ? `Jetzt Abonnieren (${calculatorSeats} ${calculatorSeats === 1 ? 'Zugang' : 'Zugänge'})` : `Subscribe Now (${calculatorSeats} ${calculatorSeats === 1 ? 'Seat' : 'Seats'})`))),
-            whatsappBtn: isPt ? `Contratar ${calculatorSeats} Acessos` : (isEs ? `Contratar ${calculatorSeats} Accesos` : (isFr ? `Souscrire ${calculatorSeats} Accès` : (isDe ? `${calculatorSeats} Zugänge bestellen` : `Order ${calculatorSeats} Seats`))),
             trialText: isPt ? '30 dias de teste grátis com cartão • Cancele quando quiser' : (isEs ? '30 días de prueba gratis con tarjeta • Cancela cuando quieras' : (isFr ? '30 jours d\'essai gratuit avec carte • Annulez à tout moment' : (isDe ? '30 Tage kostenlos testen mit Karte • Jederzeit kündbar' : '30-day free trial with credit card • Cancel anytime'))),
-            customContactNote: isPt ? 'Ativação imediata para grandes famílias e equipes' : (isEs ? 'Activación inmediata para grandes familias y equipos' : (isFr ? 'Activation immédiate pour grandes familles et équipes' : (isDe ? 'Sofortige Aktivierung für große Familien' : 'Immediate activation for larger families and teams'))),
             shortcuts: isPt ? 'Escolha rápida:' : (isEs ? 'Selección rápida:' : (isFr ? 'Choix rapide :' : (isDe ? 'Schnellauswahl:' : 'Quick select:'))),
             maxDiscountTag: isPt ? 'Desconto Máximo Progressivo' : (isEs ? 'Descuento Máximo Progresivo' : (isFr ? 'Remise Maximale Progressive' : (isDe ? 'Maximaler Staffelrabatt' : 'Maximum Progressive Discount'))),
           };
 
           const calcPricing = getTierPricing(calculatorSeats, locale);
-          const isOverStandard = calculatorSeats > 6;
-          const whatsappText = encodeURIComponent(
-            `Olá! Gostaria de contratar a assinatura do Parent Care para ${calculatorSeats} acessos (${calcPricing.totalFormatted}/mês). Como procedemos com a ativação da conta?`
-          );
 
           return (
             <section id="plan-selector" className="bg-gradient-to-br from-white via-emerald-50/20 to-white dark:from-stone-900 dark:via-emerald-950/20 dark:to-stone-900 border-2 border-emerald-500/40 dark:border-emerald-500/30 rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
@@ -361,7 +355,7 @@ export default function PricingPage() {
                         </span>
                       )}
 
-                      {isOverStandard && (
+                      {calculatorSeats > 6 && (
                         <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-md">
                           {calcLabels.maxDiscountTag}
                         </span>
@@ -371,39 +365,26 @@ export default function PricingPage() {
 
                   {/* Action button */}
                   <div className="shrink-0 flex flex-col sm:flex-row md:flex-col gap-2 min-w-[240px]">
-                    {!isOverStandard ? (
-                      <Button
-                        onClick={() => handleAction(calculatorSeats)}
-                        disabled={checkoutLoadingSeats === calculatorSeats}
-                        className="w-full h-12 rounded-xl font-bold bg-brand-green hover:bg-emerald-800 text-white shadow-md hover:shadow-lg transition-all text-sm gap-2"
-                      >
-                        {checkoutLoadingSeats === calculatorSeats ? (
+                    <Button
+                      onClick={() => handleAction(calculatorSeats)}
+                      disabled={checkoutLoadingSeats === calculatorSeats}
+                      className="w-full h-12 rounded-xl font-bold bg-brand-green hover:bg-emerald-800 text-white shadow-md hover:shadow-lg transition-all text-sm gap-2"
+                    >
+                      {checkoutLoadingSeats === calculatorSeats ? (
+                        <div className="flex items-center gap-2">
+                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
                           <span>{tPlan('loading')}</span>
-                        ) : (
-                          <>
-                            <CreditCard className="h-4 w-4" />
-                            <span>{calcLabels.subscribeBtn}</span>
-                          </>
-                        )}
-                      </Button>
-                    ) : (
-                      <Button
-                        asChild
-                        className="w-full h-12 rounded-xl font-bold bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-white text-white shadow-md text-sm gap-2"
-                      >
-                        <a
-                          href={`https://wa.me/5511999999999?text=${whatsappText}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <MessageCircle className="h-4 w-4 text-emerald-400" />
-                          <span>{calcLabels.whatsappBtn}</span>
-                        </a>
-                      </Button>
-                    )}
+                        </div>
+                      ) : (
+                        <>
+                          <CreditCard className="h-4 w-4" />
+                          <span>{calcLabels.subscribeBtn}</span>
+                        </>
+                      )}
+                    </Button>
 
                     <p className="text-[11px] text-center text-stone-400">
-                      {!isOverStandard ? calcLabels.trialText : calcLabels.customContactNote}
+                      {calcLabels.trialText}
                     </p>
                   </div>
                 </div>
@@ -587,31 +568,17 @@ export default function PricingPage() {
               <p>• {tPlan('custom_feature_2')}</p>
               <p>• {tPlan('custom_feature_3')}</p>
             </CardContent>
-            <CardFooter className="pt-0 pb-6 flex flex-col gap-2">
+            <CardFooter className="pt-0 pb-6">
               <Button
                 type="button"
-                variant="outline"
                 onClick={() => {
-                  setCalculatorSeats(6);
+                  setCalculatorSeats(10);
                   document.getElementById('plan-selector')?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="w-full h-10 rounded-xl border-emerald-500/50 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-xs font-bold gap-1.5"
+                className="w-full h-11 rounded-xl font-bold bg-brand-green hover:bg-emerald-800 text-white text-xs gap-1.5 shadow-md"
               >
-                <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
-                <span>{locale === 'pt-BR' ? 'Personalizar Quantidade de Acessos' : 'Configure Seat Quantity'}</span>
-              </Button>
-              <Button
-                asChild
-                variant="ghost"
-                className="w-full h-9 rounded-xl text-stone-600 dark:text-stone-300 text-xs font-semibold"
-              >
-                <a
-                  href="https://wa.me/5511999999999?text=Olá,%20gostaria%20de%20contratar%20o%20Plano%20Personalizado%20do%20Parent%20Care"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {tPlan('btn_custom')}
-                </a>
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>{locale === 'pt-BR' ? 'Personalizar Acessos e Assinar' : 'Customize Seats & Subscribe'}</span>
               </Button>
             </CardFooter>
           </Card>

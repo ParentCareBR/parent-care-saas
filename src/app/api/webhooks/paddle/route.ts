@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBillingGateway } from '@/lib/billing';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getSeatsFromPriceId, PADDLE_TIERS } from '@/lib/billing/paddle-catalog';
+import { getSeatsFromPriceId, getTierPricing, PADDLE_TIERS } from '@/lib/billing/paddle-catalog';
 import { syncOrganizationEntitlementCounts } from '@/lib/billing/entitlements';
 
 export async function POST(req: NextRequest) {
@@ -81,7 +81,8 @@ export async function POST(req: NextRequest) {
           seatLimit = getSeatsFromPriceId(priceId) || 1;
         }
 
-        const tier = PADDLE_TIERS[seatLimit] || PADDLE_TIERS[1];
+        const currency = sub.currencyCode || 'BRL';
+        const pricing = getTierPricing(seatLimit, currency);
         const currentPeriodStart = sub.currentBillingPeriod?.startsAt || new Date().toISOString();
         const currentPeriodEnd = sub.currentBillingPeriod?.endsAt || new Date(Date.now() + 30 * 86400000).toISOString();
         const nextBilledAt = sub.nextBilledAt || sub.currentBillingPeriod?.endsAt || null;
@@ -97,10 +98,10 @@ export async function POST(req: NextRequest) {
               paddle_price_id: priceId,
               status: dbStatus,
               seat_limit: seatLimit,
-              cared_people_limit: 2,
-              currency_code: sub.currencyCode || 'BRL',
-              unit_price: tier.unitPriceBrl,
-              recurring_total: tier.totalMonthlyBrl,
+              cared_people_limit: pricing.caredPeopleLimit,
+              currency_code: currency,
+              unit_price: pricing.rawUnit,
+              recurring_total: pricing.rawTotal,
               billing_interval: 'month',
               current_period_start: currentPeriodStart,
               current_period_end: currentPeriodEnd,
@@ -118,7 +119,7 @@ export async function POST(req: NextRequest) {
               organization_id: orgId,
               subscription_id: insertedSub?.id || null,
               seat_limit: seatLimit,
-              cared_people_limit: 2,
+              cared_people_limit: pricing.caredPeopleLimit,
               subscription_status: dbStatus,
               access_valid_until: currentPeriodEnd,
               updated_at: new Date().toISOString(),

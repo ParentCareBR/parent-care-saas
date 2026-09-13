@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBillingGateway } from '@/lib/billing';
-import { getAuthorizedPriceId, validateSeatQuantity } from '@/lib/billing/paddle-catalog';
+import { validateSeatQuantity } from '@/lib/billing/paddle-catalog';
+import { resolveAuthorizedPriceId } from '@/lib/billing/price-resolver';
 import { getPaddleEnvironment } from '@/lib/billing/paddle-client';
 import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { organizationId, seatQuantity = 1, locale = 'pt-BR' } = body;
 
-    // 1. Strict Server-Side Validation of Seat Quantity (1 to 6)
+    // 1. Strict Server-Side Validation of Seat Quantity (1 to 100)
     const seatVal = validateSeatQuantity(Number(seatQuantity));
     if (!seatVal.valid) {
       return NextResponse.json({ error: seatVal.error }, { status: 400 });
@@ -55,9 +56,9 @@ export async function POST(req: NextRequest) {
 
     const adminSupabase = createAdminClient();
 
-    // 3. Resolve authorized price ID server-side (prevents client tampering)
+    // 3. Resolve authorized price ID server-side (supports 1-6 standard + custom >6)
     const paddleEnv = getPaddleEnvironment() === 'production' ? 'production' : 'sandbox';
-    const priceId = getAuthorizedPriceId(numSeats, paddleEnv, locale);
+    const priceId = await resolveAuthorizedPriceId(numSeats, paddleEnv, locale);
 
     // 4. Retrieve or create customer record safely
     const { data: org } = await adminSupabase
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
     const session = await gateway.createCheckoutSession({
       customerId,
       priceId,
-      trialPeriodDays: 14,
+      trialPeriodDays: 30,
       successUrl,
       cancelUrl,
       metadata: {

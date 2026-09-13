@@ -165,7 +165,7 @@ export const PADDLE_TIERS: Record<number, PricingTier> = {
 };
 
 /**
- * Validates that requested seats is within authorized limits (1 to 6).
+ * Validates that requested seats is within authorized limits (1 to 100).
  */
 export function validateSeatQuantity(quantity: number): { valid: boolean; error?: string } {
   if (!Number.isInteger(quantity)) {
@@ -174,10 +174,10 @@ export function validateSeatQuantity(quantity: number): { valid: boolean; error?
   if (quantity < 1) {
     return { valid: false, error: 'A quantidade mínima de assentos é 1.' };
   }
-  if (quantity > MAX_STANDARD_SEATS) {
+  if (quantity > 100) {
     return { 
       valid: false, 
-      error: 'Precisa de mais de 6 acessos? Fale com nossa equipe para conhecer o plano personalizado.' 
+      error: 'A quantidade máxima permitida é de 100 acessos familiares.' 
     };
   }
   return { valid: true };
