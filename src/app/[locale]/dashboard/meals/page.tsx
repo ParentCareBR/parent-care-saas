@@ -278,7 +278,7 @@ export default function MealsPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 overflow-x-hidden w-full">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -303,13 +303,45 @@ export default function MealsPage() {
         </Button>
       </div>
 
+      {/* Quick Meal Preset Chips */}
+      {selectedPerson && (
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+          <span className="text-xs font-bold text-stone-500 dark:text-stone-400 whitespace-nowrap">Registro rápido:</span>
+          {[
+            { type: 'breakfast', label: 'Café da Manhã', emoji: '🥣', defaultName: 'Café da manhã completo', defaultTime: '08:00' },
+            { type: 'lunch', label: 'Almoço', emoji: '🥗', defaultName: 'Almoço balanceado', defaultTime: '12:30' },
+            { type: 'snack', label: 'Lanche', emoji: '🍎', defaultName: 'Lanche da tarde com frutas', defaultTime: '16:00' },
+            { type: 'dinner', label: 'Jantar', emoji: '🍲', defaultName: 'Jantar leve', defaultTime: '19:30' },
+          ].map(preset => (
+            <button
+              key={preset.type}
+              onClick={() => {
+                setEditMeal(null);
+                setForm({
+                  type: preset.type,
+                  name: preset.defaultName,
+                  time: preset.defaultTime,
+                  acceptance: 'full',
+                  notes: '',
+                });
+                setModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-stone-100 hover:bg-teal-50 dark:bg-stone-800 dark:hover:bg-teal-950/40 text-stone-700 hover:text-teal-700 dark:text-stone-300 dark:hover:text-teal-300 border border-stone-200 dark:border-stone-700 transition-colors whitespace-nowrap active:scale-95"
+            >
+              <span>{preset.emoji}</span>
+              <span>{preset.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Meals List */}
-      <Card className="rounded-2xl border-stone-200 dark:border-stone-800">
+      <Card className="rounded-2xl border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
         <CardHeader>
-          <CardTitle className="text-lg dark:text-stone-100">
+          <CardTitle className="text-lg text-stone-900 dark:text-stone-100">
             Refeições de Hoje ({meals.filter(m => !m.isExample).length})
           </CardTitle>
-          <CardDescription>Acompanhe a ingestão de nutrientes e o apetite ao longo do dia.</CardDescription>
+          <CardDescription className="text-stone-500 dark:text-stone-400">Acompanhe a ingestão de nutrientes e o apetite ao longo do dia.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {loading ? (

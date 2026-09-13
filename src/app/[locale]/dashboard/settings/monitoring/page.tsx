@@ -28,6 +28,8 @@ import {
   AlertCircle,
   ArrowRight,
   Check,
+  ChevronDown,
+  ChevronUp,
   Copy,
   History,
   Plus,
@@ -66,6 +68,18 @@ export default function MonitoringSettingsPage() {
     fieldType: 'boolean',
     categoryId: '',
   });
+
+  // Accordion state — all categories start open
+  const [openCategories, setOpenCategories] = useState<Set<string>>(new Set(MONITORING_CATALOG.map((c) => c.id)));
+  const toggleCategory = (id: string) => {
+    setOpenCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const allOpen = openCategories.size === MONITORING_CATALOG.length;
 
   // Audit Logs state
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -241,7 +255,7 @@ export default function MonitoringSettingsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-6 overflow-x-hidden w-full">
       {/* Header with Person Selector & Quick Actions */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-stone-200 dark:border-stone-800 pb-6">
         <div>
@@ -413,118 +427,147 @@ export default function MonitoringSettingsPage() {
         </div>
 
         {/* TAB 1: Standard Categories and Definitions */}
-        <TabsContent value="modules" className="space-y-6">
-          {/* Filter */}
-          <div className="relative">
-            <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-stone-400" />
-            <Input
-              placeholder={tM('filter_placeholder')}
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              className="pl-10 h-11"
-            />
+        <TabsContent value="modules" className="space-y-4">
+          {/* Filter + Expand/Collapse All */}
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-stone-400" />
+              <Input
+                placeholder={tM('filter_placeholder')}
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+                className="pl-10 h-11"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (allOpen) setOpenCategories(new Set());
+                else setOpenCategories(new Set(MONITORING_CATALOG.map((c) => c.id)));
+              }}
+              className="flex items-center gap-1.5 text-xs font-medium text-stone-600 dark:text-stone-400 border border-stone-300 dark:border-stone-700 px-3 py-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors shrink-0"
+            >
+              {allOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              {allOpen ? 'Recolher Tudo' : 'Expandir Tudo'}
+            </button>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-3">
             {filteredCatalog.map((category) => {
               const activeInCategory = category.definitions.filter((d) => localCodes.has(d.code)).length;
+              const isOpen = openCategories.has(category.id);
               return (
-                <Card key={category.id} className="border-stone-200 dark:border-stone-800">
-                  <CardHeader className="bg-stone-50 dark:bg-stone-900/50 py-3.5 px-6 border-b border-stone-200 dark:border-stone-800">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-stone-900 dark:text-stone-100">
-                          {category.name}
-                        </span>
-                        <Badge variant="secondary" className="text-xs">
-                          {tM('count_of', { active: activeInCategory, total: category.definitions.length })}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setLocalCodes((prev) => {
-                              const next = new Set(prev);
-                              category.definitions.forEach((d) => {
-                                next.add(d.code);
-                                if (d.dependencyCode) next.add(d.dependencyCode);
-                              });
-                              return next;
+                <div key={category.id} className="border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden bg-white dark:bg-stone-900">
+                  {/* Accordion Header — clickable to expand/collapse */}
+                  <button
+                    type="button"
+                    onClick={() => toggleCategory(category.id)}
+                    className="w-full flex items-center justify-between px-5 py-4 bg-stone-50 dark:bg-stone-900/60 hover:bg-stone-100 dark:hover:bg-stone-800/60 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="font-bold text-stone-900 dark:text-stone-100 truncate">
+                        {category.name}
+                      </span>
+                      <Badge variant="secondary" className="text-xs shrink-0">
+                        {tM('count_of', { active: activeInCategory, total: category.definitions.length })}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0 ml-3">
+                      {/* Enable / Disable All buttons (stop propagation so they don't toggle accordion) */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLocalCodes((prev) => {
+                            const next = new Set(prev);
+                            category.definitions.forEach((d) => {
+                              next.add(d.code);
+                              if (d.dependencyCode) next.add(d.dependencyCode);
                             });
-                            setDirty(true);
-                          }}
-                          className="text-xs text-brand-green hover:underline font-medium"
-                        >
-                          {tM('enable_all')}
-                        </button>
-                        <span className="text-stone-300">|</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setLocalCodes((prev) => {
-                              const next = new Set(prev);
-                              category.definitions.forEach((d) => {
-                                next.delete(d.code);
-                                MONITORING_CATALOG.forEach((cat) => {
-                                  cat.definitions.forEach((subD) => {
-                                    if (subD.dependencyCode === d.code) {
-                                      next.delete(subD.code);
-                                    }
-                                  });
+                            return next;
+                          });
+                          setDirty(true);
+                        }}
+                        className="text-[11px] text-emerald-700 dark:text-emerald-400 hover:underline font-medium hidden sm:inline"
+                      >
+                        {tM('enable_all')}
+                      </button>
+                      <span className="text-stone-300 hidden sm:inline">|</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLocalCodes((prev) => {
+                            const next = new Set(prev);
+                            category.definitions.forEach((d) => {
+                              next.delete(d.code);
+                              MONITORING_CATALOG.forEach((cat) => {
+                                cat.definitions.forEach((subD) => {
+                                  if (subD.dependencyCode === d.code) {
+                                    next.delete(subD.code);
+                                  }
                                 });
                               });
-                              return next;
                             });
-                            setDirty(true);
-                          }}
-                          className="text-xs text-stone-500 hover:underline"
-                        >
-                          {tM('disable_all')}
-                        </button>
+                            return next;
+                          });
+                          setDirty(true);
+                        }}
+                        className="text-[11px] text-stone-500 hover:underline hidden sm:inline"
+                      >
+                        {tM('disable_all')}
+                      </button>
+                      {isOpen ? (
+                        <ChevronUp className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Accordion Body */}
+                  {isOpen && (
+                    <div className="p-4 sm:p-5 border-t border-stone-100 dark:border-stone-800">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {category.definitions.map((def) => {
+                          const isEnabled = localCodes.has(def.code);
+                          return (
+                            <div
+                              key={def.id}
+                              className={`flex items-start gap-3 p-4 rounded-xl border transition-all ${
+                                isEnabled
+                                  ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800'
+                                  : 'bg-stone-50/50 dark:bg-stone-800/30 border-stone-200 dark:border-stone-700 opacity-80'
+                              }`}
+                            >
+                              <Switch
+                                id={`mod-${def.code}`}
+                                checked={isEnabled}
+                                onCheckedChange={() => handleToggle(def.code)}
+                                className="mt-0.5 shrink-0"
+                              />
+                              <div className="space-y-1 flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <Label htmlFor={`mod-${def.code}`} className="font-semibold text-sm cursor-pointer text-stone-900 dark:text-stone-100">
+                                    {def.name}
+                                  </Label>
+                                  {def.isCheckinButton && (
+                                    <Badge variant="outline" className="text-[10px] text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 shrink-0">
+                                      Botão Idoso
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-stone-500 dark:text-stone-400">
+                                  {def.description}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  </CardHeader>
-                  <CardContent className="p-4 sm:p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {category.definitions.map((def) => {
-                        const isEnabled = localCodes.has(def.code);
-                        return (
-                          <div
-                            key={def.id}
-                            className={`flex items-start gap-3 p-4 rounded-xl border transition-all ${
-                              isEnabled
-                                ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800'
-                                : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 opacity-80'
-                            }`}
-                          >
-                            <Switch
-                              id={`mod-${def.code}`}
-                              checked={isEnabled}
-                              onCheckedChange={() => handleToggle(def.code)}
-                              className="mt-0.5"
-                            />
-                            <div className="space-y-1 flex-1">
-                              <div className="flex items-center justify-between">
-                                <Label htmlFor={`mod-${def.code}`} className="font-semibold text-sm cursor-pointer">
-                                  {def.name}
-                                </Label>
-                                {def.isCheckinButton && (
-                                  <Badge variant="outline" className="text-[10px] text-amber-700 bg-amber-50">
-                                    Botão Idoso
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-xs text-stone-500 dark:text-stone-400">
-                                {def.description}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
+                  )}
+                </div>
               );
             })}
           </div>

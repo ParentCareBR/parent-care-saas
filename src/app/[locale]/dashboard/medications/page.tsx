@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -9,15 +10,42 @@ import { Card } from '@/components/ui/card';
 import { Plus, Pill, Clock, CheckCircle2, AlertCircle, RefreshCw, BellRing } from 'lucide-react';
 import Link from 'next/link';
 import { getAlarmTexts } from '@/lib/i18n/care-translations';
+import { useToast } from '@/hooks/use-toast';
 
 export default function MedicationsPage() {
   const params = useParams();
   const currentLocale = (params?.locale as string) || 'pt-BR';
   const tAlarm = getAlarmTexts(currentLocale);
+  const { user, currentOrganizationId } = useAuth();
+  const { toast } = useToast();
   const { selectedPerson, loading: personLoading } = useCaredPerson();
   const [medications, setMedications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const supabase = createClient() as any;
+
+  const handleConfirmMedication = async (medicationId: string, medName: string) => {
+    if (!user || !selectedPerson || !currentOrganizationId) return;
+    setConfirmingId(medicationId);
+    try {
+      const { error } = await supabase.from('medication_confirmations').insert({
+        medication_id: medicationId,
+        cared_person_id: selectedPerson.id,
+        organization_id: currentOrganizationId,
+        confirmed_by: user.id,
+        status: 'taken',
+      });
+      if (error) {
+        toast({ title: 'Erro ao confirmar', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: '✅ Dose confirmada!', description: `${medName} registrado com sucesso.` });
+      }
+    } catch (err: any) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+    } finally {
+      setConfirmingId(null);
+    }
+  };
 
   useEffect(() => {
     async function fetchMedications() {
@@ -40,20 +68,20 @@ export default function MedicationsPage() {
     fetchMedications();
   }, [selectedPerson, supabase]);
 
-  if (personLoading) return <div>Carregando...</div>;
+  if (personLoading) return <div className="p-8 text-center text-stone-500">Carregando...</div>;
 
   if (!selectedPerson) {
-    return <div>Selecione uma pessoa cuidada primeiro.</div>;
+    return <div className="p-8 text-center text-stone-500">Selecione uma pessoa cuidada primeiro.</div>;
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 max-w-4xl mx-auto overflow-x-hidden w-full">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-stone-900 dark:text-stone-100">Medicamentos</h1>
           <p className="text-stone-500 dark:text-stone-400">Controle e horários de {selectedPerson.full_name}</p>
         </div>
-        <Button asChild className="bg-brand-green hover:bg-emerald-800">
+        <Button asChild className="bg-emerald-600 hover:bg-emerald-700 rounded-xl">
           <Link href={`/${currentLocale}/dashboard/medications/new`}>
             <Plus className="h-4 w-4 mr-2" />
             Adicionar Medicamento
@@ -126,10 +154,16 @@ export default function MedicationsPage() {
                       );
                     })()}
                   </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="text-green-700 dark:text-green-400 border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-950/40">
-                      <CheckCircle2 className="h-4 w-4 mr-1" />
-                      Confirmar
+                  <div className="flex gap-2 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={confirmingId === med.id}
+                      onClick={() => handleConfirmMedication(med.id, med.name)}
+                      className="text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl min-h-[38px] px-3 font-semibold"
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                      {confirmingId === med.id ? 'Registrando...' : 'Confirmar Dose'}
                     </Button>
                   </div>
                 </div>

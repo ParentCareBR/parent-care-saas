@@ -75,29 +75,37 @@ export async function GET(req: NextRequest) {
       notes: '',
     };
 
-    let allExpenses: any[] = [];
-    if (dbExpenses.length > 0) {
-      allExpenses = dbExpenses.map((e) => {
-        const meta = expensesMeta[e.id] || {};
-        return {
-          id: e.id,
-          organization_id: e.organization_id,
-          cared_person_id: e.cared_person_id,
-          category: e.category,
-          description: e.description,
-          amount: Number(e.amount),
-          currency: e.currency || 'BRL',
-          date: e.paid_at || e.created_at,
-          paid_by: meta.paid_by_text || e.paid_by || null,
-          notes: meta.notes || null,
-          receipt_url: e.receipt_url || null,
-          created_by: e.created_by,
-          created_at: e.created_at,
-        };
-      });
-    } else {
-      allExpenses = fallbackList;
-    }
+    const mappedDbExpenses = dbExpenses.map((e) => {
+      const meta = expensesMeta[e.id] || {};
+      return {
+        id: e.id,
+        organization_id: e.organization_id,
+        cared_person_id: e.cared_person_id,
+        category: e.category,
+        description: e.description,
+        amount: Number(e.amount),
+        currency: e.currency || 'BRL',
+        date: e.paid_at || e.created_at,
+        paid_by: meta.paid_by_text || e.paid_by || null,
+        notes: meta.notes || null,
+        receipt_url: e.receipt_url || null,
+        created_by: e.created_by,
+        created_at: e.created_at,
+      };
+    });
+
+    const seenIds = new Set<string>();
+    const allExpenses: any[] = [];
+    mappedDbExpenses.forEach((e) => {
+      seenIds.add(e.id);
+      allExpenses.push(e);
+    });
+    (fallbackList || []).forEach((e: any) => {
+      if (!seenIds.has(e.id)) {
+        seenIds.add(e.id);
+        allExpenses.push(e);
+      }
+    });
 
     const monthlyExpenses = allExpenses.filter((e: any) => {
       const d = (e.date || e.created_at || '').slice(0, 7);

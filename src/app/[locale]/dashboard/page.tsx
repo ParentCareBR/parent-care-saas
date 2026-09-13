@@ -29,6 +29,7 @@ import {
   Users,
   CheckCircle2,
   ExternalLink,
+  Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -49,6 +50,8 @@ export default function DashboardOverviewPage() {
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [mealsStatus, setMealsStatus] = useState({ breakfast: false, lunch: false, dinner: false });
   const [recentMood, setRecentMood] = useState<string | null>(null);
+  const [financialSummary, setFinancialSummary] = useState<{ monthlyIncome: number; totalExpenses: number; balance: number } | null>(null);
+
 
   const fetchRealData = useCallback(async () => {
     if (!selectedPerson || !currentOrganizationId) return;
@@ -131,6 +134,27 @@ export default function DashboardOverviewPage() {
 
       setRecentMood(checkInData?.mood || null);
     }
+
+    // 7. Fetch Financial Summary (Profile + Expenses)
+    try {
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const [profRes, expRes] = await Promise.all([
+        fetch(`/api/finances/profile?caredPersonId=${selectedPerson.id}`, { cache: 'no-store' }),
+        fetch(`/api/expenses?caredPersonId=${selectedPerson.id}`, { cache: 'no-store' }),
+      ]);
+      const profData = await profRes.json();
+      const expData = await expRes.json();
+
+      const monthlyIncome = profData?.profile?.monthly_income || 0;
+      const allExpenses = expData?.expenses || [];
+      const monthExpenses = allExpenses.filter((e: any) => e.expense_date?.startsWith(currentMonth));
+      const totalExpenses = monthExpenses.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+      const balance = monthlyIncome - totalExpenses;
+
+      setFinancialSummary({ monthlyIncome, totalExpenses, balance });
+    } catch (err) {
+      console.error('Erro ao carregar dados financeiros para dashboard:', err);
+    }
   }, [selectedPerson, currentOrganizationId, isModuleEnabled, supabase]);
 
   useEffect(() => {
@@ -165,13 +189,18 @@ export default function DashboardOverviewPage() {
     }
   };
 
-  // Toggle task completion
-  const toggleTask = async (taskId: string, currentStatus: boolean) => {
+  // Toggle task completion (Fixed for Postgres 'done' | 'pending' constraint)
+  const toggleTask = async (taskId: string, currentDone: boolean) => {
+    const newStatus = currentDone ? 'pending' : 'done';
     setFamilyTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, completed: !currentStatus } : t))
+      prev.map((t) => (t.id === taskId ? { ...t, status: newStatus, completed: !currentDone } : t))
     );
-    await supabase.from('tasks').update({ completed: !currentStatus }).eq('id', taskId);
+    await supabase.from('tasks').update({
+      status: newStatus,
+      completed_at: newStatus === 'done' ? new Date().toISOString() : null,
+    }).eq('id', taskId);
   };
+
 
   // Circular gauge calculations (donut ring)
   const radius = 52;
@@ -261,8 +290,8 @@ export default function DashboardOverviewPage() {
                 className={cn(
                   'bg-white dark:bg-stone-900 rounded-3xl p-6 border transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md relative overflow-hidden',
                   isSelected
-                    ? 'border-emerald-500 ring-2 ring-emerald-100 dark:ring-emerald-950/60'
-                    : 'border-stone-200 dark:border-stone-800 opacity-90 hover:opacity-100'
+                    ? 'border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-200 dark:ring-emerald-900 bg-emerald-50/30 dark:bg-emerald-950/30'
+                    : 'border-stone-200 dark:border-stone-800 opacity-80 hover:opacity-100'
                 )}
               >
                 {/* Top Profile Line */}
@@ -441,7 +470,7 @@ export default function DashboardOverviewPage() {
           </Card>
         )}
 
-        {/* WIDGET 2: HIDRATAÇÃO DIÁRIA (Donut Gauge + 8 Copos) */}
+        {/* WIDGET 2: HIDRATAÇÃO DIÁRIA (Clean Caregiver Gauge) */}
         {isModuleEnabled('routine_hydration') && (
           <Card className="rounded-3xl border border-stone-200/90 dark:border-stone-800 shadow-xs bg-white dark:bg-stone-900 p-5 flex flex-col items-center justify-between">
             <div className="w-full">
@@ -449,15 +478,15 @@ export default function DashboardOverviewPage() {
                 <div className="w-11 h-11 rounded-2xl bg-sky-100/90 dark:bg-sky-950/50 flex items-center justify-center text-sky-600">
                   <Droplet className="h-5 w-5 fill-sky-600" />
                 </div>
-                <Badge variant="outline" className="text-[10px] font-bold text-sky-700 border-sky-300 bg-sky-50">
+                <Badge variant="outline" className="text-[10px] font-bold text-sky-700 border-sky-300 bg-sky-50 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800">
                   Hidratação
                 </Badge>
               </div>
 
               {/* SVG Circular Donut Ring */}
-              <div className="relative w-28 h-28 mx-auto my-2">
+              <div className="relative w-24 h-24 mx-auto my-2">
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 130 130">
-                  <circle cx="65" cy="65" r={radius} fill="none" stroke="#e2e8f0" strokeWidth={strokeWidth} />
+                  <circle cx="65" cy="65" r={radius} fill="none" stroke="currentColor" className="text-stone-200 dark:text-stone-700" strokeWidth={strokeWidth} />
                   <circle
                     cx="65"
                     cy="65"
@@ -472,43 +501,66 @@ export default function DashboardOverviewPage() {
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-2xl font-black text-stone-900 dark:text-stone-100 leading-none">
-                    {hydrationCount}<span className="text-xs font-semibold text-stone-400">/8</span>
+                  <span className="text-xl font-black text-stone-900 dark:text-stone-100 leading-none">
+                    {hydrationCount * 250}<span className="text-[10px] font-semibold text-stone-400">ml</span>
                   </span>
                   <span className="text-[10px] font-bold text-sky-600 mt-0.5">
-                    {Math.round((hydrationCount / 8) * 100)}%
+                    {hydrationCount}/8 copos
                   </span>
                 </div>
               </div>
 
-              {/* 8 Clickable Glass Icons */}
-              <div className="flex items-center justify-center gap-1.5 mt-2">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={handleAddWater}
-                    title={`Copo ${i + 1}`}
-                    className={cn(
-                      'w-5 h-7 rounded-b-lg border-2 cursor-pointer transition-all flex items-end p-0.5 active:scale-95',
-                      i < hydrationCount
-                        ? 'bg-sky-400 border-sky-500 shadow-xs'
-                        : 'bg-stone-100 dark:bg-stone-800 border-stone-200 hover:border-sky-300'
-                    )}
-                  >
-                    <div className={cn('w-full rounded-b-xs transition-all', i < hydrationCount ? 'bg-sky-600 h-full' : 'h-0')} />
-                  </button>
-                ))}
-              </div>
+              <p className="text-center text-xs text-stone-500 dark:text-stone-400">
+                Meta: 2.000ml por dia
+              </p>
             </div>
 
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleAddWater}
-              className="text-xs font-bold text-sky-600 hover:text-sky-800 transition-colors mt-3 pt-3 border-t border-stone-100 dark:border-stone-800 w-full text-center"
+              className="text-xs font-bold text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800 hover:bg-sky-50 dark:hover:bg-sky-950/40 mt-3 w-full rounded-xl"
             >
-              + Registrar 250ml
-            </button>
+              + Registrar Copo d&apos;água
+            </Button>
           </Card>
         )}
+
+        {/* WIDGET: GESTÃO FINANCEIRA & SALDO DO IDOSO */}
+        <Card className="rounded-3xl border border-stone-200/90 dark:border-stone-800 shadow-xs bg-white dark:bg-stone-900 p-5 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-11 h-11 rounded-2xl bg-emerald-100/90 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-700 dark:text-emerald-300">
+                <Wallet className="h-5 w-5" />
+              </div>
+              <Badge variant="outline" className="text-[10px] font-bold text-emerald-700 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
+                Finanças
+              </Badge>
+            </div>
+
+            <div className="space-y-2 py-1">
+              <div>
+                <span className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 block">Saldo Restante do Mês</span>
+                <span className={`text-2xl font-black ${(financialSummary?.balance ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                  R$ {(financialSummary?.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              <div className="flex justify-between text-xs pt-2 border-t border-stone-100 dark:border-stone-800 text-stone-500 dark:text-stone-400">
+                <span>Receitas: <strong className="text-stone-700 dark:text-stone-200 font-semibold">R$ {(financialSummary?.monthlyIncome || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</strong></span>
+                <span>Gastos: <strong className="text-stone-700 dark:text-stone-200 font-semibold">R$ {(financialSummary?.totalExpenses || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <Link
+            href={`/${locale}/dashboard/expenses`}
+            className="text-xs text-emerald-700 dark:text-emerald-400 font-bold hover:underline mt-4 flex items-center justify-between pt-3 border-t border-stone-100 dark:border-stone-800"
+          >
+            <span>Ver controle financeiro</span>
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        </Card>
 
         {/* WIDGET 3: PRÓXIMA CONSULTA / AGENDA */}
         {isModuleEnabled('schedule_appointments') && (
@@ -693,37 +745,40 @@ export default function DashboardOverviewPage() {
             {/* Quick Task List */}
             {familyTasks.length > 0 && (
               <div className="space-y-2">
-                {familyTasks.slice(0, 3).map((task) => (
-                  <div
-                    key={task.id}
-                    onClick={() => toggleTask(task.id, !!task.completed)}
-                    className="p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/40 border border-stone-100 dark:border-stone-800 flex items-center justify-between cursor-pointer hover:bg-stone-100/80 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={cn(
-                          'w-5 h-5 rounded-md flex items-center justify-center border transition-colors',
-                          task.completed
-                            ? 'bg-emerald-500 border-emerald-600 text-white'
-                            : 'border-stone-300 dark:border-stone-600'
-                        )}
-                      >
-                        {task.completed && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                {familyTasks.slice(0, 4).map((task) => {
+                  const isTaskDone = task.status === 'done' || task.status === 'completed' || !!task.completed;
+                  return (
+                    <div
+                      key={task.id}
+                      onClick={() => toggleTask(task.id, isTaskDone)}
+                      className="p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/40 border border-stone-100 dark:border-stone-800 flex items-center justify-between cursor-pointer hover:bg-stone-100/80 dark:hover:bg-stone-800/70 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={cn(
+                            'w-5 h-5 rounded-md flex items-center justify-center border transition-colors',
+                            isTaskDone
+                              ? 'bg-emerald-500 border-emerald-600 text-white'
+                              : 'border-stone-300 dark:border-stone-600'
+                          )}
+                        >
+                          {isTaskDone && <Check className="h-3.5 w-3.5 stroke-[3]" />}
+                        </div>
+                        <span
+                          className={cn(
+                            'text-xs font-bold',
+                            isTaskDone ? 'line-through text-stone-400 dark:text-stone-500' : 'text-stone-800 dark:text-stone-200'
+                          )}
+                        >
+                          {task.title}
+                        </span>
                       </div>
-                      <span
-                        className={cn(
-                          'text-xs font-bold',
-                          task.completed ? 'line-through text-stone-400' : 'text-stone-800 dark:text-stone-200'
-                        )}
-                      >
-                        {task.title}
+                      <span className="text-[10px] text-stone-400 font-medium">
+                        {task.due_time ? task.due_time.slice(0, 5) : 'Hoje'}
                       </span>
                     </div>
-                    <span className="text-[10px] text-stone-400 font-medium">
-                      {task.due_time ? task.due_time.slice(0, 5) : 'Hoje'}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

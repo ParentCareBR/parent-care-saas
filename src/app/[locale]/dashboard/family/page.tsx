@@ -161,12 +161,28 @@ export default function FamilyPage() {
     }
   };
 
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareText, setShareText] = useState('');
+
   const copyInviteLink = () => {
+    const inviteUrl = `${window.location.origin}/${locale}/auth/signup?ref=${currentOrganizationId}`;
+    const message = `Olá! Já criei uma conta no Parent Care para cuidarmos juntos do nosso familiar. 🩺\n\nPara acessar:\n1. Abra o link: ${inviteUrl}\n2. Crie sua conta com o seu e-mail\n3. Após entrar, você já estará vinculado(a) à nossa família\n\nCaso tenha dificuldades, me avise! 💚`;
+    setShareText(message);
+    setShareDialogOpen(true);
+  };
+
+  const doCopyLink = () => {
     const inviteUrl = `${window.location.origin}/${locale}/auth/signup?ref=${currentOrganizationId}`;
     navigator.clipboard.writeText(inviteUrl);
     setCopied(true);
-    toast({ title: 'Link copiado!', description: 'Envie este link para seu familiar entrar na rede de cuidados.' });
+    toast({ title: 'Link copiado!', description: 'Envie este link para seu familiar.' });
     setTimeout(() => setCopied(false), 3000);
+  };
+
+  const doShareWhatsApp = () => {
+    const inviteUrl = `${window.location.origin}/${locale}/auth/signup?ref=${currentOrganizationId}`;
+    const message = `Olá! Já criei uma conta no Parent Care para cuidarmos juntos do nosso familiar. 🩺\n\nPara acessar:\n1. Abra o link: ${inviteUrl}\n2. Crie sua conta com o seu e-mail\n\nCaso tenha dificuldades, me avise! 💚`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const getRoleLabel = (role: string) => {
@@ -190,18 +206,19 @@ export default function FamilyPage() {
   const seatsFull = entitlements ? !entitlements.canInvite : false;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6 overflow-x-hidden w-full">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-stone-900 flex items-center gap-2.5">
+          <h1 className="text-2xl font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2.5">
             <Users className="h-7 w-7 text-emerald-600" />
             Círculo Familiar & Cuidadores
           </h1>
-          <p className="text-stone-500 text-sm mt-1">
+          <p className="text-stone-500 dark:text-stone-400 text-sm mt-1">
             Gerencie os familiares, médicos e cuidadores que acompanham e colaboram nos cuidados.
           </p>
         </div>
+
 
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={copyInviteLink} className="rounded-xl">
@@ -362,10 +379,10 @@ export default function FamilyPage() {
       )}
 
       {/* Members Grid / List */}
-      <Card className="rounded-2xl border-stone-200">
+      <Card className="rounded-2xl border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
         <CardHeader>
-          <CardTitle className="text-lg">Membros Ativos ({members.length || 1})</CardTitle>
-          <CardDescription>Pessoas com acesso ao histórico, rotina e tarefas da família.</CardDescription>
+          <CardTitle className="text-lg text-stone-900 dark:text-stone-100">Membros Ativos ({members.length || 1})</CardTitle>
+          <CardDescription className="text-stone-500 dark:text-stone-400">Pessoas com acesso ao histórico, rotina e tarefas da família.</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -373,7 +390,7 @@ export default function FamilyPage() {
               <div className="animate-spin h-8 w-8 border-4 border-emerald-600 border-t-transparent rounded-full" />
             </div>
           ) : members.length > 0 ? (
-            <div className="divide-y divide-stone-100">
+            <div className="divide-y divide-stone-100 dark:divide-stone-800">
               {members.map((member) => {
                 const displayName = member.users?.full_name || member.invited_email || user?.email || 'Membro';
                 const displayEmail = member.users?.email || member.invited_email || user?.email;
@@ -384,8 +401,8 @@ export default function FamilyPage() {
                         {displayName.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <p className="font-semibold text-stone-900 text-sm">{displayName}</p>
-                        <p className="text-xs text-stone-500 flex items-center gap-1.5 mt-0.5">
+                        <p className="font-semibold text-stone-900 dark:text-stone-100 text-sm">{displayName}</p>
+                        <p className="text-xs text-stone-500 dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
                           <Mail className="h-3 w-3" />
                           {displayEmail}
                         </p>
@@ -444,6 +461,36 @@ export default function FamilyPage() {
           <Share2 className="h-4 w-4 mr-2" /> Compartilhar Acesso
         </Button>
       </div>
+
+      {/* Share Dialog */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Compartilhar Acesso à Família</DialogTitle>
+            <DialogDescription>
+              Envie o link de convite para um familiar ou cuidador. Ao acessar, eles criarão uma conta e serão vinculados automaticamente ao seu grupo de cuidados.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="bg-stone-50 dark:bg-stone-800 rounded-xl p-4 text-sm text-stone-700 dark:text-stone-300 whitespace-pre-wrap border border-stone-200 dark:border-stone-700 leading-relaxed">
+              {shareText}
+            </div>
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-700 rounded-lg p-3 text-xs text-amber-800 dark:text-amber-300">
+              <strong>ℹ️ Importante:</strong> Quem receber este link precisará criar uma conta com seu próprio e-mail. Após criar a conta, já estará vinculado(a) à sua família automaticamente.
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={doCopyLink} className="gap-2 flex-1">
+              {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+              {copied ? 'Link Copiado!' : 'Copiar Link'}
+            </Button>
+            <Button onClick={doShareWhatsApp} className="bg-emerald-600 hover:bg-emerald-700 gap-2 flex-1">
+              <Share2 className="h-4 w-4" />
+              Enviar pelo WhatsApp
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

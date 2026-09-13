@@ -128,7 +128,9 @@ export default function ExpensesPage() {
     setLoading(true);
 
     try {
-      const res = await fetch(`/api/expenses?caredPersonId=${selectedPerson.id}&month=${selectedMonth}`);
+      const res = await fetch(`/api/expenses?caredPersonId=${selectedPerson.id}&month=${selectedMonth}`, {
+        cache: 'no-store',
+      });
       const data = await res.json();
       if (res.ok && data.success) {
         setExpenses(Array.isArray(data.expenses) ? data.expenses : []);
@@ -314,11 +316,17 @@ export default function ExpensesPage() {
       currency: summary.currency || 'BRL',
     });
 
-  // Filtered expenses for selected month
+  // Filtered expenses for selected month & live reactive calculations
   const monthlyExpenses = expenses.filter((e) => {
     const d = (e.date || '').slice(0, 7);
     return d === selectedMonth;
   });
+
+  const totalMonthExpenses = monthlyExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const monthlyIncome = Number(profile.monthly_income) || Number(summary.monthlyIncome) || 0;
+  const currentBalance = monthlyIncome - totalMonthExpenses;
+  const percentageUsed = monthlyIncome > 0 ? Math.min((totalMonthExpenses / monthlyIncome) * 100, 100) : 0;
+  const isOverBudget = monthlyIncome > 0 && totalMonthExpenses > monthlyIncome;
 
   // Format month name for display
   const monthDisplay = (() => {
@@ -419,7 +427,7 @@ export default function ExpensesPage() {
                 {tFin.monthlyIncome}
               </p>
               <h3 className="text-2xl sm:text-3xl font-black text-emerald-950 dark:text-emerald-100 mt-1">
-                {formatCurrency(summary.monthlyIncome)}
+                {formatCurrency(monthlyIncome)}
               </h3>
               <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
                 {profile.income_source} · Dia {profile.income_day}
@@ -429,7 +437,7 @@ export default function ExpensesPage() {
               <Landmark className="h-5 w-5" />
             </div>
           </div>
-          {summary.monthlyIncome === 0 && (
+          {monthlyIncome === 0 && (
             <button
               onClick={() => setPensionModalOpen(true)}
               className="mt-3 text-xs font-bold text-emerald-700 dark:text-emerald-300 underline block"
@@ -447,7 +455,7 @@ export default function ExpensesPage() {
                 {tFin.monthlyExpenses}
               </p>
               <h3 className="text-2xl sm:text-3xl font-black text-amber-950 dark:text-amber-100 mt-1">
-                {formatCurrency(summary.totalExpenses)}
+                {formatCurrency(totalMonthExpenses)}
               </h3>
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 font-medium">
                 {monthlyExpenses.length} custo(s) lançados neste mês
@@ -463,7 +471,7 @@ export default function ExpensesPage() {
         <Card
           className={cn(
             'rounded-3xl border-2 p-5 relative overflow-hidden transition-all',
-            summary.isOverBudget
+            isOverBudget
               ? 'border-red-300 dark:border-red-800 bg-red-50/60 dark:bg-red-950/30'
               : 'border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20'
           )}
@@ -473,7 +481,7 @@ export default function ExpensesPage() {
               <p
                 className={cn(
                   'text-xs font-bold uppercase tracking-wider',
-                  summary.isOverBudget
+                  isOverBudget
                     ? 'text-red-700 dark:text-red-400'
                     : 'text-blue-700 dark:text-blue-400'
                 )}
@@ -483,22 +491,22 @@ export default function ExpensesPage() {
               <h3
                 className={cn(
                   'text-2xl sm:text-3xl font-black mt-1',
-                  summary.isOverBudget
+                  isOverBudget
                     ? 'text-red-700 dark:text-red-300'
                     : 'text-blue-950 dark:text-blue-100'
                 )}
               >
-                {formatCurrency(summary.balance)}
+                {formatCurrency(currentBalance)}
               </h3>
               <p
                 className={cn(
                   'text-xs mt-1 font-semibold flex items-center gap-1',
-                  summary.isOverBudget
+                  isOverBudget
                     ? 'text-red-600 dark:text-red-400'
                     : 'text-blue-600 dark:text-blue-400'
                 )}
               >
-                {summary.isOverBudget ? (
+                {isOverBudget ? (
                   <>
                     <AlertCircle className="h-3.5 w-3.5" />
                     {tFin.overBudget}
@@ -506,8 +514,8 @@ export default function ExpensesPage() {
                 ) : (
                   <>
                     <CheckCircle2 className="h-3.5 w-3.5" />
-                    {summary.monthlyIncome > 0
-                      ? `${(100 - summary.percentageUsed).toFixed(0)}% ${tFin.remaining}`
+                    {monthlyIncome > 0
+                      ? `${(100 - percentageUsed).toFixed(0)}% ${tFin.remaining}`
                       : 'Saldo disponível'}
                   </>
                 )}
@@ -516,7 +524,7 @@ export default function ExpensesPage() {
             <div
               className={cn(
                 'w-10 h-10 rounded-2xl flex items-center justify-center shrink-0',
-                summary.isOverBudget
+                isOverBudget
                   ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
                   : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
               )}
@@ -528,7 +536,7 @@ export default function ExpensesPage() {
       </div>
 
       {/* Budget Progress Bar */}
-      {summary.monthlyIncome > 0 && (
+      {monthlyIncome > 0 && (
         <Card className="rounded-2xl border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-5 shadow-xs">
           <div className="flex items-center justify-between mb-2 text-sm">
             <span className="font-bold text-stone-800 dark:text-stone-200">
@@ -537,32 +545,32 @@ export default function ExpensesPage() {
             <span
               className={cn(
                 'font-black text-sm',
-                summary.isOverBudget
+                isOverBudget
                   ? 'text-red-600'
-                  : summary.percentageUsed > 80
+                  : percentageUsed > 80
                   ? 'text-amber-600'
                   : 'text-emerald-600'
               )}
             >
-              {summary.percentageUsed.toFixed(1)}% {tFin.budgetUsed}
+              {percentageUsed.toFixed(1)}% {tFin.budgetUsed}
             </span>
           </div>
           <div className="w-full bg-stone-100 dark:bg-stone-800 h-3.5 rounded-full overflow-hidden">
             <div
               className={cn(
                 'h-full rounded-full transition-all duration-500',
-                summary.isOverBudget
+                isOverBudget
                   ? 'bg-red-600'
-                  : summary.percentageUsed > 80
+                  : percentageUsed > 80
                   ? 'bg-amber-500'
                   : 'bg-emerald-500'
               )}
-              style={{ width: `${Math.min(100, summary.percentageUsed)}%` }}
+              style={{ width: `${Math.min(percentageUsed, 100)}%` }}
             />
           </div>
           <div className="flex items-center justify-between text-xs text-stone-400 mt-2">
             <span>R$ 0,00</span>
-            <span>Renda Base: {formatCurrency(summary.monthlyIncome)}</span>
+            <span>Renda Base: {formatCurrency(monthlyIncome)}</span>
           </div>
         </Card>
       )}

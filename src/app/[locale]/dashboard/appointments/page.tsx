@@ -12,10 +12,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Plus, MapPin, User, CheckCircle2, Clock, XCircle, AlertCircle, RefreshCw, BellRing } from 'lucide-react';
+import { Calendar, Plus, MapPin, User, CheckCircle2, Clock, XCircle, RefreshCw, BellRing, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import RecurrenceSelector, { RecurrenceConfig, recurrenceLabel } from '@/components/ui/RecurrenceSelector';
 import { getAlarmTexts } from '@/lib/i18n/care-translations';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, subWeeks, subMonths, isSameDay, isToday, isSameMonth } from 'date-fns';
+import { ptBR, enUS, es as esLocale, fr as frLocale, de as deLocale } from 'date-fns/locale';
+
+type ViewMode = 'day' | 'week' | 'month';
+
+function getDateFnsLocale(locale: string) {
+  switch (locale) {
+    case 'en': return enUS;
+    case 'es': return esLocale;
+    case 'fr': return frLocale;
+    case 'de': return deLocale;
+    default: return ptBR;
+  }
+}
 
 interface Appointment {
   id: string;
@@ -42,6 +56,11 @@ export default function AppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('day');
+  const [navDate, setNavDate] = useState(new Date());
+
+  const dateFnsLocale = getDateFnsLocale(currentLocale);
+  const displayLocale = currentLocale === 'en' ? 'en-US' : currentLocale;
 
   const [form, setForm] = useState({
     title: '',
@@ -143,15 +162,51 @@ export default function AppointmentsPage() {
     }
   };
 
+  // Filter appointments based on current view
+  const getViewAppointments = () => {
+    if (viewMode === 'day') {
+      return appointments.filter(a => isSameDay(new Date(a.starts_at), navDate));
+    } else if (viewMode === 'week') {
+      const wStart = startOfWeek(navDate, { weekStartsOn: 1 });
+      const wEnd = endOfWeek(navDate, { weekStartsOn: 1 });
+      return appointments.filter(a => {
+        const d = new Date(a.starts_at);
+        return d >= wStart && d <= wEnd;
+      });
+    } else {
+      return appointments.filter(a => isSameMonth(new Date(a.starts_at), navDate));
+    }
+  };
+
+  const navigate = (dir: 1 | -1) => {
+    if (viewMode === 'day') setNavDate(prev => addDays(prev, dir));
+    else if (viewMode === 'week') setNavDate(prev => dir === 1 ? addWeeks(prev, 1) : subWeeks(prev, 1));
+    else setNavDate(prev => dir === 1 ? addMonths(prev, 1) : subMonths(prev, 1));
+  };
+
+  const navLabel = () => {
+    if (viewMode === 'day') return format(navDate, "EEEE, d 'de' MMMM", { locale: dateFnsLocale });
+    else if (viewMode === 'week') {
+      const ws = startOfWeek(navDate, { weekStartsOn: 1 });
+      const we = endOfWeek(navDate, { weekStartsOn: 1 });
+      return `${format(ws, 'd MMM', { locale: dateFnsLocale })} – ${format(we, 'd MMM yyyy', { locale: dateFnsLocale })}`;
+    } else {
+      return format(navDate, "MMMM yyyy", { locale: dateFnsLocale });
+    }
+  };
+
+  const viewAppts = getViewAppointments();
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 overflow-x-hidden w-full">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-stone-900 flex items-center gap-2.5">
+          <h1 className="text-2xl font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2.5">
             <Calendar className="h-7 w-7 text-indigo-600" />
             Agenda de Consultas e Exames
           </h1>
-          <p className="text-stone-500 text-sm mt-1">
+          <p className="text-stone-500 dark:text-stone-400 text-sm mt-1">
             {selectedPerson 
               ? `Compromissos e consultas médicas de ${selectedPerson.full_name}`
               : 'Selecione uma pessoa cuidada para gerenciar a agenda'}
@@ -164,6 +219,7 @@ export default function AppointmentsPage() {
               <Plus className="h-4 w-4 mr-2" /> Agendar Consulta / Exame
             </Button>
           </DialogTrigger>
+
           <DialogContent className="sm:max-w-[480px]">
             <form onSubmit={handleCreate}>
               <DialogHeader>
@@ -279,22 +335,67 @@ export default function AppointmentsPage() {
         </Dialog>
       </div>
 
-      <Card className="rounded-2xl border-stone-200">
-        <CardHeader>
-          <CardTitle className="text-lg">Compromissos Cadastrados ({appointments.length})</CardTitle>
-          <CardDescription>Acompanhe datas, locais e marque as consultas concluídas.</CardDescription>
+      {/* View Mode Toggle + Navigation */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        {/* View Mode Buttons */}
+        <div className="flex bg-stone-100 dark:bg-stone-800 rounded-xl p-1 gap-1">
+          {(['day', 'week', 'month'] as ViewMode[]).map(mode => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                viewMode === mode
+                  ? 'bg-white dark:bg-stone-700 shadow-sm text-indigo-700 dark:text-indigo-300'
+                  : 'text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-300'
+              }`}
+            >
+              {mode === 'day' ? 'Dia' : mode === 'week' ? 'Semana' : 'Mês'}
+            </button>
+          ))}
+        </div>
+
+        {/* Navigation */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => navigate(-1)}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="flex-1 text-center text-sm font-semibold text-stone-800 dark:text-stone-200 capitalize truncate">
+            {navLabel()}
+          </span>
+          <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => navigate(1)}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Hoje */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0 text-indigo-600 border-indigo-300 hover:bg-indigo-50 dark:text-indigo-400 dark:border-indigo-700 dark:hover:bg-indigo-950/30"
+          onClick={() => setNavDate(new Date())}
+        >
+          Hoje
+        </Button>
+      </div>
+
+      <Card className="rounded-2xl border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg text-stone-900 dark:text-stone-100">
+            {viewAppts.length} compromisso{viewAppts.length !== 1 ? 's' : ''} neste período
+          </CardTitle>
+          <CardDescription className="text-stone-500 dark:text-stone-400">
+            Acompanhe datas, locais e marque as consultas concluídas.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="py-12 flex justify-center">
               <div className="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full" />
             </div>
-          ) : appointments.length > 0 ? (
+          ) : viewAppts.length > 0 ? (
             <div className="space-y-3.5">
-              {appointments.map((appt) => {
+              {viewAppts.map((appt) => {
                 const dateObj = new Date(appt.starts_at);
-                const isPast = dateObj < new Date();
-                const displayLocale = currentLocale === 'en' ? 'en-US' : currentLocale;
                 const recMatch = appt.description?.match(/\[(?:Recorrência|Recurrence|Récurrence|Wiederholung):\s*(.+?)\]/i);
                 const alarmMatch = appt.description?.match(/\[(?:Alarme|Alarm|Wecker):\s*(.+?)\]/i);
                 const cleanDesc = appt.description
@@ -303,9 +404,15 @@ export default function AppointmentsPage() {
                   ?.trim();
 
                 return (
-                  <div 
-                    key={appt.id} 
-                    className="p-4 rounded-xl border border-stone-200/80 bg-white hover:border-indigo-200 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs"
+                  <div
+                    key={appt.id}
+                    className={`p-4 rounded-xl border transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                      appt.status === 'completed'
+                        ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20'
+                        : appt.status === 'canceled'
+                        ? 'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800/30 opacity-60'
+                        : 'border-indigo-100 dark:border-stone-700 bg-white dark:bg-stone-800/50 hover:border-indigo-300 dark:hover:border-indigo-700'
+                    }`}
                   >
                     <div className="flex items-start gap-3.5">
                       <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-700 flex flex-col items-center justify-center font-bold flex-shrink-0 border border-indigo-100">
@@ -381,7 +488,7 @@ export default function AppointmentsPage() {
                             size="sm" 
                             variant="outline" 
                             onClick={() => updateStatus(appt.id, 'completed')}
-                            className="text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-lg"
+                            className="text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/30 rounded-lg"
                           >
                             <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Concluir
                           </Button>
@@ -401,16 +508,21 @@ export default function AppointmentsPage() {
               })}
             </div>
           ) : (
-            <div className="py-12 text-center text-stone-400">
+            <div className="py-12 text-center text-stone-400 dark:text-stone-500">
               <Calendar className="h-10 w-10 mx-auto mb-2 opacity-40" />
-              <p className="text-sm">Nenhuma consulta agendada.</p>
+              <p className="text-sm font-medium text-stone-600 dark:text-stone-400">
+                Nenhuma consulta neste período.
+              </p>
+              <p className="text-xs text-stone-400 mt-1 mb-3">
+                Navegue para outro período ou agende uma nova consulta.
+              </p>
               <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={() => setModalOpen(true)}
-                className="mt-3 text-indigo-600 border-indigo-200"
+                className="text-indigo-600 border-indigo-200 dark:text-indigo-400 dark:border-indigo-700"
               >
-                + Agendar a Primeira Consulta
+                + Agendar Consulta
               </Button>
             </div>
           )}

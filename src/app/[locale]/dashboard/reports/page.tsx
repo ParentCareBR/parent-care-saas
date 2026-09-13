@@ -20,6 +20,7 @@ import {
   HelpCircle,
   Info,
   Pill,
+  Printer,
   TrendingDown,
   TrendingUp,
   Utensils,
@@ -27,6 +28,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { PatternChangeInsight } from '@/types/monitoring';
+
 
 export default function ReportsAndPatternChangesPage() {
   const { user } = useAuth();
@@ -118,7 +120,7 @@ export default function ReportsAndPatternChangesPage() {
   const inactiveItems = trackingItems.filter((item) => !item.enabled);
 
   return (
-    <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-8">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-8 overflow-x-hidden w-full">
       {/* Header */}
       <div className="border-b border-stone-200 dark:border-stone-800 pb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -126,39 +128,126 @@ export default function ReportsAndPatternChangesPage() {
             <h1 className="text-3xl font-bold text-stone-900 dark:text-stone-100">
               {tR('title')}
             </h1>
-            <p className="text-sm text-stone-500 mt-1">
+            <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
               {tR('subtitle')}
             </p>
           </div>
-          <Tabs value={timeframe} onValueChange={(v) => setTimeframe(v as any)}>
-            <TabsList className="bg-stone-200/60 dark:bg-stone-800/60 p-1 rounded-xl">
-              <TabsTrigger value="daily" className="text-xs font-semibold px-4 py-2">
-                Resumo Diário
-              </TabsTrigger>
-              <TabsTrigger value="weekly" className="text-xs font-semibold px-4 py-2">
-                Resumo Semanal
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Tabs value={timeframe} onValueChange={(v) => setTimeframe(v as any)}>
+              <TabsList className="bg-stone-200/60 dark:bg-stone-800/60 p-1 rounded-xl">
+                <TabsTrigger value="daily" className="text-xs font-semibold px-4 py-2">
+                  Resumo Diário
+                </TabsTrigger>
+                <TabsTrigger value="weekly" className="text-xs font-semibold px-4 py-2">
+                  Resumo Semanal
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 text-stone-700 dark:text-stone-300 border-stone-300 dark:border-stone-700"
+              onClick={() => window.print()}
+            >
+              <Printer className="h-4 w-4" />
+              Imprimir para Consulta Médica
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* SECTION 1: MUDANÇAS OBSERVADAS (Strictly Deterministic Comparison) */}
+      {/* WEEKLY EXECUTIVE SUMMARY */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <Heart className="h-5 w-5 text-rose-500" />
+          <h2 className="text-lg font-bold text-stone-900 dark:text-stone-100">
+            Como foi a semana de {selectedPerson.full_name}?
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Medicamentos */}
+          <div className="p-5 rounded-2xl border border-emerald-100 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-2xl">💊</span>
+              <h3 className="font-bold text-stone-900 dark:text-stone-100 text-sm">Medicamentos</h3>
+            </div>
+            {isModuleEnabled('meds_scheduled') ? (
+              <>
+                <p className="text-sm text-stone-700 dark:text-stone-300 font-medium">Adesão registrada esta semana</p>
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">Continue assim! Manter a rotina de remédios faz toda a diferença. 💪</p>
+              </>
+            ) : (
+              <p className="text-xs text-stone-500 dark:text-stone-400">Ative o módulo de medicamentos para ver o resumo aqui.</p>
+            )}
+          </div>
+
+          {/* Alimentação */}
+          <div className="p-5 rounded-2xl border border-amber-100 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-2xl">🥣</span>
+              <h3 className="font-bold text-stone-900 dark:text-stone-100 text-sm">Alimentação</h3>
+            </div>
+            {isModuleEnabled('routine_meals') ? (
+              <>
+                <p className="text-sm text-stone-700 dark:text-stone-300 font-medium">Refeições acompanhadas esta semana</p>
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">Manter refeições regulares é essencial para o bem-estar! 🍽️</p>
+              </>
+            ) : (
+              <p className="text-xs text-stone-500 dark:text-stone-400">Ative o módulo de alimentação para ver o resumo aqui.</p>
+            )}
+          </div>
+
+          {/* Hidratação */}
+          <div className="p-5 rounded-2xl border border-blue-100 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-2xl">💧</span>
+              <h3 className="font-bold text-stone-900 dark:text-stone-100 text-sm">Hidratação</h3>
+            </div>
+            {isModuleEnabled('routine_hydration') ? (
+              <>
+                <p className="text-sm text-stone-700 dark:text-stone-300 font-medium">Ingestão de água monitorada</p>
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">Manter-se hidratado previne muitos problemas de saúde! 💙</p>
+              </>
+            ) : (
+              <p className="text-xs text-stone-500 dark:text-stone-400">Ative o módulo de hidratação para ver o resumo aqui.</p>
+            )}
+          </div>
+
+          {/* Humor & Bem-estar */}
+          <div className="p-5 rounded-2xl border border-purple-100 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-2xl">❤️</span>
+              <h3 className="font-bold text-stone-900 dark:text-stone-100 text-sm">Humor &amp; Bem-estar</h3>
+            </div>
+            {isModuleEnabled('wellbeing_mood') ? (
+              <>
+                <p className="text-sm text-stone-700 dark:text-stone-300 font-medium">Humor e disposição acompanhados</p>
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">O bem-estar emocional é tão importante quanto o físico! 🌟</p>
+              </>
+            ) : (
+              <p className="text-xs text-stone-500 dark:text-stone-400">Ative o módulo de humor para ver o resumo aqui.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 1: MUDANÇAS OBSERVADAS */}
       <Card className="border-stone-200 dark:border-stone-800 shadow-sm overflow-hidden">
         <CardHeader className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-transparent pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
-              <CardTitle className="text-lg font-bold">{tR('observed_changes')}</CardTitle>
+              <CardTitle className="text-lg font-bold text-stone-900 dark:text-stone-100">{tR('observed_changes')}</CardTitle>
             </div>
-            <Badge variant="outline" className="text-xs font-bold text-emerald-800 border-emerald-300">
-              Determinístico
+            <Badge variant="outline" className="text-xs font-bold text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700">
+              Esta Semana vs. Semana Anterior
             </Badge>
           </div>
-          <CardDescription className="text-xs text-stone-500 mt-1">
-            Compara objetivamente os registros dos últimos 7 dias com o período anterior de 7 dias. Sem diagnósticos médicos.
+          <CardDescription className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+            Comparamos os registros dos últimos 7 dias com os 7 dias anteriores para mostrar o que mudou no dia a dia de {selectedPerson.full_name}. Não é diagnóstico médico — é apenas uma visão geral para você acompanhar melhor.
           </CardDescription>
         </CardHeader>
+
 
         <CardContent className="p-6 space-y-4">
           {loadingInsights ? (

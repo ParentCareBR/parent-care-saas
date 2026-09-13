@@ -22,7 +22,7 @@ interface Task {
   id: string;
   title: string;
   description?: string | null;
-  status: 'pending' | 'completed' | 'canceled';
+  status: 'pending' | 'in_progress' | 'done' | 'completed' | 'canceled';
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   due_date?: string | null;
   created_at: string;
@@ -126,13 +126,19 @@ export default function TasksPage() {
     setSaving(false);
   };
 
+  const isDone = (status: string) => status === 'done' || status === 'completed';
+
   const toggleTaskStatus = async (task: Task) => {
-    const newStatus = task.status === 'completed' ? 'pending' : 'completed';
+    const currentlyDone = isDone(task.status);
+    const newStatus = currentlyDone ? 'pending' : 'done';
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
 
     const { error } = await supabase
       .from('tasks')
-      .update({ status: newStatus })
+      .update({ 
+        status: newStatus,
+        completed_at: newStatus === 'done' ? new Date().toISOString() : null,
+      })
       .eq('id', task.id);
 
     if (error) {
@@ -142,12 +148,12 @@ export default function TasksPage() {
   };
 
   const filteredTasks = tasks.filter((t) => {
-    if (filter === 'pending') return t.status === 'pending';
-    if (filter === 'completed') return t.status === 'completed';
+    if (filter === 'pending') return !isDone(t.status);
+    if (filter === 'completed') return isDone(t.status);
     return true;
   });
 
-  const completedCount = tasks.filter(t => t.status === 'completed').length;
+  const completedCount = tasks.filter(t => isDone(t.status)).length;
   const progressPercent = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
 
   const getPriorityBadge = (priority?: string) => {
@@ -167,11 +173,11 @@ export default function TasksPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-stone-900 flex items-center gap-2.5">
+          <h1 className="text-2xl font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2.5">
             <CheckSquare className="h-7 w-7 text-indigo-600" />
             Divisão de Tarefas da Família
           </h1>
-          <p className="text-stone-500 text-sm mt-1">
+          <p className="text-stone-500 dark:text-stone-400 text-sm mt-1">
             {selectedPerson 
               ? `Organize as tarefas de compras, cuidados e transporte para ${selectedPerson.full_name}`
               : 'Selecione uma pessoa cuidada para ver as tarefas'}
@@ -287,12 +293,12 @@ export default function TasksPage() {
 
       {/* Progress Bar Card */}
       {tasks.length > 0 && (
-        <Card className="rounded-2xl border-stone-200 bg-white p-5">
+        <Card className="rounded-2xl border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-5">
           <div className="flex items-center justify-between mb-2 text-sm">
-            <span className="font-semibold text-stone-800">Progresso Geral</span>
-            <span className="text-stone-500 font-medium">{completedCount} de {tasks.length} concluídas ({progressPercent}%)</span>
+            <span className="font-semibold text-stone-800 dark:text-stone-200">Progresso Geral</span>
+            <span className="text-stone-500 dark:text-stone-400 font-medium">{completedCount} de {tasks.length} concluídas ({progressPercent}%)</span>
           </div>
-          <div className="w-full bg-stone-100 h-3 rounded-full overflow-hidden">
+          <div className="w-full bg-stone-100 dark:bg-stone-800 h-3 rounded-full overflow-hidden">
             <div 
               className="bg-indigo-600 h-full rounded-full transition-all duration-500" 
               style={{ width: `${progressPercent}%` }}
@@ -307,7 +313,9 @@ export default function TasksPage() {
           onClick={() => setFilter('all')}
           className={cn(
             "px-3.5 py-1.5 rounded-xl text-xs font-medium transition-colors",
-            filter === 'all' ? 'bg-indigo-600 text-white' : 'bg-white border border-stone-200 text-stone-600'
+            filter === 'all' 
+              ? 'bg-indigo-600 text-white' 
+              : 'bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800'
           )}
         >
           Todas ({tasks.length})
@@ -316,16 +324,20 @@ export default function TasksPage() {
           onClick={() => setFilter('pending')}
           className={cn(
             "px-3.5 py-1.5 rounded-xl text-xs font-medium transition-colors",
-            filter === 'pending' ? 'bg-indigo-600 text-white' : 'bg-white border border-stone-200 text-stone-600'
+            filter === 'pending' 
+              ? 'bg-indigo-600 text-white' 
+              : 'bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800'
           )}
         >
-          Pendentes ({tasks.filter(t => t.status === 'pending').length})
+          Pendentes ({tasks.filter(t => !isDone(t.status)).length})
         </button>
         <button
           onClick={() => setFilter('completed')}
           className={cn(
             "px-3.5 py-1.5 rounded-xl text-xs font-medium transition-colors",
-            filter === 'completed' ? 'bg-indigo-600 text-white' : 'bg-white border border-stone-200 text-stone-600'
+            filter === 'completed' 
+              ? 'bg-indigo-600 text-white' 
+              : 'bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800'
           )}
         >
           Concluídas ({completedCount})
@@ -342,7 +354,7 @@ export default function TasksPage() {
           ) : filteredTasks.length > 0 ? (
             <div className="space-y-3">
               {filteredTasks.map((task) => {
-                const isCompleted = task.status === 'completed';
+                const isCompleted = isDone(task.status);
                 const recMatch = task.description?.match(/\[(?:Recorrência|Recurrence|Wiederholung):\s*(.+?)\]/i);
                 const alarmMatch = task.description?.match(/\[(?:Alarme|Alarm|Wecker):\s*(.+?)\]/i);
                 const cleanDesc = task.description
@@ -355,7 +367,9 @@ export default function TasksPage() {
                     key={task.id}
                     className={cn(
                       "p-4 rounded-xl border transition-all duration-200 flex items-start justify-between gap-4",
-                      isCompleted ? "bg-stone-50/60 border-stone-200/60" : "bg-white border-stone-200 hover:border-indigo-200 shadow-2xs"
+                      isCompleted 
+                        ? "bg-stone-50/60 dark:bg-stone-800/40 border-stone-200/60 dark:border-stone-700/60 opacity-80" 
+                        : "bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 hover:border-indigo-200 shadow-2xs"
                     )}
                   >
                     <div className="flex items-start gap-3.5 flex-1">
@@ -363,7 +377,7 @@ export default function TasksPage() {
                         onClick={() => toggleTaskStatus(task)}
                         className={cn(
                           "mt-0.5 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors flex-shrink-0",
-                          isCompleted ? "bg-emerald-500 border-emerald-500 text-white" : "border-stone-300 hover:border-indigo-500 bg-white"
+                          isCompleted ? "bg-emerald-500 border-emerald-500 text-white" : "border-stone-300 dark:border-stone-600 hover:border-indigo-500 bg-white dark:bg-stone-800"
                         )}
                       >
                         {isCompleted && <Check className="h-4 w-4 stroke-[3]" />}

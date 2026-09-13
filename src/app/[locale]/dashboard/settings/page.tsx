@@ -113,39 +113,41 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-12">
+    <div className="max-w-4xl mx-auto space-y-6 pb-12 w-full overflow-x-hidden">
       <div>
-        <h1 className="text-2xl font-bold text-stone-900 flex items-center gap-2.5">
+        <h1 className="text-2xl font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2.5">
           <Settings className="h-7 w-7 text-emerald-600" />
           Configurações da Conta
         </h1>
-        <p className="text-stone-500 text-sm mt-1">
+        <p className="text-stone-500 dark:text-stone-400 text-sm mt-1">
           Gerencie suas informações pessoais, segurança, alertas e assinatura.
         </p>
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="bg-stone-100 p-1 rounded-xl">
-          <TabsTrigger value="profile" className="rounded-lg gap-2">
-            <User className="h-4 w-4" /> Perfil
-          </TabsTrigger>
-          <TabsTrigger value="security" className="rounded-lg gap-2">
-            <Lock className="h-4 w-4" /> Segurança
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="rounded-lg gap-2">
-            <Bell className="h-4 w-4" /> Notificações
-          </TabsTrigger>
-          <TabsTrigger value="appearance" className="rounded-lg gap-2">
-            <Sun className="h-4 w-4" /> Aparência
-          </TabsTrigger>
-          <TabsTrigger value="billing" className="rounded-lg gap-2">
-            <CreditCard className="h-4 w-4" /> Assinatura
-          </TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="profile" className="space-y-6 w-full">
+        <div className="w-full max-w-full overflow-x-auto no-scrollbar pb-1">
+          <TabsList className="bg-stone-100 dark:bg-stone-800 p-1 rounded-xl inline-flex w-max sm:w-auto">
+            <TabsTrigger value="profile" className="rounded-lg gap-2 text-xs sm:text-sm">
+              <User className="h-4 w-4" /> Perfil
+            </TabsTrigger>
+            <TabsTrigger value="security" className="rounded-lg gap-2 text-xs sm:text-sm">
+              <Lock className="h-4 w-4" /> Segurança
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="rounded-lg gap-2 text-xs sm:text-sm">
+              <Bell className="h-4 w-4" /> Notificações
+            </TabsTrigger>
+            <TabsTrigger value="appearance" className="rounded-lg gap-2 text-xs sm:text-sm">
+              <Sun className="h-4 w-4" /> Aparência
+            </TabsTrigger>
+            <TabsTrigger value="billing" className="rounded-lg gap-2 text-xs sm:text-sm">
+              <CreditCard className="h-4 w-4" /> Assinatura
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* TAB 1: PERFIL */}
         <TabsContent value="profile">
-          <Card className="rounded-2xl border-stone-200">
+          <Card className="rounded-2xl border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
             <form onSubmit={handleUpdateProfile}>
               <CardHeader>
                 <CardTitle className="text-lg">Dados Pessoais</CardTitle>
@@ -200,11 +202,11 @@ export default function SettingsPage() {
 
         {/* TAB 2: SEGURANÇA */}
         <TabsContent value="security">
-          <Card className="rounded-2xl border-stone-200">
+          <Card className="rounded-2xl border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
             <form onSubmit={handleUpdatePassword}>
               <CardHeader>
-                <CardTitle className="text-lg">Alterar Senha</CardTitle>
-                <CardDescription>Escolha uma nova senha forte para sua conta.</CardDescription>
+                <CardTitle className="text-lg text-stone-900 dark:text-stone-100">Alterar Senha</CardTitle>
+                <CardDescription className="text-stone-500 dark:text-stone-400">Escolha uma nova senha forte para sua conta.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 max-w-md">
                 <div className="space-y-2">
@@ -231,7 +233,7 @@ export default function SettingsPage() {
                   />
                 </div>
               </CardContent>
-              <CardFooter className="border-t pt-4 border-stone-100 flex justify-end">
+              <CardFooter className="border-t pt-4 border-stone-100 dark:border-stone-800 flex justify-end">
                 <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 rounded-xl" disabled={savingPassword}>
                   {savingPassword ? 'Atualizando...' : 'Atualizar Senha'}
                 </Button>
@@ -242,16 +244,16 @@ export default function SettingsPage() {
 
         {/* TAB 3: NOTIFICAÇÕES */}
         <TabsContent value="notifications">
-          <Card className="rounded-2xl border-stone-200">
+          <Card className="rounded-2xl border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
             <CardHeader>
-              <CardTitle className="text-lg">Preferências de Alertas</CardTitle>
-              <CardDescription>Defina quais alertas automáticos você deseja receber no seu WhatsApp ou E-mail.</CardDescription>
+              <CardTitle className="text-lg text-stone-900 dark:text-stone-100">Preferências de Alertas</CardTitle>
+              <CardDescription className="text-stone-500 dark:text-stone-400">Defina quais alertas automáticos você deseja receber no seu WhatsApp ou E-mail.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label className="text-base font-semibold">Lembretes de Medicamentos</Label>
-                  <p className="text-sm text-stone-500">Receba notificações quando chegar a hora da dose dos idosos.</p>
+                  <Label className="text-base font-semibold text-stone-900 dark:text-stone-100">Lembretes de Medicamentos</Label>
+                  <p className="text-sm text-stone-500 dark:text-stone-400">Receba notificações quando chegar a hora da dose dos idosos.</p>
                 </div>
                 <Switch 
                   checked={notifications.medicationAlerts} 
@@ -261,8 +263,8 @@ export default function SettingsPage() {
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label className="text-base font-semibold">Botão de Emergência da Família</Label>
-                  <p className="text-sm text-stone-500">Disparo urgente caso alguém acione o botão SOS no app.</p>
+                  <Label className="text-base font-semibold text-stone-900 dark:text-stone-100">Botão de Emergência da Família</Label>
+                  <p className="text-sm text-stone-500 dark:text-stone-400">Disparo urgente caso alguém acione o botão SOS no app.</p>
                 </div>
                 <Switch 
                   checked={notifications.emergencyAlerts} 
@@ -272,8 +274,8 @@ export default function SettingsPage() {
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label className="text-base font-semibold">Resumo Diário de Cuidados</Label>
-                  <p className="text-sm text-stone-500">Um relatório com as tarefas concluídas e hidratação no fim do dia.</p>
+                  <Label className="text-base font-semibold text-stone-900 dark:text-stone-100">Resumo Diário de Cuidados</Label>
+                  <p className="text-sm text-stone-500 dark:text-stone-400">Um relatório com as tarefas concluídas e hidratação no fim do dia.</p>
                 </div>
                 <Switch 
                   checked={notifications.dailySummary} 
@@ -286,10 +288,10 @@ export default function SettingsPage() {
 
         {/* TAB 4: APARÊNCIA */}
         <TabsContent value="appearance">
-          <Card className="rounded-2xl border-stone-200">
+          <Card className="rounded-2xl border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
             <CardHeader>
-              <CardTitle className="text-lg">Aparência do Aplicativo</CardTitle>
-              <CardDescription>Escolha entre o Modo Claro ou Modo Escuro para a interface.</CardDescription>
+              <CardTitle className="text-lg text-stone-900 dark:text-stone-100">Aparência do Aplicativo</CardTitle>
+              <CardDescription className="text-stone-500 dark:text-stone-400">Escolha entre o Modo Claro ou Modo Escuro para a interface.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -299,11 +301,11 @@ export default function SettingsPage() {
                   className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${
                     theme === 'light' 
                       ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/20 ring-2 ring-emerald-500/20' 
-                      : 'border-stone-200 hover:border-stone-300 bg-white'
+                      : 'border-stone-200 dark:border-stone-700 hover:border-stone-300 bg-white dark:bg-stone-800'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2.5 font-bold text-stone-900">
+                    <div className="flex items-center gap-2.5 font-bold text-stone-900 dark:text-stone-100">
                       <Sun className="h-5 w-5 text-amber-500" />
                       <span>Modo Claro</span>
                     </div>
@@ -311,7 +313,7 @@ export default function SettingsPage() {
                       <span className="text-xs bg-emerald-600 text-white font-bold px-2 py-0.5 rounded-full">Ativo</span>
                     )}
                   </div>
-                  <p className="text-xs text-stone-500">
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
                     Fundo claro com tons suaves e máxima legibilidade para o dia a dia.
                   </p>
                 </div>
@@ -322,7 +324,7 @@ export default function SettingsPage() {
                   className={`p-5 rounded-2xl border-2 cursor-pointer transition-all ${
                     theme === 'dark' 
                       ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/20 ring-2 ring-emerald-500/20' 
-                      : 'border-stone-200 hover:border-stone-300 bg-white dark:bg-stone-900'
+                      : 'border-stone-200 dark:border-stone-700 hover:border-stone-300 bg-white dark:bg-stone-800'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-3">
@@ -356,21 +358,21 @@ export default function SettingsPage() {
 
         {/* TAB 5: ASSINATURA */}
         <TabsContent value="billing">
-          <Card className="rounded-2xl border-stone-200">
+          <Card className="rounded-2xl border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
             <CardHeader>
-              <CardTitle className="text-lg">Plano e Pagamento</CardTitle>
-              <CardDescription>Gerencie a assinatura da sua família e recursos contratados.</CardDescription>
+              <CardTitle className="text-lg text-stone-900 dark:text-stone-100">Plano e Pagamento</CardTitle>
+              <CardDescription className="text-stone-500 dark:text-stone-400">Gerencie a assinatura da sua família e recursos contratados.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center justify-between">
+              <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-100 dark:border-emerald-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">Plano Atual</span>
-                  <h4 className="text-lg font-bold text-emerald-950 mt-0.5">Plano Familiar — 30 Dias de Teste Grátis</h4>
-                  <p className="text-xs text-emerald-700 mt-1">
+                  <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">Plano Atual</span>
+                  <h4 className="text-lg font-bold text-emerald-950 dark:text-emerald-100 mt-0.5">Plano Familiar — 30 Dias de Teste Grátis</h4>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-1">
                     Cartão cadastrado com segurança na Paddle. Cobrança segura e transparente.
                   </p>
                 </div>
-                <Button asChild className="bg-emerald-600 hover:bg-emerald-700 rounded-xl">
+                <Button asChild className="bg-emerald-600 hover:bg-emerald-700 rounded-xl shrink-0">
                   <Link href={`/${locale}/dashboard/settings/subscription`}>
                     Gerenciar Plano e Cartão
                   </Link>
