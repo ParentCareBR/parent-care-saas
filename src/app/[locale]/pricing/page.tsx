@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Heart, ShieldCheck, Star, Zap, CreditCard, ArrowLeft, AlertTriangle, Sparkles, Plus, Minus } from 'lucide-react';
+import { CheckCircle, Heart, ShieldCheck, Star, CreditCard, ArrowLeft, AlertTriangle, Sparkles, Plus, Minus } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { PADDLE_TIERS, getTierPricing } from '@/lib/billing/paddle-catalog';
@@ -552,21 +552,21 @@ export default function PricingPage() {
             );
           })}
 
-          {/* Custom / Enterprise Card */}
+          {/* Custom Plan Card */}
           <Card className="border-dashed border-2 border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/40 flex flex-col justify-between">
             <CardHeader className="pb-3 pt-6">
               <div className="flex items-center gap-2 mb-1">
-                <Zap className="h-5 w-5 text-stone-500" />
+                <Sparkles className="h-5 w-5 text-emerald-600" />
                 <CardTitle className="text-lg font-bold">{tPlan('custom_plan_title')}</CardTitle>
               </div>
               <CardDescription className="text-xs text-stone-500 leading-relaxed">
                 {tPlan('custom_plan_desc')}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3 text-xs text-stone-500">
-              <p>• {tPlan('custom_feature_1')}</p>
-              <p>• {tPlan('custom_feature_2')}</p>
-              <p>• {tPlan('custom_feature_3')}</p>
+            <CardContent className="space-y-2 text-xs text-stone-600 dark:text-stone-300">
+              <p className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" /> {tPlan('custom_feature_1')}</p>
+              <p className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" /> {tPlan('custom_feature_2')}</p>
+              <p className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" /> {tPlan('custom_feature_3')}</p>
             </CardContent>
             <CardFooter className="pt-0 pb-6">
               <Button
@@ -578,7 +578,7 @@ export default function PricingPage() {
                 className="w-full h-11 rounded-xl font-bold bg-brand-green hover:bg-emerald-800 text-white text-xs gap-1.5 shadow-md"
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                <span>{locale === 'pt-BR' ? 'Personalizar Acessos e Assinar' : 'Customize Seats & Subscribe'}</span>
+                <span>{tPlan('btn_custom')}</span>
               </Button>
             </CardFooter>
           </Card>

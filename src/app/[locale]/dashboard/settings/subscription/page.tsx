@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   CreditCard, AlertTriangle, Sparkles, Clock, ShieldCheck, Users, TrendingUp, TrendingDown,
-  ExternalLink, RefreshCw, Heart, BarChart3, CheckCircle, XCircle, AlertCircle, Star, Zap
+  ExternalLink, RefreshCw, Heart, BarChart3, CheckCircle, XCircle, AlertCircle, Star, Plus, Minus
 } from 'lucide-react';
 import { useSearchParams, useParams } from 'next/navigation';
 import { PADDLE_TIERS, MAX_STANDARD_SEATS, getTierPricing } from '@/lib/billing/paddle-catalog';
@@ -101,6 +101,7 @@ export default function SubscriptionSettingsPage() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [showDowngradeDialog, setShowDowngradeDialog] = useState(false);
+  const [calculatorSeats, setCalculatorSeats] = useState<number>(3);
 
   const successParam = searchParams.get('success') === 'true';
   const canceledParam = searchParams.get('canceled') === 'true';
@@ -115,7 +116,12 @@ export default function SubscriptionSettingsPage() {
       .eq('organization_id', currentOrganizationId)
       .maybeSingle();
 
-    if (subData) setSubscription(subData);
+    if (subData) {
+      setSubscription(subData);
+      if (subData.seat_limit) {
+        setCalculatorSeats(subData.seat_limit);
+      }
+    }
 
     const { data: entData } = await supabase
       .from('organization_entitlements')
@@ -714,6 +720,207 @@ export default function SubscriptionSettingsPage() {
           </div>
         )}
 
+        {/* Custom Plan Selector / Interactive Calculator */}
+        {(() => {
+          const isPt = locale === 'pt-BR';
+          const isEs = locale.startsWith('es');
+          const isFr = locale.startsWith('fr');
+          const isDe = locale.startsWith('de');
+
+          const calcLabels = {
+            badge: isPt ? 'Plano Personalizado' : (isEs ? 'Plan Personalizado' : (isFr ? 'Forfait Personnalisé' : (isDe ? 'Individueller Tarif' : 'Custom Plan'))),
+            title: isPt ? 'Escolha a Quantidade de Acessos para sua Família' : (isEs ? 'Elige la Cantidad de Accesos para tu Familia' : (isFr ? 'Choisissez le Nombre d\'Accès pour Votre Famille' : (isDe ? 'Wählen Sie die Anzahl der Zugänge für Ihre Familie' : 'Choose the Number of Family Seats'))),
+            subtitle: isPt ? 'O valor mensal é calculado automaticamente de acordo com o número de acessos. Selecione e contrate 100% online:' : (isEs ? 'El valor mensual se calcula automáticamente según la cantidad de accesos. Selecciona y contrata 100% online:' : (isFr ? 'Le tarif mensuel est calculé automatiquement selon le nombre d\'accès. Choisissez et souscrivez 100% en ligne :' : (isDe ? 'Der Monatsbeitrag wird automatisch nach der Anzahl der Zugänge berechnet. 100% online auswählen und buchen:' : 'Monthly pricing is calculated automatically based on seats. Select and subscribe 100% online:'))),
+            seatsWord: isPt ? (calculatorSeats === 1 ? 'acesso familiar' : 'acessos familiares') : (isEs ? (calculatorSeats === 1 ? 'acceso familiar' : 'accesos familiares') : (isFr ? (calculatorSeats === 1 ? 'accès familial' : 'accès familiaux') : (isDe ? (calculatorSeats === 1 ? 'Familienzugang' : 'Familienzugänge') : (calculatorSeats === 1 ? 'family seat' : 'family seats')))),
+            selectedTag: isPt ? 'Plano Selecionado' : (isEs ? 'Plan Seleccionado' : (isFr ? 'Forfait Sélectionné' : (isDe ? 'Ausgewählter Tarif' : 'Selected Plan'))),
+            customTag: isPt ? 'Plano Sob Medida' : (isEs ? 'Plan a Medida' : (isFr ? 'Forfait Sur-Mesure' : (isDe ? 'Maßgeschneiderter Tarif' : 'Tailored Plan'))),
+            trialText: isPt ? '30 dias de teste grátis com cartão • Cancele quando quiser' : (isEs ? '30 días de prueba gratis con tarjeta • Cancela cuando quieras' : (isFr ? '30 jours d\'essai gratuit avec carte • Annulez à tout moment' : (isDe ? '30 Tage kostenlos testen mit Karte • Jederzeit kündbar' : '30-day free trial with credit card • Cancel anytime'))),
+            shortcuts: isPt ? 'Escolha rápida:' : (isEs ? 'Selección rápida:' : (isFr ? 'Choix rapide :' : (isDe ? 'Schnellauswahl:' : 'Quick select:'))),
+            maxDiscountTag: isPt ? 'Desconto Máximo Progressivo' : (isEs ? 'Descuento Máximo Progresivo' : (isFr ? 'Remise Maximale Progressive' : (isDe ? 'Maximaler Staffelrabatt' : 'Maximum Progressive Discount'))),
+          };
+
+          const calcPricing = getTierPricing(calculatorSeats, locale);
+          const isCurrentInCalc = subscription?.seat_limit === calculatorSeats && isTrialOrActive;
+          const isUpgradeInCalc = subscription && isTrialOrActive && calculatorSeats > subscription.seat_limit;
+          const isDowngradeInCalc = subscription && isTrialOrActive && calculatorSeats < subscription.seat_limit;
+
+          return (
+            <div id="plan-selector" className="mb-8 bg-gradient-to-br from-white via-emerald-50/20 to-white border-2 border-emerald-500/40 rounded-3xl p-6 sm:p-8 shadow-md relative overflow-hidden">
+              <div className="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="max-w-4xl mx-auto space-y-6 relative">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 pb-5">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold mb-2">
+                      <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>{calcLabels.badge}</span>
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-extrabold text-stone-900 tracking-tight">
+                      {calcLabels.title}
+                    </h2>
+                    <p className="text-xs sm:text-sm text-stone-500 mt-1">
+                      {calcLabels.subtitle}
+                    </p>
+                  </div>
+
+                  <div className="sm:text-right shrink-0">
+                    <span className="text-xs font-semibold text-stone-400 block uppercase tracking-wider">
+                      {calcLabels.selectedTag}
+                    </span>
+                    <span className="text-base sm:text-lg font-bold text-emerald-700">
+                      {calculatorSeats <= 6 ? tPlan(`tier_${calculatorSeats}` as any) : calcLabels.customTag}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Slider & Stepper Controls */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-stone-700">
+                      {locale === 'pt-BR' ? 'Acessos para familiares e cuidadores:' : 'Family and caregiver seats:'}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setCalculatorSeats((prev) => Math.max(1, prev - 1))}
+                        disabled={calculatorSeats <= 1}
+                        className="w-8 h-8 rounded-full border border-stone-300 flex items-center justify-center text-stone-700 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </button>
+                      <span className="text-2xl font-black text-stone-900 w-12 text-center">
+                        {calculatorSeats}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCalculatorSeats((prev) => Math.min(100, prev + 1))}
+                        disabled={calculatorSeats >= 100}
+                        className="w-8 h-8 rounded-full border border-stone-300 flex items-center justify-center text-stone-700 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Range Slider */}
+                  <input
+                    type="range"
+                    min={1}
+                    max={100}
+                    value={calculatorSeats}
+                    onChange={(e) => setCalculatorSeats(Number(e.target.value))}
+                    className="w-full h-2.5 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-brand-green"
+                  />
+
+                  {/* Quick Select Chips */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                    <span className="text-xs text-stone-400 mr-1">{calcLabels.shortcuts}</span>
+                    {[1, 2, 3, 4, 5, 6, 10, 15, 20, 50, 100].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setCalculatorSeats(s)}
+                        className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition-all ${
+                          calculatorSeats === s
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                        }`}
+                      >
+                        {s} {s === 1 ? (locale === 'pt-BR' ? 'acesso' : 'seat') : (locale === 'pt-BR' ? 'acessos' : 'seats')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Calculation Summary Card */}
+                <div className="bg-white border border-emerald-200/80 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-5">
+                  <div className="space-y-2">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl sm:text-4xl font-black text-stone-900">
+                        {calcPricing.totalFormatted}
+                      </span>
+                      <span className="text-stone-500 text-sm font-medium">{tPlan('total_month')}</span>
+                      {calcPricing.savingsPercentage > 0 && (
+                        <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-xs font-bold ml-2">
+                          {calculatorSeats > 6 ? calcLabels.maxDiscountTag : tPlan('save_discount', { percent: calcPricing.savingsPercentage })}
+                        </Badge>
+                      )}
+                    </div>
+
+                    <p className="text-xs sm:text-sm text-stone-500">
+                      {calcPricing.unitFormatted} {tPlan('per_seat')} • {calculatorSeats} {calcLabels.seatsWord}
+                    </p>
+
+                    <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5 w-fit">
+                      <Heart className="h-3.5 w-3.5 fill-emerald-200 text-emerald-600 shrink-0" />
+                      <span>{tPlan('cared_included', { count: calcPricing.caredPeopleLimit })}</span>
+                    </div>
+                  </div>
+
+                  {/* Action Button */}
+                  <div className="flex flex-col gap-2 shrink-0 md:w-72">
+                    {isCurrentInCalc ? (
+                      <Button
+                        disabled
+                        className="w-full h-12 rounded-xl bg-stone-100 text-stone-500 cursor-default font-bold"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        {tPlan('current_badge')} ({calculatorSeats} {calculatorSeats === 1 ? 'Acesso' : 'Acessos'})
+                      </Button>
+                    ) : isUpgradeInCalc ? (
+                      <Button
+                        onClick={() => handleChangePlan(calculatorSeats)}
+                        className="w-full h-12 rounded-xl bg-brand-green hover:bg-emerald-800 text-white font-bold text-sm shadow-md gap-2"
+                      >
+                        <TrendingUp className="h-4 w-4" />
+                        <span>{locale === 'pt-BR' ? `Fazer Upgrade (${calculatorSeats} Acessos)` : `Upgrade to ${calculatorSeats} Seats`}</span>
+                      </Button>
+                    ) : isDowngradeInCalc ? (
+                      <Button
+                        onClick={() => handleChangePlan(calculatorSeats)}
+                        className="w-full h-12 rounded-xl bg-stone-800 hover:bg-stone-900 text-white font-bold text-sm shadow-md gap-2"
+                      >
+                        <TrendingDown className="h-4 w-4" />
+                        <span>{locale === 'pt-BR' ? `Mudar Plano (${calculatorSeats} Acessos)` : `Change to ${calculatorSeats} Seats`}</span>
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => handleCheckout(calculatorSeats)}
+                        disabled={checkoutLoading === calculatorSeats}
+                        className="w-full h-12 rounded-xl font-bold bg-brand-green hover:bg-emerald-800 text-white text-sm shadow-md gap-2"
+                      >
+                        {checkoutLoading === calculatorSeats ? (
+                          <>
+                            <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                            <span>{tBilling('processing')}</span>
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="h-4 w-4" />
+                            <span>{locale === 'pt-BR' ? `Assinar Agora (${calculatorSeats} ${calculatorSeats === 1 ? 'Acesso' : 'Acessos'})` : `Subscribe Now (${calculatorSeats} Seats)`}</span>
+                          </>
+                        )}
+                      </Button>
+                    )}
+
+                    <p className="text-[11px] text-center text-stone-400">
+                      {calcLabels.trialText}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Section divider and title for standard plans */}
+        <div className="mb-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-stone-400">
+            {locale === 'pt-BR' ? 'Ou escolha um dos planos fixos:' : 'Or choose from fixed plans:'}
+          </p>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {tiersArray.map((tier) => {
             const isCurrent = subscription?.seat_limit === tier.seats && isTrialOrActive;
@@ -870,30 +1077,33 @@ export default function SubscriptionSettingsPage() {
             );
           })}
 
-          {/* Custom / Enterprise Card */}
-          <Card className="border-dashed border-2 border-stone-200 bg-stone-50/50 flex flex-col">
+          {/* Custom Plan Card */}
+          <Card className="border-dashed border-2 border-stone-200 bg-stone-50/50 flex flex-col justify-between">
             <CardHeader className="pb-3 pt-6">
               <div className="flex items-center gap-2 mb-1">
-                <Zap className="h-5 w-5 text-stone-500" />
-                <CardTitle className="text-base font-bold text-stone-700">{tPlan('custom_plan_title')}</CardTitle>
+                <Sparkles className="h-5 w-5 text-emerald-600" />
+                <CardTitle className="text-base font-bold text-stone-900">{tPlan('custom_plan_title')}</CardTitle>
               </div>
-              <CardDescription className="text-xs text-stone-500">{tPlan('custom_plan_desc')}</CardDescription>
+              <CardDescription className="text-xs text-stone-500 leading-relaxed">{tPlan('custom_plan_desc')}</CardDescription>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col justify-end">
-              <Button
-                asChild
-                variant="outline"
-                className="w-full h-10 rounded-xl border-stone-300 text-stone-700"
-              >
-                <a
-                  href="https://wa.me/5511999999999?text=Olá,%20gostaria%20de%20conhecer%20o%20Plano%20Personalizado%20do%20Parent%20Care"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {tPlan('btn_custom')}
-                </a>
-              </Button>
+            <CardContent className="space-y-2 text-xs text-stone-600">
+              <p className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" /> {tPlan('custom_feature_1')}</p>
+              <p className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" /> {tPlan('custom_feature_2')}</p>
+              <p className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" /> {tPlan('custom_feature_3')}</p>
             </CardContent>
+            <CardFooter className="pt-0 pb-6">
+              <Button
+                type="button"
+                onClick={() => {
+                  setCalculatorSeats(10);
+                  document.getElementById('plan-selector')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="w-full h-10 rounded-xl font-bold bg-brand-green hover:bg-emerald-800 text-white text-xs gap-1.5 shadow-sm"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>{tPlan('btn_custom')}</span>
+              </Button>
+            </CardFooter>
           </Card>
         </div>
 

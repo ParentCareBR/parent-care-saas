@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { cookies } from 'next/headers';
-import { getAuthorizedPriceId, validateSeatQuantity, PADDLE_TIERS, getCurrencyFromPriceId } from '@/lib/billing/paddle-catalog';
-import { getPaddleClient, getPaddleEnvironment } from '@/lib/billing/paddle-client';
+import { getTierPricing, validateSeatQuantity, getCurrencyFromPriceId } from '@/lib/billing/paddle-catalog';
+import { resolveAuthorizedPriceId } from '@/lib/billing/price-resolver';
+import { getPaddleClient } from '@/lib/billing/paddle-client';
 import { syncOrganizationEntitlementCounts } from '@/lib/billing/entitlements';
 
 export async function POST(req: NextRequest) {
@@ -66,8 +67,8 @@ export async function POST(req: NextRequest) {
     const isProduction = (process.env.PADDLE_ENVIRONMENT || process.env.NEXT_PUBLIC_PADDLE_ENV) === 'production';
     const paddleEnv = isProduction ? 'production' : 'sandbox';
     const subCurrency = currentSub.paddle_price_id ? getCurrencyFromPriceId(currentSub.paddle_price_id) : null;
-    const newPriceId = getAuthorizedPriceId(newSeats, paddleEnv, subCurrency || 'pt-BR');
-    const targetTier = PADDLE_TIERS[newSeats];
+    const newPriceId = await resolveAuthorizedPriceId(newSeats, paddleEnv, subCurrency || 'pt-BR');
+    const pricing = getTierPricing(newSeats, subCurrency || 'pt-BR');
 
     // Call Paddle API to update subscription items immediately with proration
     const paddle = getPaddleClient();
@@ -96,8 +97,9 @@ export async function POST(req: NextRequest) {
       .update({
         seat_limit: newSeats,
         paddle_price_id: newPriceId,
-        unit_price: targetTier.unitPriceBrl,
-        recurring_total: targetTier.totalMonthlyBrl,
+        unit_price: pricing.rawUnit,
+        recurring_total: pricing.rawTotal,
+        cared_people_limit: pricing.caredPeopleLimit,
         updated_at: new Date().toISOString(),
       })
       .eq('id', currentSub.id);
@@ -106,6 +108,7 @@ export async function POST(req: NextRequest) {
       .from('organization_entitlements')
       .update({
         seat_limit: newSeats,
+        cared_people_limit: pricing.caredPeopleLimit,
         updated_at: new Date().toISOString(),
       })
       .eq('organization_id', organizationId);
@@ -116,8 +119,8 @@ export async function POST(req: NextRequest) {
       success: true,
       message: `Plano atualizado com sucesso para ${newSeats} assentos.`,
       newSeatLimit: newSeats,
-      unitPriceBrl: targetTier.unitPriceBrl,
-      totalMonthlyBrl: targetTier.totalMonthlyBrl,
+      unitPriceBrl: pricing.rawUnit,
+      totalMonthlyBrl: pricing.rawTotal,
     });
   } catch (error: any) {
     console.error('[Upgrade Route Error]:', error);
