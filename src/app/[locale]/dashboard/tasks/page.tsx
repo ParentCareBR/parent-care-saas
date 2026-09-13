@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { createClient } from '@/lib/supabase/client';
@@ -11,10 +12,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckSquare, Plus, Check, Calendar, AlertTriangle, Filter, Trash2, RefreshCw } from 'lucide-react';
+import { CheckSquare, Plus, Check, Calendar, AlertTriangle, Filter, Trash2, RefreshCw, BellRing } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import RecurrenceSelector, { RecurrenceConfig, recurrenceLabel } from '@/components/ui/RecurrenceSelector';
+import { getAlarmTexts } from '@/lib/i18n/care-translations';
 
 interface Task {
   id: string;
@@ -27,6 +29,9 @@ interface Task {
 }
 
 export default function TasksPage() {
+  const params = useParams();
+  const currentLocale = (params?.locale as string) || 'pt-BR';
+  const tAlarm = getAlarmTexts(currentLocale);
   const { user, currentOrganizationId } = useAuth();
   const { selectedPerson } = useCaredPerson();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,6 +52,7 @@ export default function TasksPage() {
   });
 
   const [recurrence, setRecurrence] = useState<RecurrenceConfig>({ type: 'none' });
+  const [alarm, setAlarm] = useState<string>('15m');
 
   const fetchTasks = useCallback(async () => {
     if (!selectedPerson || !currentOrganizationId) {
@@ -79,7 +85,19 @@ export default function TasksPage() {
     setSaving(true);
 
     const recurrenceSuffix = recurrence.type !== 'none'
-      ? ` [Recorrência: ${recurrenceLabel(recurrence)}]`
+      ? ` [Recorrência: ${recurrenceLabel(recurrence, currentLocale)}]`
+      : '';
+
+    const alarmLabels: Record<string, string> = {
+      exact: tAlarm.exact.replace('⏰ ', ''),
+      '15m': tAlarm['15m'].replace('⏰ ', '').replace(/ \(.+?\)/, ''),
+      '30m': tAlarm['30m'].replace('⏰ ', ''),
+      '1h': tAlarm['1h'].replace('⏰ ', ''),
+      morning: tAlarm.morning.replace('⏰ ', ''),
+    };
+
+    const alarmSuffix = alarm !== 'none'
+      ? ` [${tAlarm.badgePrefix}: ${alarmLabels[alarm] || alarm}]`
       : '';
 
     const { error } = await supabase
@@ -88,7 +106,7 @@ export default function TasksPage() {
         cared_person_id: selectedPerson.id,
         organization_id: currentOrganizationId,
         title: form.title,
-        description: (form.description || '') + recurrenceSuffix || null,
+        description: (form.description || '') + recurrenceSuffix + alarmSuffix || null,
         priority: form.priority,
         due_date: form.due_date ? new Date(form.due_date).toISOString() : null,
         status: 'pending',
@@ -102,6 +120,7 @@ export default function TasksPage() {
       setModalOpen(false);
       setForm({ title: '', description: '', priority: 'medium', due_date: '' });
       setRecurrence({ type: 'none' });
+      setAlarm('15m');
       fetchTasks();
     }
     setSaving(false);
@@ -229,6 +248,30 @@ export default function TasksPage() {
                 <div className="pt-1 border-t border-stone-100 dark:border-stone-800">
                   <RecurrenceSelector value={recurrence} onChange={setRecurrence} />
                 </div>
+
+                {/* Alarm / Reminder for Elder */}
+                <div className="pt-2 border-t border-stone-100 dark:border-stone-800 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <BellRing className="h-4 w-4 text-amber-500" />
+                    <Label className="text-sm font-medium">{tAlarm.label}</Label>
+                  </div>
+                  <Select value={alarm} onValueChange={setAlarm}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder={tAlarm.label} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{tAlarm.none}</SelectItem>
+                      <SelectItem value="exact">{tAlarm.exact}</SelectItem>
+                      <SelectItem value="15m">{tAlarm['15m']}</SelectItem>
+                      <SelectItem value="30m">{tAlarm['30m']}</SelectItem>
+                      <SelectItem value="1h">{tAlarm['1h']}</SelectItem>
+                      <SelectItem value="morning">{tAlarm.morning}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    {tAlarm.subtext}
+                  </p>
+                </div>
               </div>
 
               <DialogFooter>
@@ -300,8 +343,12 @@ export default function TasksPage() {
             <div className="space-y-3">
               {filteredTasks.map((task) => {
                 const isCompleted = task.status === 'completed';
-                const recMatch = task.description?.match(/\[Recorrência:\s*(.+?)\]/);
-                const cleanDesc = task.description?.replace(/\[Recorrência:\s*(.+?)\]/, '').trim();
+                const recMatch = task.description?.match(/\[(?:Recorrência|Recurrence|Wiederholung):\s*(.+?)\]/i);
+                const alarmMatch = task.description?.match(/\[(?:Alarme|Alarm|Wecker):\s*(.+?)\]/i);
+                const cleanDesc = task.description
+                  ?.replace(/\[(?:Recorrência|Recurrence|Wiederholung):\s*(.+?)\]/gi, '')
+                  ?.replace(/\[(?:Alarme|Alarm|Wecker):\s*(.+?)\]/gi, '')
+                  .trim();
 
                 return (
                   <div 
@@ -334,6 +381,12 @@ export default function TasksPage() {
                               {recMatch[1]}
                             </Badge>
                           )}
+                          {alarmMatch && (
+                            <Badge variant="outline" className="bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 text-[10px] px-2 py-0.5 flex items-center gap-1 font-medium">
+                              <BellRing className="h-2.5 w-2.5" />
+                              {alarmMatch[1]}
+                            </Badge>
+                          )}
                         </div>
 
                         {cleanDesc && (
@@ -345,7 +398,7 @@ export default function TasksPage() {
                         {task.due_date && (
                           <span className="inline-flex items-center gap-1 text-[11px] text-stone-400 font-medium">
                             <Calendar className="h-3 w-3" />
-                            Prazo: {new Date(task.due_date).toLocaleDateString('pt-BR')}
+                            Prazo: {new Date(task.due_date).toLocaleDateString(currentLocale === 'en' ? 'en-US' : currentLocale)}
                           </span>
                         )}
                       </div>

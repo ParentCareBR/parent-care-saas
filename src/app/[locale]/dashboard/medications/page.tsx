@@ -1,14 +1,19 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Plus, Pill, Clock, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Plus, Pill, Clock, CheckCircle2, AlertCircle, RefreshCw, BellRing } from 'lucide-react';
 import Link from 'next/link';
+import { getAlarmTexts } from '@/lib/i18n/care-translations';
 
 export default function MedicationsPage() {
+  const params = useParams();
+  const currentLocale = (params?.locale as string) || 'pt-BR';
+  const tAlarm = getAlarmTexts(currentLocale);
   const { selectedPerson, loading: personLoading } = useCaredPerson();
   const [medications, setMedications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,7 +54,7 @@ export default function MedicationsPage() {
           <p className="text-stone-500 dark:text-stone-400">Controle e horários de {selectedPerson.full_name}</p>
         </div>
         <Button asChild className="bg-brand-green hover:bg-emerald-800">
-          <Link href="/pt-BR/dashboard/medications/new">
+          <Link href={`/${currentLocale}/dashboard/medications/new`}>
             <Plus className="h-4 w-4 mr-2" />
             Adicionar Medicamento
           </Link>
@@ -68,7 +73,7 @@ export default function MedicationsPage() {
             Adicione os medicamentos de {selectedPerson.full_name} para acompanhar horários e confirmações.
           </p>
           <Button asChild variant="outline">
-            <Link href="/pt-BR/dashboard/medications/new">Adicionar o primeiro</Link>
+            <Link href={`/${currentLocale}/dashboard/medications/new`}>Adicionar o primeiro</Link>
           </Button>
         </div>
       ) : (
@@ -92,8 +97,12 @@ export default function MedicationsPage() {
                 <div className="flex-1 p-5 flex justify-between items-center">
                   <div>
                     {(() => {
-                      const recMatch = med.instructions?.match(/\[Recorrência:\s*(.+?)\]/);
-                      const cleanInstructions = med.instructions?.replace(/\[Recorrência:\s*(.+?)\]/, '').trim();
+                      const recMatch = med.instructions?.match(/\[(?:Recorrência|Recurrence|Wiederholung):\s*(.+?)\]/i);
+                      const alarmMatch = med.instructions?.match(/\[(?:Alarme|Alarm|Wecker):\s*(.+?)\]/i);
+                      const cleanInstructions = med.instructions
+                        ?.replace(/\[(?:Recorrência|Recurrence|Wiederholung):\s*(.+?)\]/gi, '')
+                        ?.replace(/\[(?:Alarme|Alarm|Wecker):\s*(.+?)\]/gi, '')
+                        .trim();
                       return (
                         <>
                           <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100 flex items-center gap-2 flex-wrap">
@@ -103,6 +112,12 @@ export default function MedicationsPage() {
                               <span className="inline-flex items-center gap-1 text-[11px] text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 px-2 py-0.5 rounded-md font-medium border border-teal-200 dark:border-teal-800">
                                 <RefreshCw className="h-3 w-3" />
                                 {recMatch[1]}
+                              </span>
+                            )}
+                            {alarmMatch && (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-md font-medium border border-amber-200 dark:border-amber-800">
+                                <BellRing className="h-3 w-3" />
+                                {alarmMatch[1]}
                               </span>
                             )}
                           </h3>

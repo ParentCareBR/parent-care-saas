@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
@@ -9,12 +9,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, BellRing } from 'lucide-react';
 import Link from 'next/link';
 import RecurrenceSelector, { RecurrenceConfig, recurrenceLabel } from '@/components/ui/RecurrenceSelector';
+import { getAlarmTexts } from '@/lib/i18n/care-translations';
 
 export default function NewMedicationPage() {
   const router = useRouter();
+  const params = useParams();
+  const currentLocale = (params?.locale as string) || 'pt-BR';
+  const tAlarm = getAlarmTexts(currentLocale);
   const { selectedPerson } = useCaredPerson();
   const { user, currentOrganizationId } = useAuth();
   const supabase = createClient();
@@ -27,6 +32,7 @@ export default function NewMedicationPage() {
     instructions: '',
   });
   const [recurrence, setRecurrence] = useState<RecurrenceConfig>({ type: 'none' });
+  const [alarm, setAlarm] = useState('15m');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +41,19 @@ export default function NewMedicationPage() {
     setLoading(true);
 
     const recurrenceSuffix = recurrence.type !== 'none'
-      ? ` [Recorrência: ${recurrenceLabel(recurrence)}]`
+      ? ` [Recorrência: ${recurrenceLabel(recurrence, currentLocale)}]`
+      : '';
+
+    const alarmLabels: Record<string, string> = {
+      exact: tAlarm.exact.replace('⏰ ', ''),
+      '15m': tAlarm['15m'].replace('⏰ ', '').replace(/ \(.+?\)/, ''),
+      '30m': tAlarm['30m'].replace('⏰ ', ''),
+      '1h': tAlarm['1h'].replace('⏰ ', ''),
+      morning: tAlarm.morning.replace('⏰ ', ''),
+    };
+
+    const alarmSuffix = alarm !== 'none'
+      ? ` [${tAlarm.badgePrefix}: ${alarmLabels[alarm] || alarm}]`
       : '';
     
     const { error } = await supabase.from('medications').insert({
@@ -44,7 +62,7 @@ export default function NewMedicationPage() {
       name: formData.name,
       dosage: formData.dosage,
       unit: formData.unit,
-      instructions: (formData.instructions || '') + recurrenceSuffix || null,
+      instructions: (formData.instructions || '') + recurrenceSuffix + alarmSuffix || null,
       created_by: user.id,
       is_active: true
     });
@@ -129,6 +147,30 @@ export default function NewMedicationPage() {
               {/* Recurrence */}
               <div className="pt-2 border-t border-stone-100 dark:border-stone-800">
                 <RecurrenceSelector value={recurrence} onChange={setRecurrence} />
+              </div>
+
+              {/* Alarm / Reminder for Elder */}
+              <div className="pt-2 border-t border-stone-100 dark:border-stone-800 space-y-2">
+                <div className="flex items-center gap-2">
+                  <BellRing className="h-4 w-4 text-amber-500" />
+                  <Label className="text-sm font-medium">{tAlarm.label}</Label>
+                </div>
+                <Select value={alarm} onValueChange={setAlarm}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder={tAlarm.label} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{tAlarm.none}</SelectItem>
+                    <SelectItem value="exact">{tAlarm.exact}</SelectItem>
+                    <SelectItem value="15m">{tAlarm['15m']}</SelectItem>
+                    <SelectItem value="30m">{tAlarm['30m']}</SelectItem>
+                    <SelectItem value="1h">{tAlarm['1h']}</SelectItem>
+                    <SelectItem value="morning">{tAlarm.morning}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-stone-500 dark:text-stone-400">
+                  {tAlarm.subtext}
+                </p>
               </div>
             </div>
 
