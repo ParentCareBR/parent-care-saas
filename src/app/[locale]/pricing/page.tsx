@@ -194,7 +194,7 @@ export default function PricingPage() {
           </div>
         )}
 
-        {/* Interactive Custom Plan Simulator / Calculator */}
+        {/* Custom Plan Selector / Configuration */}
         {(() => {
           const isPt = locale === 'pt-BR';
           const isEs = locale.startsWith('es');
@@ -202,28 +202,28 @@ export default function PricingPage() {
           const isDe = locale.startsWith('de');
 
           const calcLabels = {
-            badge: isPt ? 'Simulador Interativo' : (isEs ? 'Simulador Interactivo' : (isFr ? 'Simulateur Interactif' : (isDe ? 'Interaktiver Tarifrechner' : 'Interactive Calculator'))),
-            title: isPt ? 'Calcule o Plano Ideal para sua Família' : (isEs ? 'Calcula el Plan Ideal para tu Familia' : (isFr ? 'Calculez le Forfait Idéal pour Votre Famille' : (isDe ? 'Berechnen Sie den idealen Familientarif' : 'Calculate the Ideal Plan for Your Family'))),
-            subtitle: isPt ? 'Escolha quantas pessoas terão acesso e veja o valor na hora com desconto progressivo:' : (isEs ? 'Elige cuántas personas tendrán acceso y mira el precio con descuento progresivo:' : (isFr ? 'Choisissez le nombre de personnes ayant accès et découvrez le prix avec remise :' : (isDe ? 'Wählen Sie die Anzahl der Zugänge mit automatischem Rabatt:' : 'Choose how many people will have access and see the price in real time:'))),
+            badge: isPt ? 'Plano Personalizado' : (isEs ? 'Plan Personalizado' : (isFr ? 'Forfait Personnalisé' : (isDe ? 'Individueller Tarif' : 'Custom Plan'))),
+            title: isPt ? 'Escolha a Quantidade de Acessos para sua Família' : (isEs ? 'Elige la Cantidad de Accesos para tu Familia' : (isFr ? 'Choisissez le Nombre d\'Accès pour Votre Famille' : (isDe ? 'Wählen Sie die Anzahl der Zugänge für Ihre Familie' : 'Choose the Number of Family Seats'))),
+            subtitle: isPt ? 'O valor mensal é calculado automaticamente de acordo com o número de acessos. Selecione o seu plano e assine agora com 30 dias de teste grátis:' : (isEs ? 'El valor mensual se calcula automáticamente según la cantidad de accesos. Selecciona tu plan y suscríbete ahora con 30 días de prueba gratis:' : (isFr ? 'Le tarif mensuel est calculé automatiquement selon le nombre d\'accès. Choisissez votre forfait et abonnez-vous dès maintenant avec 30 jours d\'essai gratuit :' : (isDe ? 'Der Monatsbeitrag wird automatisch nach der Anzahl der Zugänge berechnet. Wählen Sie Ihren Tarif und abonnieren Sie jetzt mit 30 Tagen kostenloser Testphase:' : 'Monthly pricing is calculated automatically based on the number of seats. Select your plan and subscribe now with a 30-day free trial:'))),
             seatsWord: isPt ? (calculatorSeats === 1 ? 'acesso familiar' : 'acessos familiares') : (isEs ? (calculatorSeats === 1 ? 'acceso familiar' : 'accesos familiares') : (isFr ? (calculatorSeats === 1 ? 'accès familial' : 'accès familiaux') : (isDe ? (calculatorSeats === 1 ? 'Familienzugang' : 'Familienzugänge') : (calculatorSeats === 1 ? 'family seat' : 'family seats')))),
             selectedTag: isPt ? 'Plano Selecionado' : (isEs ? 'Plan Seleccionado' : (isFr ? 'Forfait Sélectionné' : (isDe ? 'Ausgewählter Tarif' : 'Selected Plan'))),
-            customTag: isPt ? 'Plano Personalizado Sob Medida' : (isEs ? 'Plan Personalizado a Medida' : (isFr ? 'Forfait Sur-Mesure' : (isDe ? 'Maßgeschneiderter Tarif' : 'Tailored Custom Plan'))),
-            subscribeBtn: isPt ? `Assinar ${calculatorSeats} ${calculatorSeats === 1 ? 'Acesso' : 'Acessos'}` : (isEs ? `Suscribir ${calculatorSeats} ${calculatorSeats === 1 ? 'Acceso' : 'Accesos'}` : (isFr ? `S'abonner (${calculatorSeats} ${calculatorSeats === 1 ? 'Accès' : 'Accès'})` : (isDe ? `Mit ${calculatorSeats} ${calculatorSeats === 1 ? 'Zugang' : 'Zugängen'} abonnieren` : `Subscribe ${calculatorSeats} ${calculatorSeats === 1 ? 'Seat' : 'Seats'}`))),
-            whatsappBtn: isPt ? `Contratar ${calculatorSeats} Acessos com Consultor` : (isEs ? `Contratar ${calculatorSeats} Accesos con Asesor` : (isFr ? `Souscrire ${calculatorSeats} Accès avec Conseiller` : (isDe ? `${calculatorSeats} Zugänge mit Berater aktivieren` : `Order ${calculatorSeats} Seats with Specialist`))),
-            trialText: isPt ? '30 dias de teste grátis com cartão' : (isEs ? '30 días de prueba gratis con tarjeta' : (isFr ? '30 jours d\'essai gratuit avec carte' : (isDe ? '30 Tage kostenlos testen mit Karte' : '30-day free trial with credit card'))),
-            customContactNote: isPt ? 'Ativação imediata e suporte prioritário' : (isEs ? 'Activación inmediata y soporte prioritario' : (isFr ? 'Activation immédiate et assistance prioritaire' : (isDe ? 'Sofortige Aktivierung und Prioritäts-Support' : 'Immediate activation and priority support'))),
-            shortcuts: isPt ? 'Atalhos:' : (isEs ? 'Accesos rápidos:' : (isFr ? 'Raccourcis :' : (isDe ? 'Schnellauswahl:' : 'Quick select:'))),
-            maxDiscountTag: isPt ? 'Tarifa Máxima com Desconto' : (isEs ? 'Tarifa Máxima con Descuento' : (isFr ? 'Tarif Maximum avec Remise' : (isDe ? 'Maximaler Tarif mit Sonderrabatt' : 'Maximum Discounted Rate'))),
+            customTag: isPt ? 'Plano Sob Medida' : (isEs ? 'Plan a Medida' : (isFr ? 'Forfait Sur-Mesure' : (isDe ? 'Maßgeschneiderter Tarif' : 'Tailored Plan'))),
+            subscribeBtn: isPt ? `Assinar Agora (${calculatorSeats} ${calculatorSeats === 1 ? 'Acesso' : 'Acessos'})` : (isEs ? `Suscribir Ahora (${calculatorSeats} ${calculatorSeats === 1 ? 'Acceso' : 'Accesos'})` : (isFr ? `S'abonner Maintenant (${calculatorSeats} ${calculatorSeats === 1 ? 'Accès' : 'Accès'})` : (isDe ? `Jetzt Abonnieren (${calculatorSeats} ${calculatorSeats === 1 ? 'Zugang' : 'Zugänge'})` : `Subscribe Now (${calculatorSeats} ${calculatorSeats === 1 ? 'Seat' : 'Seats'})`))),
+            whatsappBtn: isPt ? `Contratar ${calculatorSeats} Acessos` : (isEs ? `Contratar ${calculatorSeats} Accesos` : (isFr ? `Souscrire ${calculatorSeats} Accès` : (isDe ? `${calculatorSeats} Zugänge bestellen` : `Order ${calculatorSeats} Seats`))),
+            trialText: isPt ? '30 dias de teste grátis com cartão • Cancele quando quiser' : (isEs ? '30 días de prueba gratis con tarjeta • Cancela cuando quieras' : (isFr ? '30 jours d\'essai gratuit avec carte • Annulez à tout moment' : (isDe ? '30 Tage kostenlos testen mit Karte • Jederzeit kündbar' : '30-day free trial with credit card • Cancel anytime'))),
+            customContactNote: isPt ? 'Ativação imediata para grandes famílias e equipes' : (isEs ? 'Activación inmediata para grandes familias y equipos' : (isFr ? 'Activation immédiate pour grandes familles et équipes' : (isDe ? 'Sofortige Aktivierung für große Familien' : 'Immediate activation for larger families and teams'))),
+            shortcuts: isPt ? 'Escolha rápida:' : (isEs ? 'Selección rápida:' : (isFr ? 'Choix rapide :' : (isDe ? 'Schnellauswahl:' : 'Quick select:'))),
+            maxDiscountTag: isPt ? 'Desconto Máximo Progressivo' : (isEs ? 'Descuento Máximo Progresivo' : (isFr ? 'Remise Maximale Progressive' : (isDe ? 'Maximaler Staffelrabatt' : 'Maximum Progressive Discount'))),
           };
 
           const calcPricing = getTierPricing(calculatorSeats, locale);
           const isOverStandard = calculatorSeats > 6;
           const whatsappText = encodeURIComponent(
-            `Olá! Simulei no site um plano personalizado do Parent Care para ${calculatorSeats} acessos (${calcPricing.totalFormatted}/mês) e gostaria de contratar.`
+            `Olá! Gostaria de contratar a assinatura do Parent Care para ${calculatorSeats} acessos (${calcPricing.totalFormatted}/mês). Como procedemos com a ativação da conta?`
           );
 
           return (
-            <section id="plan-calculator" className="bg-gradient-to-br from-white via-emerald-50/20 to-white dark:from-stone-900 dark:via-emerald-950/20 dark:to-stone-900 border-2 border-emerald-500/40 dark:border-emerald-500/30 rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+            <section id="plan-selector" className="bg-gradient-to-br from-white via-emerald-50/20 to-white dark:from-stone-900 dark:via-emerald-950/20 dark:to-stone-900 border-2 border-emerald-500/40 dark:border-emerald-500/30 rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
               <div className="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
               <div className="max-w-4xl mx-auto space-y-6 relative">
@@ -412,30 +412,66 @@ export default function PricingPage() {
           );
         })()}
 
+        {/* Predefined Plan Cards Header */}
+        <div className="text-center space-y-2 pt-2">
+          <h2 className="text-xl sm:text-2xl font-extrabold text-stone-900 dark:text-stone-100">
+            {locale === 'pt-BR'
+              ? 'Ou escolha diretamente um dos planos fixos abaixo:'
+              : (locale.startsWith('es')
+              ? 'O elige directamente uno de los planes fijos a continuación:'
+              : (locale.startsWith('fr')
+              ? 'Ou choisissez directement l\'un des forfaits fixes ci-dessous :'
+              : (locale.startsWith('de')
+              ? 'Oder wählen Sie direkt einen der festen Tarife unten:'
+              : 'Or choose directly from the fixed plans below:')))}
+          </h2>
+          <p className="text-xs sm:text-sm text-stone-500 max-w-xl mx-auto">
+            {locale === 'pt-BR'
+              ? 'Todos os planos incluem 30 dias de teste grátis com cartão de crédito e cancelamento sem burocracia.'
+              : (locale.startsWith('es')
+              ? 'Todos los planes incluyen 30 días de prueba gratis con tarjeta y cancelación sin complicaciones.'
+              : (locale.startsWith('fr')
+              ? 'Tous les forfaits incluent 30 jours d\'essai gratuit avec carte et annulation sans contrainte.'
+              : (locale.startsWith('de')
+              ? 'Alle Tarife beinhalten 30 Tage kostenlose Testphase mit Karte und unkomplizierte Kündigung.'
+              : 'All plans include a 30-day free trial with credit card and hassle-free cancellation.')))}
+          </p>
+        </div>
+
         {/* Plan Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {tiersArray.map((tier) => {
             const isPopular = tier.seats === 3;
+            const isSelected = tier.seats === calculatorSeats;
             const pricing = getTierPricing(tier.seats, locale);
 
             return (
               <Card
                 key={tier.seats}
                 className={`relative flex flex-col transition-all duration-200 ${
-                  isPopular
+                  isSelected
+                    ? 'border-emerald-600 shadow-xl ring-2 ring-emerald-500/30 bg-white dark:bg-stone-900 scale-[1.01]'
+                    : isPopular
                     ? 'border-brand-green/80 shadow-lg ring-2 ring-brand-green/20 bg-white dark:bg-stone-900'
                     : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 hover:shadow-md'
                 }`}
               >
-                {/* Popular badge */}
-                {isPopular && (
+                {/* Selected or Popular badge */}
+                {isSelected ? (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                    <Badge className="bg-emerald-700 text-white px-3 py-0.5 text-xs font-bold shadow-md">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      {locale === 'pt-BR' ? 'Plano Selecionado' : 'Selected Plan'}
+                    </Badge>
+                  </div>
+                ) : isPopular ? (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                     <Badge className="bg-brand-green text-white px-3 py-0.5 text-xs font-bold shadow-md">
                       <Star className="h-3 w-3 mr-1 fill-white" />
                       {tPlan('popular_badge')}
                     </Badge>
                   </div>
-                )}
+                ) : null}
 
                 <CardHeader className="pb-3 pt-6">
                   <div className="flex items-start justify-between">
@@ -556,13 +592,13 @@ export default function PricingPage() {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  setCalculatorSeats(8);
-                  document.getElementById('plan-calculator')?.scrollIntoView({ behavior: 'smooth' });
+                  setCalculatorSeats(6);
+                  document.getElementById('plan-selector')?.scrollIntoView({ behavior: 'smooth' });
                 }}
                 className="w-full h-10 rounded-xl border-emerald-500/50 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-xs font-bold gap-1.5"
               >
                 <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
-                <span>Simular Acessos no Calculador</span>
+                <span>{locale === 'pt-BR' ? 'Personalizar Quantidade de Acessos' : 'Configure Seat Quantity'}</span>
               </Button>
               <Button
                 asChild
@@ -570,7 +606,7 @@ export default function PricingPage() {
                 className="w-full h-9 rounded-xl text-stone-600 dark:text-stone-300 text-xs font-semibold"
               >
                 <a
-                  href="https://wa.me/5511999999999?text=Olá,%20gostaria%20de%20conhecer%20o%20Plano%20Personalizado%20do%20Parent%20Care"
+                  href="https://wa.me/5511999999999?text=Olá,%20gostaria%20de%20contratar%20o%20Plano%20Personalizado%20do%20Parent%20Care"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
