@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { createClient } from '@/lib/supabase/client';
@@ -14,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar, Plus, MapPin, User, CheckCircle2, Clock, XCircle, AlertCircle, RefreshCw, BellRing } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import RecurrenceSelector, { RecurrenceConfig, recurrenceLabel } from '@/components/ui/RecurrenceSelector';
+import { getAlarmTexts } from '@/lib/i18n/care-translations';
 
 interface Appointment {
   id: string;
@@ -27,6 +29,9 @@ interface Appointment {
 }
 
 export default function AppointmentsPage() {
+  const params = useParams();
+  const currentLocale = (params?.locale as string) || 'pt-BR';
+  const tAlarm = getAlarmTexts(currentLocale);
   const { user, currentOrganizationId } = useAuth();
   const { selectedPerson } = useCaredPerson();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,19 +86,19 @@ export default function AppointmentsPage() {
     setSaving(true);
 
     const recurrenceSuffix = recurrence.type !== 'none'
-      ? ` [Recorrência: ${recurrenceLabel(recurrence)}]`
+      ? ` [Recorrência: ${recurrenceLabel(recurrence, currentLocale)}]`
       : '';
 
     const alarmLabels: Record<string, string> = {
-      exact: 'No horário',
-      '15m': '15 min antes',
-      '30m': '30 min antes',
-      '1h': '1 hora antes',
-      morning: '08:00 manhã',
+      exact: tAlarm.exact.replace('⏰ ', ''),
+      '15m': tAlarm['15m'].replace('⏰ ', '').replace(/ \(.+?\)/, ''),
+      '30m': tAlarm['30m'].replace('⏰ ', ''),
+      '1h': tAlarm['1h'].replace('⏰ ', ''),
+      morning: tAlarm.morning.replace('⏰ ', ''),
     };
 
     const alarmSuffix = alarm !== 'none'
-      ? ` [Alarme: ${alarmLabels[alarm] || alarm}]`
+      ? ` [${tAlarm.badgePrefix}: ${alarmLabels[alarm] || alarm}]`
       : '';
 
     const { error } = await supabase
@@ -242,23 +247,23 @@ export default function AppointmentsPage() {
                 <div className="pt-2 border-t border-stone-100 dark:border-stone-800 space-y-2">
                   <div className="flex items-center gap-2">
                     <BellRing className="h-4 w-4 text-amber-500" />
-                    <Label className="text-sm font-medium">Despertador / Alarme para o Idoso</Label>
+                    <Label className="text-sm font-medium">{tAlarm.label}</Label>
                   </div>
                   <Select value={alarm} onValueChange={setAlarm}>
                     <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Selecione o alarme" />
+                      <SelectValue placeholder={tAlarm.label} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Sem alarme sonoro</SelectItem>
-                      <SelectItem value="exact">⏰ No horário exato do agendamento</SelectItem>
-                      <SelectItem value="15m">⏰ 15 minutos antes (Recomendado)</SelectItem>
-                      <SelectItem value="30m">⏰ 30 minutos antes</SelectItem>
-                      <SelectItem value="1h">⏰ 1 hora antes</SelectItem>
-                      <SelectItem value="morning">⏰ Às 08:00 da manhã do dia</SelectItem>
+                      <SelectItem value="none">{tAlarm.none}</SelectItem>
+                      <SelectItem value="exact">{tAlarm.exact}</SelectItem>
+                      <SelectItem value="15m">{tAlarm['15m']}</SelectItem>
+                      <SelectItem value="30m">{tAlarm['30m']}</SelectItem>
+                      <SelectItem value="1h">{tAlarm['1h']}</SelectItem>
+                      <SelectItem value="morning">{tAlarm.morning}</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-stone-500 dark:text-stone-400">
-                    O tablet ou celular do idoso tocará um alerta sonoro e falará o compromisso em voz alta.
+                    {tAlarm.subtext}
                   </p>
                 </div>
               </div>
@@ -289,11 +294,12 @@ export default function AppointmentsPage() {
               {appointments.map((appt) => {
                 const dateObj = new Date(appt.starts_at);
                 const isPast = dateObj < new Date();
-                const recMatch = appt.description?.match(/\[Recorrência:\s*(.+?)\]/);
-                const alarmMatch = appt.description?.match(/\[Alarme:\s*(.+?)\]/);
+                const displayLocale = currentLocale === 'en' ? 'en-US' : currentLocale;
+                const recMatch = appt.description?.match(/\[(?:Recorrência|Recurrence|Récurrence|Wiederholung):\s*(.+?)\]/i);
+                const alarmMatch = appt.description?.match(/\[(?:Alarme|Alarm|Wecker):\s*(.+?)\]/i);
                 const cleanDesc = appt.description
-                  ?.replace(/\[Recorrência:\s*(.+?)\]/, '')
-                  ?.replace(/\[Alarme:\s*(.+?)\]/, '')
+                  ?.replace(/\[(?:Recorrência|Recurrence|Récurrence|Wiederholung):\s*(.+?)\]/gi, '')
+                  ?.replace(/\[(?:Alarme|Alarm|Wecker):\s*(.+?)\]/gi, '')
                   ?.trim();
 
                 return (
@@ -304,7 +310,7 @@ export default function AppointmentsPage() {
                     <div className="flex items-start gap-3.5">
                       <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-700 flex flex-col items-center justify-center font-bold flex-shrink-0 border border-indigo-100">
                         <span className="text-[10px] uppercase font-semibold text-indigo-500">
-                          {dateObj.toLocaleDateString('pt-BR', { month: 'short' })}
+                          {dateObj.toLocaleDateString(displayLocale, { month: 'short' })}
                         </span>
                         <span className="text-base leading-none">
                           {dateObj.getDate()}
@@ -323,7 +329,7 @@ export default function AppointmentsPage() {
                           {alarmMatch && (
                             <Badge variant="outline" className="bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800 text-[10px] px-2 py-0.5 flex items-center gap-1 font-medium">
                               <BellRing className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
-                              Alarme: {alarmMatch[1]}
+                              {tAlarm.badgePrefix}: {alarmMatch[1]}
                             </Badge>
                           )}
                           {appt.status === 'completed' && (
@@ -341,7 +347,7 @@ export default function AppointmentsPage() {
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-500">
                           <span className="flex items-center gap-1 font-medium text-stone-700">
                             <Clock className="h-3.5 w-3.5 text-stone-400" />
-                            {dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            {dateObj.toLocaleTimeString(displayLocale, { hour: '2-digit', minute: '2-digit' })}
                           </span>
 
                           {appt.doctor_name && (

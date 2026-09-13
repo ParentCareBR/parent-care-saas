@@ -21,7 +21,7 @@ import {
   Volume2
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { getDateFnsLocale, getSpeechSynthesisLang, getCareTexts } from '@/lib/i18n/care-translations';
 
 function playAlarmChime() {
   if (typeof window === 'undefined') return;
@@ -52,12 +52,12 @@ function playAlarmChime() {
   }
 }
 
-function speakReminder(text: string) {
+function speakReminder(text: string, rawLocale: string = 'pt-BR') {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
   try {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'pt-BR';
+    utterance.lang = getSpeechSynthesisLang(rawLocale);
     utterance.rate = 0.88;
     utterance.pitch = 1.05;
     window.speechSynthesis.speak(utterance);
@@ -74,6 +74,9 @@ export default function ElderlyViewPage({
   const supabase = createClient();
   const router = useRouter();
   
+  const tCare = getCareTexts(params.locale);
+  const dateFnsLoc = getDateFnsLocale(params.locale);
+
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -126,8 +129,7 @@ export default function ElderlyViewPage({
       const orgId = person.organization_id;
       const firstName = person.full_name.split(' ')[0];
 
-      // Puxar próxima medicação (Simplificado para MVP: pegar o primeiro medicamento ativo que tem um schedule hoje futuro)
-      // Em produção real faríamos query nos medication_schedules cruzando horários
+      // Puxar próxima medicação
       const { data: meds } = await supabase
         .from('medications')
         .select('id, name')
@@ -154,7 +156,7 @@ export default function ElderlyViewPage({
 
       let nextAppt = null;
       if (appt) {
-        nextAppt = `${appt.title} (${format(new Date(appt.starts_at), "dd/MM 'às' HH:mm", { locale: ptBR })})`;
+        nextAppt = `${appt.title} (${format(new Date(appt.starts_at), "dd/MM 'às' HH:mm", { locale: dateFnsLoc })})`;
         setNextAppointmentData(appt);
       } else {
         setNextAppointmentData(null);
@@ -219,7 +221,7 @@ export default function ElderlyViewPage({
       });
     }
     fetchData();
-  }, [params.id, params.locale, router, supabase]);
+  }, [params.id, params.locale, router, supabase, dateFnsLoc]);
 
   // Automatic alarm check effect
   useEffect(() => {
@@ -250,25 +252,37 @@ export default function ElderlyViewPage({
         setAlarmModalOpen(true);
         playAlarmChime();
         const timeStr = format(new Date(nextAppointmentData.starts_at), "HH:mm");
-        const speech = `Atenção, ${personInfo.name}! Lembrete do seu compromisso: ${nextAppointmentData.title}, hoje às ${timeStr}. ${nextAppointmentData.doctor_name ? `Com ${nextAppointmentData.doctor_name}.` : ''} ${nextAppointmentData.location ? `No local: ${nextAppointmentData.location}.` : ''}`;
-        speakReminder(speech);
+        const speech = tCare.alarmSpeech({
+          name: personInfo.name,
+          title: nextAppointmentData.title,
+          time: timeStr,
+          doctor: nextAppointmentData.doctor_name,
+          location: nextAppointmentData.location,
+        });
+        speakReminder(speech, params.locale);
       }
     }
-  }, [currentTime, nextAppointmentData, alarmDismissedId, snoozeUntil, alarmModalOpen, personInfo.name]);
+  }, [currentTime, nextAppointmentData, alarmDismissedId, snoozeUntil, alarmModalOpen, personInfo.name, params.locale, tCare]);
 
   const triggerAlarmManually = () => {
     if (!nextAppointmentData) return;
     setAlarmModalOpen(true);
     playAlarmChime();
-    const timeStr = format(new Date(nextAppointmentData.starts_at), "dd/MM 'às' HH:mm", { locale: ptBR });
-    const speech = `Atenção, ${personInfo.name}! Lembrete do seu compromisso: ${nextAppointmentData.title}, marcado para ${timeStr}. ${nextAppointmentData.doctor_name ? `Médico: ${nextAppointmentData.doctor_name}.` : ''} ${nextAppointmentData.location ? `Local: ${nextAppointmentData.location}.` : ''}`;
-    speakReminder(speech);
+    const timeStr = format(new Date(nextAppointmentData.starts_at), "dd/MM 'às' HH:mm", { locale: dateFnsLoc });
+    const speech = tCare.alarmSpeech({
+      name: personInfo.name,
+      title: nextAppointmentData.title,
+      time: timeStr,
+      doctor: nextAppointmentData.doctor_name,
+      location: nextAppointmentData.location,
+    });
+    speakReminder(speech, params.locale);
   };
 
   const testAlarmDemo = () => {
     setAlarmModalOpen(true);
     playAlarmChime();
-    speakReminder(`Olá, ${personInfo.name}! Este é um teste do despertador de consultas do Parent Care. O som e a voz estão funcionando perfeitamente!`);
+    speakReminder(tCare.demoSpeech(personInfo.name), params.locale);
   };
 
   const triggerVibration = () => {
@@ -435,13 +449,13 @@ export default function ElderlyViewPage({
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-stone-500 font-bold text-xs uppercase tracking-wider">Próximo Compromisso</span>
+                  <span className="text-stone-500 font-bold text-xs uppercase tracking-wider">{tCare.nextAppointment}</span>
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
-                    <BellRing className="h-3 w-3" /> Despertador Ativo
+                    <BellRing className="h-3 w-3" /> {tCare.alarmActive}
                   </span>
                 </div>
                 <p className="text-xl sm:text-2xl font-black text-stone-900 mt-0.5">
-                  {personInfo.nextAppointment || 'Nenhum agendamento pendente'}
+                  {personInfo.nextAppointment || tCare.noPending}
                 </p>
               </div>
             </div>
@@ -452,7 +466,7 @@ export default function ElderlyViewPage({
               className="w-full sm:w-auto h-12 px-5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-black text-base rounded-2xl shadow-sm flex items-center justify-center gap-2 active:scale-95 transition-transform"
             >
               <BellRing className="h-5 w-5 animate-bounce" />
-              {nextAppointmentData ? '🔔 Ouvir Despertador' : '🔔 Testar Despertador'}
+              {nextAppointmentData ? tCare.listenAlarmBtn : tCare.testAlarmBtn}
             </Button>
           </div>
         )}
@@ -654,24 +668,24 @@ export default function ElderlyViewPage({
 
             <div>
               <span className="inline-block px-3 py-1 bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 font-extrabold text-sm rounded-full tracking-wider uppercase mb-2">
-                ⏰ Despertador de Compromisso
+                {tCare.appointmentAlarmTitle}
               </span>
               <h2 className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-stone-100 leading-tight">
-                {nextAppointmentData ? nextAppointmentData.title : 'Teste do Despertador'}
+                {nextAppointmentData ? nextAppointmentData.title : tCare.demoTitle}
               </h2>
               <p className="text-lg font-bold text-amber-700 dark:text-amber-400 mt-2">
                 {nextAppointmentData
-                  ? `Marcado para ${format(new Date(nextAppointmentData.starts_at), "dd/MM 'às' HH:mm", { locale: ptBR })}`
-                  : 'O som e a voz em português estão funcionando perfeitamente!'}
+                  ? `${tCare.scheduledFor} ${format(new Date(nextAppointmentData.starts_at), "dd/MM 'às' HH:mm", { locale: dateFnsLoc })}`
+                  : tCare.demoText}
               </p>
               {nextAppointmentData?.doctor_name && (
                 <p className="text-base font-semibold text-stone-700 dark:text-stone-300 mt-1">
-                  Médico(a): {nextAppointmentData.doctor_name} {nextAppointmentData.specialty ? `(${nextAppointmentData.specialty})` : ''}
+                  {tCare.doctorLabel}: {nextAppointmentData.doctor_name}
                 </p>
               )}
               {nextAppointmentData?.location && (
                 <p className="text-sm text-stone-500 dark:text-stone-400 mt-0.5">
-                  Local: {nextAppointmentData.location}
+                  {tCare.locationLabel}: {nextAppointmentData.location}
                 </p>
               )}
             </div>
@@ -690,7 +704,7 @@ export default function ElderlyViewPage({
                 variant="outline"
                 className="w-full h-14 text-lg font-bold border-2 border-indigo-400 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-2xl flex items-center justify-center gap-2"
               >
-                <Volume2 className="h-5 w-5 text-indigo-600" /> Ouvir em Voz Alta Novamente
+                <Volume2 className="h-5 w-5 text-indigo-600" /> {tCare.listenAgain}
               </Button>
 
               <Button
@@ -706,7 +720,7 @@ export default function ElderlyViewPage({
                 }}
                 className="w-full h-16 text-xl font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-lg active:scale-95 transition-transform"
               >
-                ✓ OK, Já Vi / Já Estou Ciente!
+                {tCare.confirmSeen}
               </Button>
 
               {nextAppointmentData && (
@@ -722,7 +736,7 @@ export default function ElderlyViewPage({
                   variant="ghost"
                   className="w-full h-12 text-base font-bold text-stone-500 hover:text-stone-800 dark:hover:text-stone-200"
                 >
-                  💤 Lembrar em 10 minutos (Soneca)
+                  {tCare.snooze10m}
                 </Button>
               )}
             </div>
