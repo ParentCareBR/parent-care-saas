@@ -8,10 +8,10 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import RecurrenceSelector, { RecurrenceConfig, recurrenceLabel } from '@/components/ui/RecurrenceSelector';
 
 export default function NewMedicationPage() {
   const router = useRouter();
@@ -26,12 +26,17 @@ export default function NewMedicationPage() {
     unit: 'mg',
     instructions: '',
   });
+  const [recurrence, setRecurrence] = useState<RecurrenceConfig>({ type: 'none' });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPerson || !user || !currentOrganizationId) return;
     
     setLoading(true);
+
+    const recurrenceSuffix = recurrence.type !== 'none'
+      ? ` [Recorrência: ${recurrenceLabel(recurrence)}]`
+      : '';
     
     const { error } = await supabase.from('medications').insert({
       cared_person_id: selectedPerson.id,
@@ -39,7 +44,7 @@ export default function NewMedicationPage() {
       name: formData.name,
       dosage: formData.dosage,
       unit: formData.unit,
-      instructions: formData.instructions,
+      instructions: (formData.instructions || '') + recurrenceSuffix || null,
       created_by: user.id,
       is_active: true
     });
@@ -62,12 +67,12 @@ export default function NewMedicationPage() {
           <Link href="/dashboard/medications"><ArrowLeft className="h-5 w-5" /></Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-stone-900">Novo Medicamento</h1>
-          <p className="text-stone-500">Para {selectedPerson.full_name}</p>
+          <h1 className="text-2xl font-bold text-stone-900 dark:text-stone-100">Novo Medicamento</h1>
+          <p className="text-stone-500 dark:text-stone-400">Para {selectedPerson.full_name}</p>
         </div>
       </div>
 
-      <Card>
+      <Card className="dark:bg-stone-900 dark:border-stone-800">
         <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
@@ -97,7 +102,7 @@ export default function NewMedicationPage() {
                   <Label htmlFor="unit">Unidade</Label>
                   <select 
                     id="unit"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     value={formData.unit}
                     onChange={e => setFormData({...formData, unit: e.target.value})}
                   >
@@ -120,9 +125,14 @@ export default function NewMedicationPage() {
                   onChange={e => setFormData({...formData, instructions: e.target.value})}
                 />
               </div>
+
+              {/* Recurrence */}
+              <div className="pt-2 border-t border-stone-100 dark:border-stone-800">
+                <RecurrenceSelector value={recurrence} onChange={setRecurrence} />
+              </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-stone-100">
+            <div className="flex justify-end gap-3 pt-4 border-t border-stone-100 dark:border-stone-800">
               <Button variant="outline" type="button" asChild>
                 <Link href="/dashboard/medications">Cancelar</Link>
               </Button>

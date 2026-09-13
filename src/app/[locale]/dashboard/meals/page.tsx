@@ -9,11 +9,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Utensils, Plus, Clock, Pencil, Trash2 } from 'lucide-react';
+import { Utensils, Plus, Clock, Pencil, Trash2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import RecurrenceSelector, { RecurrenceConfig, recurrenceLabel } from '@/components/ui/RecurrenceSelector';
 
 interface MealRecord {
   id: string;
@@ -23,7 +24,8 @@ interface MealRecord {
   acceptance: 'full' | 'partial' | 'refused';
   notes?: string;
   date: string;
-  isExample?: boolean; // Only true for the one local example row
+  recurrence?: string;
+  isExample?: boolean;
 }
 
 // The single editable example that appears when no real data exists
@@ -59,6 +61,8 @@ export default function MealsPage() {
     notes: '',
   });
 
+  const [recurrence, setRecurrence] = useState<RecurrenceConfig>({ type: 'none' });
+
   const fetchMeals = useCallback(async () => {
     if (!selectedPerson || !currentOrganizationId) {
       setLoading(false);
@@ -90,13 +94,26 @@ export default function MealsPage() {
         const accMap: Record<string, 'full' | 'partial' | 'refused'> = {
           'Comeu tudo': 'full', 'Comeu metade': 'partial', 'Recusou': 'refused',
         };
+
+        let rawNotes = match && match[4] ? match[4] : undefined;
+        let recurrenceText: string | undefined;
+        if (rawNotes) {
+          const recMatch = rawNotes.match(/\[Recorrência:\s*(.+?)\]/);
+          if (recMatch) {
+            recurrenceText = recMatch[1];
+            rawNotes = rawNotes.replace(/\[Recorrência:\s*(.+?)\]/, '').trim();
+            if (!rawNotes) rawNotes = undefined;
+          }
+        }
+
         return {
           id: n.id,
           type: match ? (typeMap[match[1]] || match[1]) : 'lunch',
           name: match ? match[2] : n.content,
           time: new Date(n.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
           acceptance: match ? (accMap[match[3]] || 'full') : 'full',
-          notes: match && match[4] ? match[4] : undefined,
+          notes: rawNotes,
+          recurrence: recurrenceText,
           date: n.created_at,
         };
       });
@@ -116,6 +133,7 @@ export default function MealsPage() {
   const openCreate = () => {
     setEditMeal(null);
     setForm({ type: 'breakfast', name: '', time: '08:30', acceptance: 'full', notes: '' });
+    setRecurrence({ type: 'none' });
     setModalOpen(true);
   };
 
@@ -128,6 +146,7 @@ export default function MealsPage() {
       acceptance: meal.acceptance,
       notes: meal.notes || '',
     });
+    setRecurrence({ type: 'none' });
     setModalOpen(true);
   };
 
@@ -136,9 +155,13 @@ export default function MealsPage() {
     if (!selectedPerson) return;
     setSaving(true);
 
-    const content = `Refeição (${form.type}): ${form.name}. Apetite: ${
+    const recurrenceSuffix = recurrence.type !== 'none'
+      ? ` [Recorrência: ${recurrenceLabel(recurrence)}]`
+      : '';
+
+    const content = (`Refeição (${form.type}): ${form.name}. Apetite: ${
       form.acceptance === 'full' ? 'Comeu tudo' : form.acceptance === 'partial' ? 'Comeu metade' : 'Recusou'
-    }. ${form.notes || ''}`.trim().replace(/\.$/, '');
+    }. ${form.notes || ''}${recurrenceSuffix}`).trim().replace(/\.$/, '');
 
     if (editMeal && !editMeal.isExample) {
       // Update existing note
@@ -298,6 +321,12 @@ export default function MealsPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <h4 className="font-bold text-stone-900 dark:text-stone-100 text-sm">{getMealTitle(meal.type)}</h4>
                       {getAcceptanceBadge(meal.acceptance)}
+                      {meal.recurrence && (
+                        <Badge variant="outline" className="bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800 text-[10px] px-2 py-0.5 flex items-center gap-1 font-medium">
+                          <RefreshCw className="h-2.5 w-2.5" />
+                          {meal.recurrence}
+                        </Badge>
+                      )}
                       {meal.isExample && (
                         <Badge variant="outline" className="text-stone-400 border-stone-300 text-[10px] px-1.5">
                           Exemplo — edite ou exclua
@@ -412,6 +441,11 @@ export default function MealsPage() {
                   value={form.notes}
                   onChange={(e) => setForm(prev => ({ ...prev, notes: e.target.value }))}
                 />
+              </div>
+
+              {/* Recurrence */}
+              <div className="pt-1 border-t border-stone-100 dark:border-stone-800">
+                <RecurrenceSelector value={recurrence} onChange={setRecurrence} />
               </div>
             </div>
 

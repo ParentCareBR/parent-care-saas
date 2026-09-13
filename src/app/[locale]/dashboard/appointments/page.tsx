@@ -10,8 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Calendar, Plus, MapPin, User, CheckCircle2, Clock, XCircle, AlertCircle } from 'lucide-react';
+import { Calendar, Plus, MapPin, User, CheckCircle2, Clock, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import RecurrenceSelector, { RecurrenceConfig, recurrenceLabel } from '@/components/ui/RecurrenceSelector';
 
 interface Appointment {
   id: string;
@@ -45,6 +46,8 @@ export default function AppointmentsPage() {
     description: '',
   });
 
+  const [recurrence, setRecurrence] = useState<RecurrenceConfig>({ type: 'none' });
+
   const fetchAppointments = useCallback(async () => {
     if (!selectedPerson || !currentOrganizationId) {
       setLoading(false);
@@ -75,6 +78,10 @@ export default function AppointmentsPage() {
     if (!selectedPerson || !currentOrganizationId || !user) return;
     setSaving(true);
 
+    const recurrenceSuffix = recurrence.type !== 'none'
+      ? ` [Recorrência: ${recurrenceLabel(recurrence)}]`
+      : '';
+
     const { error } = await supabase
       .from('appointments')
       .insert({
@@ -85,7 +92,7 @@ export default function AppointmentsPage() {
         specialty: form.specialty || null,
         location: form.location || null,
         starts_at: new Date(form.starts_at).toISOString(),
-        description: form.description || null,
+        description: (form.description || '') + recurrenceSuffix || null,
         status: 'scheduled',
         created_by: user.id,
       });
@@ -95,14 +102,8 @@ export default function AppointmentsPage() {
     } else {
       toast({ title: 'Consulta agendada!', description: 'O compromisso foi adicionado à agenda familiar.' });
       setModalOpen(false);
-      setForm({
-        title: '',
-        doctor_name: '',
-        specialty: '',
-        location: '',
-        starts_at: '',
-        description: '',
-      });
+      setForm({ title: '', doctor_name: '', specialty: '', location: '', starts_at: '', description: '' });
+      setRecurrence({ type: 'none' });
       fetchAppointments();
     }
     setSaving(false);
@@ -216,6 +217,11 @@ export default function AppointmentsPage() {
                     onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
                   />
                 </div>
+
+                {/* Recurrence */}
+                <div className="pt-1 border-t border-stone-100 dark:border-stone-800">
+                  <RecurrenceSelector value={recurrence} onChange={setRecurrence} />
+                </div>
               </div>
 
               <DialogFooter>
@@ -244,6 +250,9 @@ export default function AppointmentsPage() {
               {appointments.map((appt) => {
                 const dateObj = new Date(appt.starts_at);
                 const isPast = dateObj < new Date();
+                const recMatch = appt.description?.match(/\[Recorrência:\s*(.+?)\]/);
+                const cleanDesc = appt.description?.replace(/\[Recorrência:\s*(.+?)\]/, '').trim();
+
                 return (
                   <div 
                     key={appt.id} 
@@ -260,8 +269,14 @@ export default function AppointmentsPage() {
                       </div>
 
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-bold text-stone-900 text-sm">{appt.title}</h4>
+                          {recMatch && (
+                            <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 text-[10px] px-2 py-0.5 flex items-center gap-1 font-medium">
+                              <RefreshCw className="h-2.5 w-2.5" />
+                              {recMatch[1]}
+                            </Badge>
+                          )}
                           {appt.status === 'completed' && (
                             <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 text-xs">
                               Realizada
@@ -295,9 +310,9 @@ export default function AppointmentsPage() {
                           )}
                         </div>
 
-                        {appt.description && (
+                        {cleanDesc && (
                           <p className="text-xs text-stone-600 mt-1 bg-stone-50 p-1.5 rounded-md">
-                            {appt.description}
+                            {cleanDesc}
                           </p>
                         )}
                       </div>

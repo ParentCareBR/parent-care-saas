@@ -4,8 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Pill, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Plus, Pill, Clock, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 
 export default function MedicationsPage() {
@@ -91,11 +91,25 @@ export default function MedicationsPage() {
                 </div>
                 <div className="flex-1 p-5 flex justify-between items-center">
                   <div>
-                    <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100 flex items-center gap-2">
-                      {med.name}
-                      <span className="text-sm font-normal text-stone-500 dark:text-stone-400">{med.dosage} {med.unit}</span>
-                    </h3>
-                    <p className="text-sm text-stone-600 dark:text-stone-400 mt-1">{med.instructions || 'Uso contínuo'}</p>
+                    {(() => {
+                      const recMatch = med.instructions?.match(/\[Recorrência:\s*(.+?)\]/);
+                      const cleanInstructions = med.instructions?.replace(/\[Recorrência:\s*(.+?)\]/, '').trim();
+                      return (
+                        <>
+                          <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-100 flex items-center gap-2 flex-wrap">
+                            {med.name}
+                            <span className="text-sm font-normal text-stone-500 dark:text-stone-400">{med.dosage} {med.unit}</span>
+                            {recMatch && (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 px-2 py-0.5 rounded-md font-medium border border-teal-200 dark:border-teal-800">
+                                <RefreshCw className="h-3 w-3" />
+                                {recMatch[1]}
+                              </span>
+                            )}
+                          </h3>
+                          <p className="text-sm text-stone-600 dark:text-stone-400 mt-1">{cleanInstructions || 'Uso contínuo'}</p>
+                        </>
+                      );
+                    })()}
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" className="text-green-700 dark:text-green-400 border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-950/40">

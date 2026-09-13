@@ -11,9 +11,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckSquare, Plus, Check, Calendar, AlertTriangle, Filter, Trash2 } from 'lucide-react';
+import { CheckSquare, Plus, Check, Calendar, AlertTriangle, Filter, Trash2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import RecurrenceSelector, { RecurrenceConfig, recurrenceLabel } from '@/components/ui/RecurrenceSelector';
 
 interface Task {
   id: string;
@@ -45,6 +46,8 @@ export default function TasksPage() {
     due_date: '',
   });
 
+  const [recurrence, setRecurrence] = useState<RecurrenceConfig>({ type: 'none' });
+
   const fetchTasks = useCallback(async () => {
     if (!selectedPerson || !currentOrganizationId) {
       setLoading(false);
@@ -75,13 +78,17 @@ export default function TasksPage() {
     if (!selectedPerson || !currentOrganizationId || !user) return;
     setSaving(true);
 
+    const recurrenceSuffix = recurrence.type !== 'none'
+      ? ` [Recorrência: ${recurrenceLabel(recurrence)}]`
+      : '';
+
     const { error } = await supabase
       .from('tasks')
       .insert({
         cared_person_id: selectedPerson.id,
         organization_id: currentOrganizationId,
         title: form.title,
-        description: form.description || null,
+        description: (form.description || '') + recurrenceSuffix || null,
         priority: form.priority,
         due_date: form.due_date ? new Date(form.due_date).toISOString() : null,
         status: 'pending',
@@ -94,6 +101,7 @@ export default function TasksPage() {
       toast({ title: 'Tarefa criada!', description: 'A tarefa foi adicionada à lista da família.' });
       setModalOpen(false);
       setForm({ title: '', description: '', priority: 'medium', due_date: '' });
+      setRecurrence({ type: 'none' });
       fetchTasks();
     }
     setSaving(false);
@@ -216,6 +224,11 @@ export default function TasksPage() {
                     />
                   </div>
                 </div>
+
+                {/* Recurrence */}
+                <div className="pt-1 border-t border-stone-100 dark:border-stone-800">
+                  <RecurrenceSelector value={recurrence} onChange={setRecurrence} />
+                </div>
               </div>
 
               <DialogFooter>
@@ -287,6 +300,9 @@ export default function TasksPage() {
             <div className="space-y-3">
               {filteredTasks.map((task) => {
                 const isCompleted = task.status === 'completed';
+                const recMatch = task.description?.match(/\[Recorrência:\s*(.+?)\]/);
+                const cleanDesc = task.description?.replace(/\[Recorrência:\s*(.+?)\]/, '').trim();
+
                 return (
                   <div 
                     key={task.id}
@@ -312,11 +328,17 @@ export default function TasksPage() {
                             {task.title}
                           </h4>
                           {getPriorityBadge(task.priority)}
+                          {recMatch && (
+                            <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 text-[10px] px-2 py-0.5 flex items-center gap-1 font-medium">
+                              <RefreshCw className="h-2.5 w-2.5" />
+                              {recMatch[1]}
+                            </Badge>
+                          )}
                         </div>
 
-                        {task.description && (
+                        {cleanDesc && (
                           <p className={cn("text-xs leading-relaxed", isCompleted ? "text-stone-400 line-through" : "text-stone-600")}>
-                            {task.description}
+                            {cleanDesc}
                           </p>
                         )}
 
