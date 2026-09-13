@@ -54,11 +54,18 @@ export async function resolveAuthorizedPriceId(
       );
 
       if (existing) {
+        if (existing.taxMode !== 'internal') {
+          try {
+            await paddle.prices.update(existing.id, { taxMode: 'internal' });
+          } catch (updateErr) {
+            console.warn('[Paddle] Could not update taxMode for price:', existing.id, updateErr);
+          }
+        }
         priceCache.set(cacheKey, existing.id);
         return existing.id;
       }
 
-      // Create a recurring price (month or year) for the exact calculated amount
+      // Create a recurring price (month or year) for the exact calculated amount with tax included
       const newPrice = await paddle.prices.create({
         productId: customProductId,
         name: `Plano ${seats} acessos (${interval === 'year' ? 'Anual' : 'Mensal'})`,
@@ -71,6 +78,7 @@ export async function resolveAuthorizedPriceId(
           interval: interval,
           frequency: 1,
         },
+        taxMode: 'internal',
         customData: {
           seats: String(seats),
           plan_type: seats <= MAX_STANDARD_SEATS ? 'standard' : 'custom',
