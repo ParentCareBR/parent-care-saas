@@ -10,7 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Calendar, Plus, MapPin, User, CheckCircle2, Clock, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar, Plus, MapPin, User, CheckCircle2, Clock, XCircle, AlertCircle, RefreshCw, BellRing } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import RecurrenceSelector, { RecurrenceConfig, recurrenceLabel } from '@/components/ui/RecurrenceSelector';
 
@@ -47,6 +48,7 @@ export default function AppointmentsPage() {
   });
 
   const [recurrence, setRecurrence] = useState<RecurrenceConfig>({ type: 'none' });
+  const [alarm, setAlarm] = useState<string>('15m');
 
   const fetchAppointments = useCallback(async () => {
     if (!selectedPerson || !currentOrganizationId) {
@@ -82,6 +84,18 @@ export default function AppointmentsPage() {
       ? ` [Recorrência: ${recurrenceLabel(recurrence)}]`
       : '';
 
+    const alarmLabels: Record<string, string> = {
+      exact: 'No horário',
+      '15m': '15 min antes',
+      '30m': '30 min antes',
+      '1h': '1 hora antes',
+      morning: '08:00 manhã',
+    };
+
+    const alarmSuffix = alarm !== 'none'
+      ? ` [Alarme: ${alarmLabels[alarm] || alarm}]`
+      : '';
+
     const { error } = await supabase
       .from('appointments')
       .insert({
@@ -92,7 +106,7 @@ export default function AppointmentsPage() {
         specialty: form.specialty || null,
         location: form.location || null,
         starts_at: new Date(form.starts_at).toISOString(),
-        description: (form.description || '') + recurrenceSuffix || null,
+        description: (form.description || '') + recurrenceSuffix + alarmSuffix || null,
         status: 'scheduled',
         created_by: user.id,
       });
@@ -100,10 +114,11 @@ export default function AppointmentsPage() {
     if (error) {
       toast({ title: 'Erro ao agendar', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Consulta agendada!', description: 'O compromisso foi adicionado à agenda familiar.' });
+      toast({ title: 'Consulta agendada!', description: 'O compromisso foi adicionado à agenda familiar com alarme ativado.' });
       setModalOpen(false);
       setForm({ title: '', doctor_name: '', specialty: '', location: '', starts_at: '', description: '' });
       setRecurrence({ type: 'none' });
+      setAlarm('15m');
       fetchAppointments();
     }
     setSaving(false);
@@ -222,6 +237,30 @@ export default function AppointmentsPage() {
                 <div className="pt-1 border-t border-stone-100 dark:border-stone-800">
                   <RecurrenceSelector value={recurrence} onChange={setRecurrence} />
                 </div>
+
+                {/* Alarm / Reminder for Elder */}
+                <div className="pt-2 border-t border-stone-100 dark:border-stone-800 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <BellRing className="h-4 w-4 text-amber-500" />
+                    <Label className="text-sm font-medium">Despertador / Alarme para o Idoso</Label>
+                  </div>
+                  <Select value={alarm} onValueChange={setAlarm}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Selecione o alarme" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem alarme sonoro</SelectItem>
+                      <SelectItem value="exact">⏰ No horário exato do agendamento</SelectItem>
+                      <SelectItem value="15m">⏰ 15 minutos antes (Recomendado)</SelectItem>
+                      <SelectItem value="30m">⏰ 30 minutos antes</SelectItem>
+                      <SelectItem value="1h">⏰ 1 hora antes</SelectItem>
+                      <SelectItem value="morning">⏰ Às 08:00 da manhã do dia</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    O tablet ou celular do idoso tocará um alerta sonoro e falará o compromisso em voz alta.
+                  </p>
+                </div>
               </div>
 
               <DialogFooter>
@@ -251,7 +290,11 @@ export default function AppointmentsPage() {
                 const dateObj = new Date(appt.starts_at);
                 const isPast = dateObj < new Date();
                 const recMatch = appt.description?.match(/\[Recorrência:\s*(.+?)\]/);
-                const cleanDesc = appt.description?.replace(/\[Recorrência:\s*(.+?)\]/, '').trim();
+                const alarmMatch = appt.description?.match(/\[Alarme:\s*(.+?)\]/);
+                const cleanDesc = appt.description
+                  ?.replace(/\[Recorrência:\s*(.+?)\]/, '')
+                  ?.replace(/\[Alarme:\s*(.+?)\]/, '')
+                  ?.trim();
 
                 return (
                   <div 
@@ -275,6 +318,12 @@ export default function AppointmentsPage() {
                             <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 text-[10px] px-2 py-0.5 flex items-center gap-1 font-medium">
                               <RefreshCw className="h-2.5 w-2.5" />
                               {recMatch[1]}
+                            </Badge>
+                          )}
+                          {alarmMatch && (
+                            <Badge variant="outline" className="bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800 text-[10px] px-2 py-0.5 flex items-center gap-1 font-medium">
+                              <BellRing className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
+                              Alarme: {alarmMatch[1]}
                             </Badge>
                           )}
                           {appt.status === 'completed' && (

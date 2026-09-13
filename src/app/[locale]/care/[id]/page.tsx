@@ -17,10 +17,54 @@ import {
   Sun,
   Moon,
   Activity as ActivityIcon,
-  Clock
+  Clock,
+  Volume2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+function playAlarmChime() {
+  if (typeof window === 'undefined') return;
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const startTime = ctx.currentTime + idx * 0.18;
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(0.35, startTime + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.6);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.65);
+    });
+  } catch (err) {
+    console.warn('Audio error:', err);
+  }
+}
+
+function speakReminder(text: string) {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'pt-BR';
+    utterance.rate = 0.88;
+    utterance.pitch = 1.05;
+    window.speechSynthesis.speak(utterance);
+  } catch (err) {
+    console.warn('Speech error:', err);
+  }
+}
 
 export default function ElderlyViewPage({ 
   params
@@ -35,6 +79,11 @@ export default function ElderlyViewPage({
   const [currentTime, setCurrentTime] = useState(new Date());
   const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set());
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  const [nextAppointmentData, setNextAppointmentData] = useState<any>(null);
+  const [alarmModalOpen, setAlarmModalOpen] = useState(false);
+  const [alarmDismissedId, setAlarmDismissedId] = useState<string | null>(null);
+  const [snoozeUntil, setSnoozeUntil] = useState<Date | null>(null);
   
   const [personInfo, setPersonInfo] = useState({
     name: 'Carregando...',
@@ -49,7 +98,7 @@ export default function ElderlyViewPage({
   const [lastAction, setLastAction] = useState<{id: string, type: string, table: string} | null>(null);
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 30000);
     return () => clearInterval(timer);
   }, []);
 
@@ -93,19 +142,22 @@ export default function ElderlyViewPage({
         medId = meds[0].id;
       }
 
-      // Puxar próxima consulta futura
-      const { data: appt } = await supabase
+      // Puxar próxima consulta
+      const { data: appt } = await (supabase as any)
         .from('appointments')
-        .select('title, starts_at')
+        .select('id, title, starts_at, doctor_name, location, description')
         .eq('cared_person_id', params.id)
-        .gte('starts_at', new Date().toISOString())
+        .gte('starts_at', new Date(Date.now() - 45 * 60 * 1000).toISOString())
         .order('starts_at', { ascending: true })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       let nextAppt = null;
       if (appt) {
         nextAppt = `${appt.title} (${format(new Date(appt.starts_at), "dd/MM 'às' HH:mm", { locale: ptBR })})`;
+        setNextAppointmentData(appt);
+      } else {
+        setNextAppointmentData(null);
       }
 
       // Fetch monitoring settings for this cared person
@@ -168,6 +220,56 @@ export default function ElderlyViewPage({
     }
     fetchData();
   }, [params.id, params.locale, router, supabase]);
+
+  // Automatic alarm check effect
+  useEffect(() => {
+    if (!nextAppointmentData) return;
+    if (alarmDismissedId === nextAppointmentData.id) return;
+    if (snoozeUntil && new Date() < snoozeUntil) return;
+
+    const apptTime = new Date(nextAppointmentData.starts_at).getTime();
+    const now = currentTime.getTime();
+
+    let offsetMinutes = 15;
+    const desc = nextAppointmentData.description || '';
+    if (desc.includes('No horário')) offsetMinutes = 0;
+    else if (desc.includes('30 min antes')) offsetMinutes = 30;
+    else if (desc.includes('1 hora antes')) offsetMinutes = 60;
+    else if (desc.includes('08:00 manhã')) {
+      const apptDay = new Date(nextAppointmentData.starts_at);
+      if (apptDay.toDateString() === currentTime.toDateString() && currentTime.getHours() >= 8) {
+        offsetMinutes = 999999;
+      }
+    }
+
+    const triggerTime = apptTime - offsetMinutes * 60 * 1000;
+    const expiryTime = apptTime + 45 * 60 * 1000;
+
+    if (now >= triggerTime && now <= expiryTime) {
+      if (!alarmModalOpen) {
+        setAlarmModalOpen(true);
+        playAlarmChime();
+        const timeStr = format(new Date(nextAppointmentData.starts_at), "HH:mm");
+        const speech = `Atenção, ${personInfo.name}! Lembrete do seu compromisso: ${nextAppointmentData.title}, hoje às ${timeStr}. ${nextAppointmentData.doctor_name ? `Com ${nextAppointmentData.doctor_name}.` : ''} ${nextAppointmentData.location ? `No local: ${nextAppointmentData.location}.` : ''}`;
+        speakReminder(speech);
+      }
+    }
+  }, [currentTime, nextAppointmentData, alarmDismissedId, snoozeUntil, alarmModalOpen, personInfo.name]);
+
+  const triggerAlarmManually = () => {
+    if (!nextAppointmentData) return;
+    setAlarmModalOpen(true);
+    playAlarmChime();
+    const timeStr = format(new Date(nextAppointmentData.starts_at), "dd/MM 'às' HH:mm", { locale: ptBR });
+    const speech = `Atenção, ${personInfo.name}! Lembrete do seu compromisso: ${nextAppointmentData.title}, marcado para ${timeStr}. ${nextAppointmentData.doctor_name ? `Médico: ${nextAppointmentData.doctor_name}.` : ''} ${nextAppointmentData.location ? `Local: ${nextAppointmentData.location}.` : ''}`;
+    speakReminder(speech);
+  };
+
+  const testAlarmDemo = () => {
+    setAlarmModalOpen(true);
+    playAlarmChime();
+    speakReminder(`Olá, ${personInfo.name}! Este é um teste do despertador de consultas do Parent Care. O som e a voz estão funcionando perfeitamente!`);
+  };
 
   const triggerVibration = () => {
     if (typeof window !== 'undefined' && 'vibrate' in navigator) {
@@ -324,16 +426,34 @@ export default function ElderlyViewPage({
           </div>
         )}
 
-        {/* PRÓXIMA CONSULTA */}
-        {enabledModules.has('schedule_appointments') && personInfo.nextAppointment && (
-          <div className="bg-white p-5 rounded-3xl border-2 border-purple-200 flex items-center gap-4 shadow-xs">
-            <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-700 shrink-0">
-              <Calendar className="h-7 w-7" />
+        {/* PRÓXIMA CONSULTA COM ALARME / DESPERTADOR */}
+        {enabledModules.has('schedule_appointments') && (
+          <div className="bg-white p-5 sm:p-6 rounded-3xl border-2 border-purple-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-700 shrink-0">
+                <Calendar className="h-8 w-8" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-stone-500 font-bold text-xs uppercase tracking-wider">Próximo Compromisso</span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                    <BellRing className="h-3 w-3" /> Despertador Ativo
+                  </span>
+                </div>
+                <p className="text-xl sm:text-2xl font-black text-stone-900 mt-0.5">
+                  {personInfo.nextAppointment || 'Nenhum agendamento pendente'}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-stone-500 font-bold text-xs uppercase tracking-wider">Próximo Compromisso</p>
-              <p className="text-xl font-bold text-stone-900">{personInfo.nextAppointment}</p>
-            </div>
+
+            <Button
+              type="button"
+              onClick={nextAppointmentData ? triggerAlarmManually : testAlarmDemo}
+              className="w-full sm:w-auto h-12 px-5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-black text-base rounded-2xl shadow-sm flex items-center justify-center gap-2 active:scale-95 transition-transform"
+            >
+              <BellRing className="h-5 w-5 animate-bounce" />
+              {nextAppointmentData ? '🔔 Ouvir Despertador' : '🔔 Testar Despertador'}
+            </Button>
           </div>
         )}
 
@@ -519,6 +639,93 @@ export default function ElderlyViewPage({
                 EMERGÊNCIA / SOS
               </span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL / TELA DO DESPERTADOR DO IDOSO */}
+      {alarmModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-stone-900 border-4 border-amber-400 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-200">
+            {/* Animated Bell Header */}
+            <div className="mx-auto w-24 h-24 rounded-3xl bg-amber-100 dark:bg-amber-950/60 border-2 border-amber-300 flex items-center justify-center shadow-inner">
+              <BellRing className="h-14 w-14 text-amber-600 dark:text-amber-400 animate-bounce" />
+            </div>
+
+            <div>
+              <span className="inline-block px-3 py-1 bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 font-extrabold text-sm rounded-full tracking-wider uppercase mb-2">
+                ⏰ Despertador de Compromisso
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-stone-100 leading-tight">
+                {nextAppointmentData ? nextAppointmentData.title : 'Teste do Despertador'}
+              </h2>
+              <p className="text-lg font-bold text-amber-700 dark:text-amber-400 mt-2">
+                {nextAppointmentData
+                  ? `Marcado para ${format(new Date(nextAppointmentData.starts_at), "dd/MM 'às' HH:mm", { locale: ptBR })}`
+                  : 'O som e a voz em português estão funcionando perfeitamente!'}
+              </p>
+              {nextAppointmentData?.doctor_name && (
+                <p className="text-base font-semibold text-stone-700 dark:text-stone-300 mt-1">
+                  Médico(a): {nextAppointmentData.doctor_name} {nextAppointmentData.specialty ? `(${nextAppointmentData.specialty})` : ''}
+                </p>
+              )}
+              {nextAppointmentData?.location && (
+                <p className="text-sm text-stone-500 dark:text-stone-400 mt-0.5">
+                  Local: {nextAppointmentData.location}
+                </p>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-3 pt-2">
+              <Button
+                type="button"
+                onClick={() => {
+                  if (nextAppointmentData) {
+                    triggerAlarmManually();
+                  } else {
+                    testAlarmDemo();
+                  }
+                }}
+                variant="outline"
+                className="w-full h-14 text-lg font-bold border-2 border-indigo-400 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-2xl flex items-center justify-center gap-2"
+              >
+                <Volume2 className="h-5 w-5 text-indigo-600" /> Ouvir em Voz Alta Novamente
+              </Button>
+
+              <Button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                  }
+                  if (nextAppointmentData) {
+                    setAlarmDismissedId(nextAppointmentData.id);
+                  }
+                  setAlarmModalOpen(false);
+                }}
+                className="w-full h-16 text-xl font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-lg active:scale-95 transition-transform"
+              >
+                ✓ OK, Já Vi / Já Estou Ciente!
+              </Button>
+
+              {nextAppointmentData && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                      window.speechSynthesis.cancel();
+                    }
+                    setSnoozeUntil(new Date(Date.now() + 10 * 60 * 1000));
+                    setAlarmModalOpen(false);
+                  }}
+                  variant="ghost"
+                  className="w-full h-12 text-base font-bold text-stone-500 hover:text-stone-800 dark:hover:text-stone-200"
+                >
+                  💤 Lembrar em 10 minutos (Soneca)
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}
