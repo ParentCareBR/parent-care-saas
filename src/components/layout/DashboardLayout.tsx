@@ -60,6 +60,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: tNav('tasks'), href: `/${locale}/dashboard/tasks`, icon: CheckSquare },
     { name: tNav('expenses'), href: `/${locale}/dashboard/expenses`, icon: Receipt },
     { name: tNav('history'), href: `/${locale}/dashboard/history`, icon: FileText },
+    { name: tNav('plans'), href: `/${locale}/dashboard/settings/subscription`, icon: Sparkles },
   ];
 
   return (
