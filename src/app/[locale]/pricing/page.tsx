@@ -47,12 +47,13 @@ export default function PricingPage() {
   const [checkoutLoadingSeats, setCheckoutLoadingSeats] = useState<number | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [calculatorSeats, setCalculatorSeats] = useState<number>(3);
+  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('year');
 
   const tiersArray = Object.values(PADDLE_TIERS).sort((a, b) => a.seats - b.seats);
 
   const handleAction = async (seats: number) => {
     if (!user || !currentOrganizationId) {
-      router.push(`/${locale}/auth/signup?seats=${seats}`);
+      router.push(`/${locale}/auth/signup?seats=${seats}&interval=${billingInterval}`);
       return;
     }
 
@@ -63,7 +64,12 @@ export default function PricingPage() {
       const res = await fetch('/api/billing/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationId: currentOrganizationId, seatQuantity: seats, locale }),
+        body: JSON.stringify({
+          organizationId: currentOrganizationId,
+          seatQuantity: seats,
+          locale,
+          billingInterval,
+        }),
       });
 
       const data = await res.json();
@@ -183,6 +189,37 @@ export default function PricingPage() {
           <p className="text-base sm:text-lg text-stone-600 dark:text-stone-400">
             {tPlan('subtitle')}
           </p>
+
+          {/* Monthly / Annual Billing Toggle */}
+          <div className="pt-4 flex justify-center">
+            <div className="inline-flex items-center bg-stone-200/80 dark:bg-stone-800 p-1.5 rounded-2xl border border-stone-300/80 dark:border-stone-700 gap-1 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setBillingInterval('month')}
+                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                  billingInterval === 'month'
+                    ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-xs'
+                    : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                }`}
+              >
+                {locale === 'pt-BR' ? 'Cobrança Mensal' : 'Monthly Billing'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingInterval('year')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                  billingInterval === 'year'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <span>{locale === 'pt-BR' ? 'Cobrança Anual' : 'Annual Billing'}</span>
+                <span className="bg-amber-400 text-stone-900 text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wide">
+                  {locale === 'pt-BR' ? '2 Meses Grátis 🎉' : '2 Months Free 🎉'}
+                </span>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Checkout Error Banner */}
@@ -214,7 +251,7 @@ export default function PricingPage() {
             maxDiscountTag: isPt ? 'Desconto Máximo Progressivo' : (isEs ? 'Descuento Máximo Progresivo' : (isFr ? 'Remise Maximale Progressive' : (isDe ? 'Maximaler Staffelrabatt' : 'Maximum Progressive Discount'))),
           };
 
-          const calcPricing = getTierPricing(calculatorSeats, locale);
+          const calcPricing = getTierPricing(calculatorSeats, locale, billingInterval);
 
           return (
             <section id="plan-selector" className="bg-gradient-to-br from-white via-emerald-50/20 to-white dark:from-stone-900 dark:via-emerald-950/20 dark:to-stone-900 border-2 border-emerald-500/40 dark:border-emerald-500/30 rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
@@ -334,9 +371,16 @@ export default function PricingPage() {
                         {calcPricing.totalFormatted}
                       </span>
                       <span className="text-stone-500 text-sm font-medium">
-                        {tPlan('total_month')}
+                        {billingInterval === 'year'
+                          ? (locale === 'pt-BR' ? '/ ano' : '/ year')
+                          : tPlan('total_month')}
                       </span>
-                      {calculatorSeats > 1 && (
+                      {billingInterval === 'year' && calcPricing.monthlyEquivalentFormatted && (
+                        <span className="text-xs sm:text-sm text-emerald-700 dark:text-emerald-400 font-bold ml-1">
+                          ({locale === 'pt-BR' ? `equivale a ${calcPricing.monthlyEquivalentFormatted}/mês` : `equiv. ${calcPricing.monthlyEquivalentFormatted}/mo`})
+                        </span>
+                      )}
+                      {calculatorSeats > 1 && billingInterval === 'month' && (
                         <span className="text-xs sm:text-sm text-stone-500 font-medium ml-1">
                           ({calcPricing.unitFormatted} {tPlan('per_seat')})
                         </span>
@@ -349,7 +393,13 @@ export default function PricingPage() {
                         {tPlan('cared_included', { count: calcPricing.caredPeopleLimit })}
                       </span>
 
-                      {calcPricing.savingsPercentage > 0 && (
+                      {billingInterval === 'year' && calcPricing.annualSavingsFormatted && (
+                        <span className="inline-flex items-center text-xs font-bold text-amber-900 dark:text-amber-200 bg-amber-200 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 px-2.5 py-1 rounded-lg">
+                          🎉 {locale === 'pt-BR' ? `2 meses grátis (Economia de ${calcPricing.annualSavingsFormatted})` : `2 months free (Save ${calcPricing.annualSavingsFormatted})`}
+                        </span>
+                      )}
+
+                      {billingInterval === 'month' && calcPricing.savingsPercentage > 0 && (
                         <span className="inline-flex items-center text-xs font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded-lg">
                           {tPlan('save_discount', { percent: calcPricing.savingsPercentage })}
                         </span>
@@ -424,7 +474,7 @@ export default function PricingPage() {
           {tiersArray.map((tier) => {
             const isPopular = tier.seats === 3;
             const isSelected = tier.seats === calculatorSeats;
-            const pricing = getTierPricing(tier.seats, locale);
+            const pricing = getTierPricing(tier.seats, locale, billingInterval);
 
             return (
               <Card
@@ -479,12 +529,25 @@ export default function PricingPage() {
                       <span className="text-3xl sm:text-4xl font-extrabold text-stone-900 dark:text-stone-100">
                         {pricing.totalFormatted}
                       </span>
-                      <span className="text-stone-500 text-sm mb-1">{tPlan('total_month')}</span>
+                      <span className="text-stone-500 text-sm mb-1">
+                        {billingInterval === 'year' ? (locale === 'pt-BR' ? '/ ano' : '/ year') : tPlan('total_month')}
+                      </span>
                     </div>
-                    {tier.seats > 1 && (
+                    {billingInterval === 'year' && pricing.monthlyEquivalentFormatted ? (
+                      <p className="text-xs text-emerald-700 dark:text-emerald-400 font-bold mt-0.5">
+                        {locale === 'pt-BR' ? `Equivale a ${pricing.monthlyEquivalentFormatted}/mês` : `Equiv. ${pricing.monthlyEquivalentFormatted}/mo`}
+                      </p>
+                    ) : tier.seats > 1 ? (
                       <p className="text-xs text-stone-500 mt-0.5">
                         {pricing.unitFormatted} {tPlan('per_seat')}
                       </p>
+                    ) : null}
+                    {billingInterval === 'year' && pricing.annualSavingsFormatted && (
+                      <div className="mt-2">
+                        <span className="inline-block text-[11px] font-bold text-amber-900 dark:text-amber-200 bg-amber-100 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 px-2 py-0.5 rounded-md">
+                          🎉 {locale === 'pt-BR' ? `2 meses grátis (-${pricing.annualSavingsFormatted})` : `2 months free (-${pricing.annualSavingsFormatted})`}
+                        </span>
+                      </div>
                     )}
                   </div>
 

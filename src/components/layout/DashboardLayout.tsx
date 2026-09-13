@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CaredPersonSelector } from '@/components/shared/CaredPersonSelector';
@@ -8,6 +8,9 @@ import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
+import { createClient } from '@/lib/supabase/client';
+import { TrialBanner } from '@/components/billing/TrialBanner';
+import { PaywallOverlay } from '@/components/billing/PaywallOverlay';
 import { 
   LayoutDashboard, 
   Pill, 
@@ -40,9 +43,11 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
-  const { signOut } = useAuth();
+  const { signOut, currentOrganizationId } = useAuth();
   const { selectedPerson } = useCaredPerson();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [entitlements, setEntitlements] = useState<any>(null);
+  const [loadingCheckoutSeats, setLoadingCheckoutSeats] = useState<number | null>(null);
 
   const tNav = useTranslations('DashboardNav');
   const tHeader = useTranslations('DashboardHeader');
@@ -50,6 +55,69 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // Extract locale from current pathname
   const segments = pathname.split('/').filter(Boolean);
   const locale = segments[0] || 'pt-BR';
+
+  useEffect(() => {
+    if (!currentOrganizationId) return;
+    let isMounted = true;
+    fetch(`/api/billing/entitlements?organizationId=${currentOrganizationId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && data.entitlements) {
+          setEntitlements(data.entitlements);
+        }
+      })
+      .catch((err) => console.error('[DashboardLayout] Error fetching entitlements:', err));
+    return () => {
+      isMounted = false;
+    };
+  }, [currentOrganizationId]);
+
+  const handlePaywallCheckout = async (seats: number, interval: 'month' | 'year') => {
+    if (!currentOrganizationId) return;
+    setLoadingCheckoutSeats(seats);
+    try {
+      const res = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          organizationId: currentOrganizationId,
+          seatQuantity: seats,
+          locale,
+          billingInterval: interval,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Erro ao iniciar checkout.');
+        setLoadingCheckoutSeats(null);
+        return;
+      }
+      if (data.transactionId && typeof window !== 'undefined' && (window as any).Paddle) {
+        try {
+          (window as any).Paddle.Checkout?.open({
+            transactionId: data.transactionId,
+            settings: {
+              displayMode: 'overlay',
+              theme: 'light',
+              successUrl: `${window.location.origin}/${locale}/dashboard/settings/subscription?success=true`,
+            },
+          });
+          setLoadingCheckoutSeats(null);
+          return;
+        } catch {
+          // fallback to redirect
+        }
+      }
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert('Falha ao conectar com o gateway de pagamento.');
+    }
+    setLoadingCheckoutSeats(null);
+  };
 
   const navigation = [
     { name: tNav('overview'), href: `/${locale}/dashboard`, exact: true, icon: LayoutDashboard },
@@ -405,19 +473,33 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </header>
 
-        {/* Streamlined Status Ribbon */}
-        <div className="bg-slate-100/90 dark:bg-stone-900/80 border-b border-slate-200/80 dark:border-stone-800 px-4 py-1.5 flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 shrink-0">
-          <div className="flex items-center gap-2 truncate">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 led-glow-green" />
-            <span className="truncate">{tHeader('trial_banner')}</span>
+        {/* Dynamic 30-day Free Trial Countdown Banner */}
+        {entitlements?.isTrial && !entitlements?.isPaywallBlocked ? (
+          <TrialBanner daysRemaining={entitlements.daysRemaining} locale={locale} />
+        ) : !entitlements ? (
+          <div className="bg-slate-100/90 dark:bg-stone-900/80 border-b border-slate-200/80 dark:border-stone-800 px-4 py-1.5 flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 shrink-0">
+            <div className="flex items-center gap-2 truncate">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 led-glow-green" />
+              <span className="truncate">{tHeader('trial_banner')}</span>
+            </div>
+            <Link 
+              href={`/${locale}/dashboard/settings/subscription`}
+              className="font-bold underline text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 flex-shrink-0 ml-2"
+            >
+              {tHeader('view_plan')} →
+            </Link>
           </div>
-          <Link 
-            href={`/${locale}/dashboard/settings/subscription`}
-            className="font-bold underline text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 flex-shrink-0 ml-2"
-          >
-            {tHeader('view_plan')} →
-          </Link>
-        </div>
+        ) : null}
+
+        {/* Paywall Overlay (Locks features when 30-day trial expires, except subscription page) */}
+        {entitlements?.isPaywallBlocked && !pathname.includes('/settings/subscription') && (
+          <PaywallOverlay
+            locale={locale}
+            organizationId={currentOrganizationId || ''}
+            onCheckout={handlePaywallCheckout}
+            loadingSeats={loadingCheckoutSeats}
+          />
+        )}
 
         {/* Scrollable Page Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-24 md:pb-8">

@@ -102,6 +102,7 @@ export default function SubscriptionSettingsPage() {
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [showDowngradeDialog, setShowDowngradeDialog] = useState(false);
   const [calculatorSeats, setCalculatorSeats] = useState<number>(3);
+  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('year');
 
   const successParam = searchParams.get('success') === 'true';
   const canceledParam = searchParams.get('canceled') === 'true';
@@ -249,14 +250,19 @@ export default function SubscriptionSettingsPage() {
     setResumeLoading(false);
   };
 
-  const handleCheckout = async (seats: number) => {
+  const handleCheckout = async (seats: number, targetInterval: 'month' | 'year' = billingInterval) => {
     setCheckoutLoading(seats);
     setCheckoutError(null);
     try {
       const res = await fetch('/api/billing/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationId: currentOrganizationId, seatQuantity: seats, locale }),
+        body: JSON.stringify({
+          organizationId: currentOrganizationId,
+          seatQuantity: seats,
+          locale,
+          billingInterval: targetInterval,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -705,11 +711,42 @@ export default function SubscriptionSettingsPage() {
       {/* PLAN CARDS GRID                                             */}
       {/* ============================================================ */}
       <div>
-        <div className="mb-6">
-          <h2 className="text-xl font-bold text-stone-900">
-            {subscription ? tBilling('change_plan_title') : tPlan('title')}
-          </h2>
-          <p className="text-stone-500 text-sm mt-1">{tPlan('subtitle')}</p>
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-stone-900">
+              {subscription ? tBilling('change_plan_title') : tPlan('title')}
+            </h2>
+            <p className="text-stone-500 text-sm mt-1">{tPlan('subtitle')}</p>
+          </div>
+
+          {/* Monthly / Annual Billing Toggle */}
+          <div className="inline-flex items-center bg-stone-100 dark:bg-stone-800 p-1.5 rounded-2xl border border-stone-200 dark:border-stone-700 gap-1 shadow-inner shrink-0">
+            <button
+              type="button"
+              onClick={() => setBillingInterval('month')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                billingInterval === 'month'
+                  ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm'
+                  : 'text-stone-500 dark:text-stone-400 hover:text-stone-900'
+              }`}
+            >
+              {locale === 'pt-BR' ? 'Cobrança Mensal' : 'Monthly Billing'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setBillingInterval('year')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                billingInterval === 'year'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-stone-500 dark:text-stone-400 hover:text-stone-900'
+              }`}
+            >
+              <span>{locale === 'pt-BR' ? 'Cobrança Anual' : 'Annual Billing'}</span>
+              <span className="bg-amber-400 text-stone-900 text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wide">
+                {locale === 'pt-BR' ? '2 Meses Grátis 🎉' : '2 Months Free 🎉'}
+              </span>
+            </button>
+          </div>
         </div>
 
         {checkoutError && (
@@ -739,7 +776,7 @@ export default function SubscriptionSettingsPage() {
             maxDiscountTag: isPt ? 'Desconto Máximo Progressivo' : (isEs ? 'Descuento Máximo Progresivo' : (isFr ? 'Remise Maximale Progressive' : (isDe ? 'Maximaler Staffelrabatt' : 'Maximum Progressive Discount'))),
           };
 
-          const calcPricing = getTierPricing(calculatorSeats, locale);
+          const calcPricing = getTierPricing(calculatorSeats, locale, billingInterval);
           const isCurrentInCalc = subscription?.seat_limit === calculatorSeats && isTrialOrActive;
           const isUpgradeInCalc = subscription && isTrialOrActive && calculatorSeats > subscription.seat_limit;
           const isDowngradeInCalc = subscription && isTrialOrActive && calculatorSeats < subscription.seat_limit;
@@ -836,12 +873,24 @@ export default function SubscriptionSettingsPage() {
                 {/* Calculation Summary Card */}
                 <div className="bg-white border border-emerald-200/80 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-5">
                   <div className="space-y-2">
-                    <div className="flex items-baseline gap-2">
+                    <div className="flex flex-wrap items-baseline gap-2">
                       <span className="text-3xl sm:text-4xl font-black text-stone-900">
                         {calcPricing.totalFormatted}
                       </span>
-                      <span className="text-stone-500 text-sm font-medium">{tPlan('total_month')}</span>
-                      {calcPricing.savingsPercentage > 0 && (
+                      <span className="text-stone-500 text-sm font-medium">
+                        {billingInterval === 'year' ? (locale === 'pt-BR' ? '/ ano' : '/ year') : tPlan('total_month')}
+                      </span>
+                      {billingInterval === 'year' && calcPricing.monthlyEquivalentFormatted && (
+                        <span className="text-xs sm:text-sm text-emerald-700 font-bold ml-1">
+                          ({locale === 'pt-BR' ? `equivale a ${calcPricing.monthlyEquivalentFormatted}/mês` : `equiv. ${calcPricing.monthlyEquivalentFormatted}/mo`})
+                        </span>
+                      )}
+                      {billingInterval === 'year' && calcPricing.annualSavingsFormatted && (
+                        <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-xs font-bold ml-2">
+                          🎉 {locale === 'pt-BR' ? `2 meses grátis (-${calcPricing.annualSavingsFormatted})` : `2 mo free (-${calcPricing.annualSavingsFormatted})`}
+                        </Badge>
+                      )}
+                      {billingInterval === 'month' && calcPricing.savingsPercentage > 0 && (
                         <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-xs font-bold ml-2">
                           {calculatorSeats > 6 ? calcLabels.maxDiscountTag : tPlan('save_discount', { percent: calcPricing.savingsPercentage })}
                         </Badge>
@@ -925,7 +974,7 @@ export default function SubscriptionSettingsPage() {
           {tiersArray.map((tier) => {
             const isCurrent = subscription?.seat_limit === tier.seats && isTrialOrActive;
             const isPopular = tier.seats === 3;
-            const pricing = getTierPricing(tier.seats, locale);
+            const pricing = getTierPricing(tier.seats, locale, billingInterval);
 
             return (
               <Card
@@ -983,12 +1032,25 @@ export default function SubscriptionSettingsPage() {
                       <span className="text-3xl font-extrabold text-stone-900">
                         {pricing.totalFormatted}
                       </span>
-                      <span className="text-stone-500 text-sm mb-1">{tPlan('total_month')}</span>
+                      <span className="text-stone-500 text-sm mb-1">
+                        {billingInterval === 'year' ? (locale === 'pt-BR' ? '/ ano' : '/ year') : tPlan('total_month')}
+                      </span>
                     </div>
-                    {tier.seats > 1 && (
+                    {billingInterval === 'year' && pricing.monthlyEquivalentFormatted ? (
+                      <p className="text-xs text-emerald-700 font-bold mt-0.5">
+                        {locale === 'pt-BR' ? `Equivale a ${pricing.monthlyEquivalentFormatted}/mês` : `Equiv. ${pricing.monthlyEquivalentFormatted}/mo`}
+                      </p>
+                    ) : tier.seats > 1 ? (
                       <p className="text-xs text-stone-500 mt-0.5">
                         {pricing.unitFormatted} {tPlan('per_seat')}
                       </p>
+                    ) : null}
+                    {billingInterval === 'year' && pricing.annualSavingsFormatted && (
+                      <div className="mt-1.5">
+                        <span className="inline-block text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded-md">
+                          🎉 {locale === 'pt-BR' ? `2 meses off (-${pricing.annualSavingsFormatted})` : `2 mo off (-${pricing.annualSavingsFormatted})`}
+                        </span>
+                      </div>
                     )}
                   </div>
 

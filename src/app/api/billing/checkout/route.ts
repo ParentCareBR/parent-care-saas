@@ -10,7 +10,7 @@ import { cookies } from 'next/headers';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { organizationId, seatQuantity = 1, locale = 'pt-BR' } = body;
+    const { organizationId, seatQuantity = 1, locale = 'pt-BR', billingInterval = 'month' } = body;
 
     // 1. Strict Server-Side Validation of Seat Quantity (1 to 100)
     const seatVal = validateSeatQuantity(Number(seatQuantity));
@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: seatVal.error }, { status: 400 });
     }
     const numSeats = Number(seatQuantity);
+    const interval = billingInterval === 'year' ? 'year' : 'month';
 
     if (!organizationId) {
       return NextResponse.json({ error: 'Identificador da organização é obrigatório.' }, { status: 400 });
@@ -56,9 +57,9 @@ export async function POST(req: NextRequest) {
 
     const adminSupabase = createAdminClient();
 
-    // 3. Resolve authorized price ID server-side (supports 1-6 standard + custom >6)
+    // 3. Resolve authorized price ID server-side (supports 1-6 standard + custom >6, monthly or annual)
     const paddleEnv = getPaddleEnvironment() === 'production' ? 'production' : 'sandbox';
-    const priceId = await resolveAuthorizedPriceId(numSeats, paddleEnv, locale);
+    const priceId = await resolveAuthorizedPriceId(numSeats, paddleEnv, locale, interval);
 
     // 4. Retrieve or create customer record safely
     const { data: org } = await adminSupabase
@@ -139,6 +140,7 @@ export async function POST(req: NextRequest) {
       metadata: {
         organization_id: organizationId,
         seat_quantity: String(numSeats),
+        billing_interval: interval,
         user_id: user.id,
       },
     });

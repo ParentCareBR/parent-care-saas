@@ -277,6 +277,10 @@ export interface FormattedTierPricing {
   rawUnit: number;
   caredPeopleLimit: number;
   savingsPercentage: number;
+  billingInterval: 'month' | 'year';
+  monthlyEquivalentFormatted?: string;
+  rawMonthlyEquivalent?: number;
+  annualSavingsFormatted?: string;
 }
 
 /**
@@ -307,7 +311,11 @@ function formatCurrencyValue(amount: number, currency: CurrencyCode, locale: str
   }
 }
 
-export function getTierPricing(seats: number, locale: string = 'pt-BR'): FormattedTierPricing {
+export function getTierPricing(
+  seats: number,
+  locale: string = 'pt-BR',
+  interval: 'month' | 'year' = 'month'
+): FormattedTierPricing {
   const currency = resolveCurrency(locale);
 
   if (seats <= MAX_STANDARD_SEATS) {
@@ -317,8 +325,30 @@ export function getTierPricing(seats: number, locale: string = 'pt-BR'): Formatt
       unitPrice: tier.unitPriceBrl,
     };
 
+    if (interval === 'year') {
+      // 12 months for the price of 10 (2 months free / ~17% discount)
+      const annualTotal = Number((p.totalMonthly * 10).toFixed(2));
+      const monthlyEquivalent = Number((annualTotal / 12).toFixed(2));
+      const annualSavings = Number((p.totalMonthly * 2).toFixed(2));
+
+      return {
+        currency,
+        billingInterval: 'year',
+        totalFormatted: formatCurrencyValue(annualTotal, currency, locale),
+        unitFormatted: formatCurrencyValue(Number((p.unitPrice * 10 / 12).toFixed(2)), currency, locale),
+        rawTotal: annualTotal,
+        rawUnit: p.unitPrice,
+        caredPeopleLimit: tier.caredPeopleLimit,
+        savingsPercentage: 17,
+        monthlyEquivalentFormatted: formatCurrencyValue(monthlyEquivalent, currency, locale),
+        rawMonthlyEquivalent: monthlyEquivalent,
+        annualSavingsFormatted: formatCurrencyValue(annualSavings, currency, locale),
+      };
+    }
+
     return {
       currency,
+      billingInterval: 'month',
       totalFormatted: formatCurrencyValue(p.totalMonthly, currency, locale),
       unitFormatted: formatCurrencyValue(p.unitPrice, currency, locale),
       rawTotal: p.totalMonthly,
@@ -333,13 +363,34 @@ export function getTierPricing(seats: number, locale: string = 'pt-BR'): Formatt
   const p6 = tier6.prices[currency];
   const additionalSeats = seats - 6;
   const unitRate = p6.unitPrice;
-  const total = Number((p6.totalMonthly + additionalSeats * unitRate).toFixed(2));
+  const monthlyTotal = Number((p6.totalMonthly + additionalSeats * unitRate).toFixed(2));
+
+  if (interval === 'year') {
+    const annualTotal = Number((monthlyTotal * 10).toFixed(2));
+    const monthlyEquivalent = Number((annualTotal / 12).toFixed(2));
+    const annualSavings = Number((monthlyTotal * 2).toFixed(2));
+
+    return {
+      currency,
+      billingInterval: 'year',
+      totalFormatted: formatCurrencyValue(annualTotal, currency, locale),
+      unitFormatted: formatCurrencyValue(unitRate, currency, locale),
+      rawTotal: annualTotal,
+      rawUnit: unitRate,
+      caredPeopleLimit: Math.min(seats + 4, 30),
+      savingsPercentage: 17,
+      monthlyEquivalentFormatted: formatCurrencyValue(monthlyEquivalent, currency, locale),
+      rawMonthlyEquivalent: monthlyEquivalent,
+      annualSavingsFormatted: formatCurrencyValue(annualSavings, currency, locale),
+    };
+  }
 
   return {
     currency,
-    totalFormatted: formatCurrencyValue(total, currency, locale),
+    billingInterval: 'month',
+    totalFormatted: formatCurrencyValue(monthlyTotal, currency, locale),
     unitFormatted: formatCurrencyValue(unitRate, currency, locale),
-    rawTotal: total,
+    rawTotal: monthlyTotal,
     rawUnit: unitRate,
     caredPeopleLimit: Math.min(seats + 4, 30),
     savingsPercentage: 40,

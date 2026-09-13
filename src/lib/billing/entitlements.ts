@@ -11,6 +11,10 @@ export interface EntitlementInfo {
   canInvite: boolean;
   subscriptionStatus: string;
   accessValidUntil: string | null;
+  daysRemaining: number;
+  isTrial: boolean;
+  isTrialExpired: boolean;
+  isPaywallBlocked: boolean;
 }
 
 /**
@@ -22,11 +26,34 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
   const supabase = createAdminClient();
 
   // 1. Fetch entitlement record
-  const { data: entitlement } = await supabase
+  let { data: entitlement } = await supabase
     .from('organization_entitlements')
     .select('*')
     .eq('organization_id', organizationId)
-    .single();
+    .maybeSingle();
+
+  // If no entitlement record exists, initialize a 30-day Free Trial
+  if (!entitlement) {
+    const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: created } = await supabase
+      .from('organization_entitlements')
+      .insert({
+        organization_id: organizationId,
+        seat_limit: 1,
+        cared_people_limit: 2,
+        active_members_count: 1,
+        reserved_invites_count: 0,
+        subscription_status: 'trial',
+        access_valid_until: thirtyDaysFromNow,
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (created) {
+      entitlement = created;
+    }
+  }
 
   // 2. Count active members in the organization
   const { count: activeMembersCount } = await supabase
@@ -50,6 +77,35 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
   const totalUsedSeats = activeMembers + reservedInvites;
   const availableSeats = Math.max(0, seatLimit - totalUsedSeats);
 
+  const rawStatus = entitlement?.subscription_status ?? 'trial';
+  const accessValidUntil = entitlement?.access_valid_until ?? null;
+
+  let daysRemaining = 30;
+  let isTrialExpired = false;
+  let isPaywallBlocked = false;
+  const isTrial = rawStatus === 'trial';
+
+  if (rawStatus === 'active') {
+    isTrialExpired = false;
+    isPaywallBlocked = false;
+    daysRemaining = 0;
+  } else if (isTrial) {
+    if (accessValidUntil) {
+      const diffMs = new Date(accessValidUntil).getTime() - Date.now();
+      daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+      isTrialExpired = diffMs <= 0;
+      isPaywallBlocked = isTrialExpired;
+    } else {
+      daysRemaining = 30;
+      isTrialExpired = false;
+      isPaywallBlocked = false;
+    }
+  } else if (rawStatus === 'canceled' || rawStatus === 'past_due') {
+    isTrialExpired = true;
+    isPaywallBlocked = true;
+    daysRemaining = 0;
+  }
+
   return {
     organizationId,
     seatLimit,
@@ -58,9 +114,13 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
     reservedInvitesCount: reservedInvites,
     totalUsedSeats,
     availableSeats,
-    canInvite: availableSeats > 0,
-    subscriptionStatus: entitlement?.subscription_status ?? 'trial',
-    accessValidUntil: entitlement?.access_valid_until ?? null,
+    canInvite: availableSeats > 0 && !isPaywallBlocked,
+    subscriptionStatus: isTrialExpired && isTrial ? 'trial_expired' : rawStatus,
+    accessValidUntil,
+    daysRemaining,
+    isTrial,
+    isTrialExpired,
+    isPaywallBlocked,
   };
 }
 
