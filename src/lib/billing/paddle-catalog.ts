@@ -365,16 +365,13 @@ export function getTierPricing(
       const annualTotal = Number((p.totalMonthly * 10).toFixed(2));
       const monthlyEquivalent = Number((annualTotal / 12).toFixed(2));
       const annualSavings = Number((p.totalMonthly * 2).toFixed(2));
-      // BRL via Pix: absorb the 3.5% dLocal/IOF fee so the Pix QR shows exactly the advertised price.
-      // The Paddle base price is set to annualTotal / 1.035; the displayed price stays annualTotal.
-      const paddleRawTotal = currency === 'BRL' ? Number((annualTotal / 1.035).toFixed(2)) : annualTotal;
 
       return {
         currency,
         billingInterval: 'year',
         totalFormatted: formatCurrencyValue(annualTotal, currency, locale),
         unitFormatted: formatCurrencyValue(Number((p.unitPrice * 10 / 12).toFixed(2)), currency, locale),
-        rawTotal: paddleRawTotal,
+        rawTotal: annualTotal,
         rawUnit: p.unitPrice,
         caredPeopleLimit: tier.caredPeopleLimit,
         savingsPercentage: 17,
@@ -407,14 +404,13 @@ export function getTierPricing(
     const annualTotal = Number((monthlyTotal * 10).toFixed(2));
     const monthlyEquivalent = Number((annualTotal / 12).toFixed(2));
     const annualSavings = Number((monthlyTotal * 2).toFixed(2));
-    const paddleRawTotal = currency === 'BRL' ? Number((annualTotal / 1.035).toFixed(2)) : annualTotal;
 
     return {
       currency,
       billingInterval: 'year',
       totalFormatted: formatCurrencyValue(annualTotal, currency, locale),
       unitFormatted: formatCurrencyValue(unitRate, currency, locale),
-      rawTotal: paddleRawTotal,
+      rawTotal: annualTotal,
       rawUnit: unitRate,
       caredPeopleLimit: Math.min(seats + 4, 30),
       savingsPercentage: 17,

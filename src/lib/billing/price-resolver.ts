@@ -5,13 +5,13 @@ import { getAuthorizedPriceId, getTierPricing, resolveCurrency, MAX_STANDARD_SEA
 const priceCache = new Map<string, string>();
 
 // Pre-seed verified live recurring price IDs: `${seats}_${currency}_${interval}` -> priceId
-// Annual BRL prices have the 3.5% dLocal/IOF fee absorbed so the customer pays exactly the advertised price on Pix.
-priceCache.set('1_BRL_year', 'pri_01m2eejcv8kt1ns5j5r97cnzbk'); // R$ 499,00 Pix (Paddle base R$ 482.13)
-priceCache.set('2_BRL_year', 'pri_01m2ef67aejkdwqjk15kr6yc27'); // R$ 918,00 Pix (Paddle base R$ 886.96)
-priceCache.set('3_BRL_year', 'pri_01m2eg902f0jqt7087n73zvhn6'); // R$ 1170,00 Pix (Paddle base R$ 1130.43)
-priceCache.set('4_BRL_year', 'pri_01m2eg909eh1nn1e1sk5mx3rn3'); // R$ 1436,00 Pix (Paddle base R$ 1387.44)
-priceCache.set('5_BRL_year', 'pri_01m2eg90ep3m9k4359qpksg019'); // R$ 1646,00 Pix (Paddle base R$ 1590.34)
-priceCache.set('6_BRL_year', 'pri_01m2eg90kz05gm6m0dv093yqka'); // R$ 1794,00 Pix (Paddle base R$ 1733.33)
+// Annual BRL prices at nominal rates (taxMode: 'internal')
+priceCache.set('1_BRL_year', 'pri_01m2eejcv8kt1ns5j5r97cnzbk'); // R$ 499,00 / ano
+priceCache.set('2_BRL_year', 'pri_01m2ef67aejkdwqjk15kr6yc27'); // R$ 918,00 / ano
+priceCache.set('3_BRL_year', 'pri_01m2eg902f0jqt7087n73zvhn6'); // R$ 1.170,00 / ano
+priceCache.set('4_BRL_year', 'pri_01m2eg909eh1nn1e1sk5mx3rn3'); // R$ 1.436,00 / ano
+priceCache.set('5_BRL_year', 'pri_01m2eg90ep3m9k4359qpksg019'); // R$ 1.646,00 / ano
+priceCache.set('6_BRL_year', 'pri_01m2eg90kz05gm6m0dv093yqka'); // R$ 1.794,00 / ano
 priceCache.set('10_BRL_month', 'pri_01m2dvx8wdde95w3kjjq6awnqp');
 
 /**
