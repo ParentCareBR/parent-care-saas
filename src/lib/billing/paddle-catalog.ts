@@ -106,12 +106,12 @@ export const PADDLE_TIERS: Record<number, PricingTier> = {
     caredPeopleLimit: 6,
     savingsPercentage: 28,
     sandboxPriceId: process.env.PADDLE_PRICE_ID_4_SEATS_SANDBOX || 'pri_01jm_parentcare_4seats_sdbx',
-    livePriceId: process.env.PADDLE_PRICE_ID_4_SEATS_LIVE || 'pri_01jm_parentcare_4seats_live',
+    livePriceId: process.env.PADDLE_PRICE_ID_4_SEATS_LIVE || 'pri_01m2dr8qm05qdy86m93tzrjgwp',
     livePriceIds: {
-      BRL: 'pri_01jm_parentcare_4seats_live',
-      USD: 'pri_01jm_parentcare_4seats_live',
-      EUR: 'pri_01jm_parentcare_4seats_live',
-      GBP: 'pri_01jm_parentcare_4seats_live',
+      BRL: 'pri_01m2dr8qm05qdy86m93tzrjgwp',
+      USD: 'pri_01m2dr9sxk9bkv24dfg19a8bvy',
+      EUR: 'pri_01m2drb54r1xnjhfn5ez3rehtp',
+      GBP: 'pri_01m2drcan9ec9n4c6dp8ykqp8q',
     },
     prices: {
       BRL: { totalMonthly: 143.60, unitPrice: 35.90 },
@@ -122,20 +122,20 @@ export const PADDLE_TIERS: Record<number, PricingTier> = {
   },
   5: {
     seats: 5,
-    unitPriceBrl: 32.90,
-    totalMonthlyBrl: 164.50,
+    unitPriceBrl: 32.92,
+    totalMonthlyBrl: 164.60,
     caredPeopleLimit: 8,
     savingsPercentage: 34,
     sandboxPriceId: process.env.PADDLE_PRICE_ID_5_SEATS_SANDBOX || 'pri_01jm_parentcare_5seats_sdbx',
-    livePriceId: process.env.PADDLE_PRICE_ID_5_SEATS_LIVE || 'pri_01jm_parentcare_5seats_live',
+    livePriceId: process.env.PADDLE_PRICE_ID_5_SEATS_LIVE || 'pri_01m2drftscg3hjpesg40fxqq4j',
     livePriceIds: {
-      BRL: 'pri_01jm_parentcare_5seats_live',
-      USD: 'pri_01jm_parentcare_5seats_live',
-      EUR: 'pri_01jm_parentcare_5seats_live',
-      GBP: 'pri_01jm_parentcare_5seats_live',
+      BRL: 'pri_01m2drftscg3hjpesg40fxqq4j',
+      USD: 'pri_01m2drj332ea70x5xn47epdwza',
+      EUR: 'pri_01m2drgxx4bbbgv2dpnpfv3yvr',
+      GBP: 'pri_01m2drk4fnqksyw9nv0khdvjxg',
     },
     prices: {
-      BRL: { totalMonthly: 164.50, unitPrice: 32.90 },
+      BRL: { totalMonthly: 164.60, unitPrice: 32.92 },
       USD: { totalMonthly: 34.90, unitPrice: 6.98 },
       EUR: { totalMonthly: 34.90, unitPrice: 6.98 },
       GBP: { totalMonthly: 27.90, unitPrice: 5.58 },
@@ -148,12 +148,12 @@ export const PADDLE_TIERS: Record<number, PricingTier> = {
     caredPeopleLimit: 10,
     savingsPercentage: 40,
     sandboxPriceId: process.env.PADDLE_PRICE_ID_6_SEATS_SANDBOX || 'pri_01jm_parentcare_6seats_sdbx',
-    livePriceId: process.env.PADDLE_PRICE_ID_6_SEATS_LIVE || 'pri_01jm_parentcare_6seats_live',
+    livePriceId: process.env.PADDLE_PRICE_ID_6_SEATS_LIVE || 'pri_01m2drnkeymh506h71305g8t95',
     livePriceIds: {
-      BRL: 'pri_01jm_parentcare_6seats_live',
-      USD: 'pri_01jm_parentcare_6seats_live',
-      EUR: 'pri_01jm_parentcare_6seats_live',
-      GBP: 'pri_01jm_parentcare_6seats_live',
+      BRL: 'pri_01m2drnkeymh506h71305g8t95',
+      USD: 'pri_01m2drpknp22hg9wc535137tmz',
+      EUR: 'pri_01m2drqhtnqr96nsdzb5hqczz0',
+      GBP: 'pri_01m2drrc6ms62pfdrp200tjd4s',
     },
     prices: {
       BRL: { totalMonthly: 179.40, unitPrice: 29.90 },
@@ -308,20 +308,40 @@ function formatCurrencyValue(amount: number, currency: CurrencyCode, locale: str
 }
 
 export function getTierPricing(seats: number, locale: string = 'pt-BR'): FormattedTierPricing {
-  const tier = PADDLE_TIERS[seats] || PADDLE_TIERS[1];
   const currency = resolveCurrency(locale);
-  const p = tier.prices?.[currency] || {
-    totalMonthly: tier.totalMonthlyBrl,
-    unitPrice: tier.unitPriceBrl,
-  };
+
+  if (seats <= MAX_STANDARD_SEATS) {
+    const tier = PADDLE_TIERS[seats] || PADDLE_TIERS[1];
+    const p = tier.prices?.[currency] || {
+      totalMonthly: tier.totalMonthlyBrl,
+      unitPrice: tier.unitPriceBrl,
+    };
+
+    return {
+      currency,
+      totalFormatted: formatCurrencyValue(p.totalMonthly, currency, locale),
+      unitFormatted: formatCurrencyValue(p.unitPrice, currency, locale),
+      rawTotal: p.totalMonthly,
+      rawUnit: p.unitPrice,
+      caredPeopleLimit: tier.caredPeopleLimit,
+      savingsPercentage: tier.savingsPercentage,
+    };
+  }
+
+  // Custom calculation for > 6 seats
+  const tier6 = PADDLE_TIERS[6];
+  const p6 = tier6.prices[currency];
+  const additionalSeats = seats - 6;
+  const unitRate = p6.unitPrice;
+  const total = Number((p6.totalMonthly + additionalSeats * unitRate).toFixed(2));
 
   return {
     currency,
-    totalFormatted: formatCurrencyValue(p.totalMonthly, currency, locale),
-    unitFormatted: formatCurrencyValue(p.unitPrice, currency, locale),
-    rawTotal: p.totalMonthly,
-    rawUnit: p.unitPrice,
-    caredPeopleLimit: tier.caredPeopleLimit,
-    savingsPercentage: tier.savingsPercentage,
+    totalFormatted: formatCurrencyValue(total, currency, locale),
+    unitFormatted: formatCurrencyValue(unitRate, currency, locale),
+    rawTotal: total,
+    rawUnit: unitRate,
+    caredPeopleLimit: Math.min(seats + 4, 30),
+    savingsPercentage: 40,
   };
 }

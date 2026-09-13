@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Heart, ShieldCheck, Star, Zap, CreditCard, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { CheckCircle, Heart, ShieldCheck, Star, Zap, CreditCard, ArrowLeft, AlertTriangle, Sparkles, Plus, Minus, MessageCircle } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { PADDLE_TIERS, getTierPricing } from '@/lib/billing/paddle-catalog';
@@ -46,6 +46,7 @@ export default function PricingPage() {
 
   const [checkoutLoadingSeats, setCheckoutLoadingSeats] = useState<number | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [calculatorSeats, setCalculatorSeats] = useState<number>(3);
 
   const tiersArray = Object.values(PADDLE_TIERS).sort((a, b) => a.seats - b.seats);
 
@@ -193,6 +194,224 @@ export default function PricingPage() {
           </div>
         )}
 
+        {/* Interactive Custom Plan Simulator / Calculator */}
+        {(() => {
+          const isPt = locale === 'pt-BR';
+          const isEs = locale.startsWith('es');
+          const isFr = locale.startsWith('fr');
+          const isDe = locale.startsWith('de');
+
+          const calcLabels = {
+            badge: isPt ? 'Simulador Interativo' : (isEs ? 'Simulador Interactivo' : (isFr ? 'Simulateur Interactif' : (isDe ? 'Interaktiver Tarifrechner' : 'Interactive Calculator'))),
+            title: isPt ? 'Calcule o Plano Ideal para sua Família' : (isEs ? 'Calcula el Plan Ideal para tu Familia' : (isFr ? 'Calculez le Forfait Idéal pour Votre Famille' : (isDe ? 'Berechnen Sie den idealen Familientarif' : 'Calculate the Ideal Plan for Your Family'))),
+            subtitle: isPt ? 'Escolha quantas pessoas terão acesso e veja o valor na hora com desconto progressivo:' : (isEs ? 'Elige cuántas personas tendrán acceso y mira el precio con descuento progresivo:' : (isFr ? 'Choisissez le nombre de personnes ayant accès et découvrez le prix avec remise :' : (isDe ? 'Wählen Sie die Anzahl der Zugänge mit automatischem Rabatt:' : 'Choose how many people will have access and see the price in real time:'))),
+            seatsWord: isPt ? (calculatorSeats === 1 ? 'acesso familiar' : 'acessos familiares') : (isEs ? (calculatorSeats === 1 ? 'acceso familiar' : 'accesos familiares') : (isFr ? (calculatorSeats === 1 ? 'accès familial' : 'accès familiaux') : (isDe ? (calculatorSeats === 1 ? 'Familienzugang' : 'Familienzugänge') : (calculatorSeats === 1 ? 'family seat' : 'family seats')))),
+            selectedTag: isPt ? 'Plano Selecionado' : (isEs ? 'Plan Seleccionado' : (isFr ? 'Forfait Sélectionné' : (isDe ? 'Ausgewählter Tarif' : 'Selected Plan'))),
+            customTag: isPt ? 'Plano Personalizado Sob Medida' : (isEs ? 'Plan Personalizado a Medida' : (isFr ? 'Forfait Sur-Mesure' : (isDe ? 'Maßgeschneiderter Tarif' : 'Tailored Custom Plan'))),
+            subscribeBtn: isPt ? `Assinar ${calculatorSeats} ${calculatorSeats === 1 ? 'Acesso' : 'Acessos'}` : (isEs ? `Suscribir ${calculatorSeats} ${calculatorSeats === 1 ? 'Acceso' : 'Accesos'}` : (isFr ? `S'abonner (${calculatorSeats} ${calculatorSeats === 1 ? 'Accès' : 'Accès'})` : (isDe ? `Mit ${calculatorSeats} ${calculatorSeats === 1 ? 'Zugang' : 'Zugängen'} abonnieren` : `Subscribe ${calculatorSeats} ${calculatorSeats === 1 ? 'Seat' : 'Seats'}`))),
+            whatsappBtn: isPt ? `Contratar ${calculatorSeats} Acessos com Consultor` : (isEs ? `Contratar ${calculatorSeats} Accesos con Asesor` : (isFr ? `Souscrire ${calculatorSeats} Accès avec Conseiller` : (isDe ? `${calculatorSeats} Zugänge mit Berater aktivieren` : `Order ${calculatorSeats} Seats with Specialist`))),
+            trialText: isPt ? '30 dias de teste grátis com cartão' : (isEs ? '30 días de prueba gratis con tarjeta' : (isFr ? '30 jours d\'essai gratuit avec carte' : (isDe ? '30 Tage kostenlos testen mit Karte' : '30-day free trial with credit card'))),
+            customContactNote: isPt ? 'Ativação imediata e suporte prioritário' : (isEs ? 'Activación inmediata y soporte prioritario' : (isFr ? 'Activation immédiate et assistance prioritaire' : (isDe ? 'Sofortige Aktivierung und Prioritäts-Support' : 'Immediate activation and priority support'))),
+            shortcuts: isPt ? 'Atalhos:' : (isEs ? 'Accesos rápidos:' : (isFr ? 'Raccourcis :' : (isDe ? 'Schnellauswahl:' : 'Quick select:'))),
+            maxDiscountTag: isPt ? 'Tarifa Máxima com Desconto' : (isEs ? 'Tarifa Máxima con Descuento' : (isFr ? 'Tarif Maximum avec Remise' : (isDe ? 'Maximaler Tarif mit Sonderrabatt' : 'Maximum Discounted Rate'))),
+          };
+
+          const calcPricing = getTierPricing(calculatorSeats, locale);
+          const isOverStandard = calculatorSeats > 6;
+          const whatsappText = encodeURIComponent(
+            `Olá! Simulei no site um plano personalizado do Parent Care para ${calculatorSeats} acessos (${calcPricing.totalFormatted}/mês) e gostaria de contratar.`
+          );
+
+          return (
+            <section id="plan-calculator" className="bg-gradient-to-br from-white via-emerald-50/20 to-white dark:from-stone-900 dark:via-emerald-950/20 dark:to-stone-900 border-2 border-emerald-500/40 dark:border-emerald-500/30 rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+              <div className="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="max-w-4xl mx-auto space-y-6 relative">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 dark:border-stone-800 pb-5">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-xs font-bold mb-2">
+                      <Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>{calcLabels.badge}</span>
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-extrabold text-stone-900 dark:text-stone-100 tracking-tight">
+                      {calcLabels.title}
+                    </h2>
+                    <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-1">
+                      {calcLabels.subtitle}
+                    </p>
+                  </div>
+
+                  <div className="sm:text-right shrink-0">
+                    <span className="text-xs font-semibold text-stone-400 block uppercase tracking-wider">
+                      {calcLabels.selectedTag}
+                    </span>
+                    <span className="text-base sm:text-lg font-bold text-emerald-700 dark:text-emerald-400">
+                      {calculatorSeats <= 6 ? tPlan(`tier_${calculatorSeats}` as any) : calcLabels.customTag}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Slider & Stepper Controls */}
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setCalculatorSeats((prev) => Math.max(1, prev - 1))}
+                        disabled={calculatorSeats <= 1}
+                        className="h-10 w-10 rounded-xl border-stone-300 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 shrink-0"
+                        aria-label="Diminuir acessos"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+
+                      <div className="flex items-baseline gap-1.5 px-4 py-1.5 bg-stone-100 dark:bg-stone-800/80 rounded-xl min-w-[170px] justify-center shadow-2xs">
+                        <span className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-white">
+                          {calculatorSeats}
+                        </span>
+                        <span className="text-xs sm:text-sm font-semibold text-stone-600 dark:text-stone-400">
+                          {calcLabels.seatsWord}
+                        </span>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setCalculatorSeats((prev) => Math.min(30, prev + 1))}
+                        disabled={calculatorSeats >= 30}
+                        className="h-10 w-10 rounded-xl border-stone-300 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 shrink-0"
+                        aria-label="Aumentar acessos"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {/* Quick selection pills */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+                      <span className="text-xs text-stone-400 mr-1 font-medium">{calcLabels.shortcuts}</span>
+                      {[1, 2, 3, 4, 5, 6, 8, 10, 15, 20].map((num) => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => setCalculatorSeats(num)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                            calculatorSeats === num
+                              ? 'bg-emerald-600 text-white shadow-xs scale-105'
+                              : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
+                          }`}
+                        >
+                          {num}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Range Slider */}
+                  <div className="space-y-1.5">
+                    <input
+                      type="range"
+                      min="1"
+                      max="20"
+                      value={calculatorSeats}
+                      onChange={(e) => setCalculatorSeats(Number(e.target.value))}
+                      className="w-full h-2.5 bg-stone-200 dark:bg-stone-800 rounded-lg appearance-none cursor-pointer accent-emerald-600 dark:accent-emerald-500"
+                    />
+                    <div className="flex justify-between text-[11px] text-stone-400 font-medium px-1">
+                      <span>1</span>
+                      <span>3 (popular)</span>
+                      <span>6</span>
+                      <span>10</span>
+                      <span>15</span>
+                      <span>20+</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live Pricing Summary & Action Card */}
+                <div className="bg-white dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
+                  {/* Price details */}
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <span className="text-3xl sm:text-4xl font-extrabold text-stone-900 dark:text-stone-100 tracking-tight">
+                        {calcPricing.totalFormatted}
+                      </span>
+                      <span className="text-stone-500 text-sm font-medium">
+                        {tPlan('total_month')}
+                      </span>
+                      {calculatorSeats > 1 && (
+                        <span className="text-xs sm:text-sm text-stone-500 font-medium ml-1">
+                          ({calcPricing.unitFormatted} {tPlan('per_seat')})
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 px-2.5 py-1 rounded-lg">
+                        <Heart className="h-3.5 w-3.5 fill-emerald-200 text-emerald-600" />
+                        {tPlan('cared_included', { count: calcPricing.caredPeopleLimit })}
+                      </span>
+
+                      {calcPricing.savingsPercentage > 0 && (
+                        <span className="inline-flex items-center text-xs font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded-lg">
+                          {tPlan('save_discount', { percent: calcPricing.savingsPercentage })}
+                        </span>
+                      )}
+
+                      {isOverStandard && (
+                        <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-md">
+                          {calcLabels.maxDiscountTag}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Action button */}
+                  <div className="shrink-0 flex flex-col sm:flex-row md:flex-col gap-2 min-w-[240px]">
+                    {!isOverStandard ? (
+                      <Button
+                        onClick={() => handleAction(calculatorSeats)}
+                        disabled={checkoutLoadingSeats === calculatorSeats}
+                        className="w-full h-12 rounded-xl font-bold bg-brand-green hover:bg-emerald-800 text-white shadow-md hover:shadow-lg transition-all text-sm gap-2"
+                      >
+                        {checkoutLoadingSeats === calculatorSeats ? (
+                          <span>{tPlan('loading')}</span>
+                        ) : (
+                          <>
+                            <CreditCard className="h-4 w-4" />
+                            <span>{calcLabels.subscribeBtn}</span>
+                          </>
+                        )}
+                      </Button>
+                    ) : (
+                      <Button
+                        asChild
+                        className="w-full h-12 rounded-xl font-bold bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-white text-white shadow-md text-sm gap-2"
+                      >
+                        <a
+                          href={`https://wa.me/5511999999999?text=${whatsappText}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <MessageCircle className="h-4 w-4 text-emerald-400" />
+                          <span>{calcLabels.whatsappBtn}</span>
+                        </a>
+                      </Button>
+                    )}
+
+                    <p className="text-[11px] text-center text-stone-400">
+                      {!isOverStandard ? calcLabels.trialText : calcLabels.customContactNote}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          );
+        })()}
+
         {/* Plan Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {tiersArray.map((tier) => {
@@ -332,11 +551,23 @@ export default function PricingPage() {
               <p>• {tPlan('custom_feature_2')}</p>
               <p>• {tPlan('custom_feature_3')}</p>
             </CardContent>
-            <CardFooter className="pt-0 pb-6">
+            <CardFooter className="pt-0 pb-6 flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setCalculatorSeats(8);
+                  document.getElementById('plan-calculator')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="w-full h-10 rounded-xl border-emerald-500/50 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-xs font-bold gap-1.5"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                <span>Simular Acessos no Calculador</span>
+              </Button>
               <Button
                 asChild
-                variant="outline"
-                className="w-full h-11 rounded-xl border-stone-300 dark:border-stone-700 font-semibold"
+                variant="ghost"
+                className="w-full h-9 rounded-xl text-stone-600 dark:text-stone-300 text-xs font-semibold"
               >
                 <a
                   href="https://wa.me/5511999999999?text=Olá,%20gostaria%20de%20conhecer%20o%20Plano%20Personalizado%20do%20Parent%20Care"
