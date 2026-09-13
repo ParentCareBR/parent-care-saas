@@ -63,8 +63,21 @@ export async function GET(req: NextRequest) {
       // safe fallback if table issue
     }
 
+    const monthParam = searchParams.get('month');
+    const currentYearMonth = monthParam || new Date().toISOString().slice(0, 7);
+
+    // Financial Profile
+    const financialProfile = orgSettings.financial_profiles?.[caredPersonId] || {
+      monthly_income: 0,
+      income_source: 'Aposentadoria INSS',
+      income_day: 5,
+      currency: 'BRL',
+      notes: '',
+    };
+
+    let allExpenses: any[] = [];
     if (dbExpenses.length > 0) {
-      const mapped = dbExpenses.map((e) => {
+      allExpenses = dbExpenses.map((e) => {
         const meta = expensesMeta[e.id] || {};
         return {
           id: e.id,
@@ -82,11 +95,37 @@ export async function GET(req: NextRequest) {
           created_at: e.created_at,
         };
       });
-      return NextResponse.json({ success: true, expenses: mapped });
+    } else {
+      allExpenses = fallbackList;
     }
 
-    // Fallback if db table has no rows or is empty
-    return NextResponse.json({ success: true, expenses: fallbackList });
+    const monthlyExpenses = allExpenses.filter((e: any) => {
+      const d = (e.date || e.created_at || '').slice(0, 7);
+      return d === currentYearMonth;
+    });
+
+    const totalMonthExpenses = monthlyExpenses.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+    const totalAllExpenses = allExpenses.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
+    const monthlyIncome = Number(financialProfile.monthly_income) || 0;
+    const balance = monthlyIncome - totalMonthExpenses;
+    const percentageUsed = monthlyIncome > 0 ? (totalMonthExpenses / monthlyIncome) * 100 : 0;
+    const isOverBudget = monthlyIncome > 0 && totalMonthExpenses > monthlyIncome;
+
+    return NextResponse.json({
+      success: true,
+      expenses: allExpenses,
+      financialProfile,
+      summary: {
+        month: currentYearMonth,
+        monthlyIncome,
+        totalExpenses: totalMonthExpenses,
+        totalAllExpenses,
+        balance,
+        percentageUsed: Number(percentageUsed.toFixed(1)),
+        isOverBudget,
+        currency: financialProfile.currency || 'BRL',
+      },
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || 'Erro ao carregar despesas.' }, { status: 500 });
   }

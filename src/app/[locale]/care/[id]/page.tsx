@@ -8,9 +8,10 @@ import {
   Heart, AlertCircle, Pill, Coffee, Droplet, CheckCircle2,
   Calendar, BellRing, RotateCcw, Sun, Moon, Activity as ActivityIcon,
   Clock, Volume2, ChevronLeft, ChevronRight,
+  Wallet, Plus, Landmark, DollarSign,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameDay, isSameMonth, isToday } from 'date-fns';
-import { getDateFnsLocale, getSpeechSynthesisLang, getCareTexts } from '@/lib/i18n/care-translations';
+import { getDateFnsLocale, getSpeechSynthesisLang, getCareTexts, getFinanceTexts } from '@/lib/i18n/care-translations';
 
 function playAlarmChime() {
   if (typeof window === 'undefined') return;
@@ -65,6 +66,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
   const supabase = createClient();
   const router = useRouter();
   const tCare = getCareTexts(params.locale);
+  const tFin = getFinanceTexts(params.locale);
   const dateFnsLoc = getDateFnsLocale(params.locale);
   const displayLocale = params.locale === 'en' ? 'en-US' : params.locale;
 
@@ -89,9 +91,53 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
   });
   const [lastAction, setLastAction] = useState<{ id: string; type: string; table: string } | null>(null);
 
+  // Financial state for senior self-management
+  const [financeData, setFinanceData] = useState<{
+    monthlyIncome: number;
+    totalExpenses: number;
+    balance: number;
+    currency: string;
+    incomeSource: string;
+  }>({
+    monthlyIncome: 0,
+    totalExpenses: 0,
+    balance: 0,
+    currency: 'BRL',
+    incomeSource: 'Aposentadoria INSS',
+  });
+  const [expenseModalOpen, setExpenseModalOpen] = useState(false);
+  const [seniorPensionModalOpen, setSeniorPensionModalOpen] = useState(false);
+  const [seniorExpenseAmount, setSeniorExpenseAmount] = useState('');
+  const [seniorExpenseCategory, setSeniorExpenseCategory] = useState('medication');
+  const [seniorExpenseDesc, setSeniorExpenseDesc] = useState('');
+  const [seniorPensionInput, setSeniorPensionInput] = useState('');
+  const [savingExpense, setSavingExpense] = useState(false);
+  const [savingPension, setSavingPension] = useState(false);
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 30000);
     return () => clearInterval(timer);
+  }, []);
+
+  const fetchFinances = useCallback(async (personId: string) => {
+    try {
+      const res = await fetch(`/api/expenses?caredPersonId=${personId}`);
+      const data = await res.json();
+      if (res.ok && data.success && data.summary) {
+        setFinanceData({
+          monthlyIncome: data.summary.monthlyIncome || 0,
+          totalExpenses: data.summary.totalExpenses || 0,
+          balance: data.summary.balance || 0,
+          currency: data.summary.currency || 'BRL',
+          incomeSource: data.financialProfile?.income_source || 'Aposentadoria INSS',
+        });
+        if (data.financialProfile?.monthly_income) {
+          setSeniorPensionInput(String(data.financialProfile.monthly_income));
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao carregar finanças do idoso:', err);
+    }
   }, []);
 
   const fetchAgendaEvents = useCallback(async (personId: string) => {
@@ -137,10 +183,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     const emojiMap: Record<string, string> = { breakfast: '🥣', lunch: '🥗', snack: '🍎', dinner: '🍲', supper: '🥛' };
     (notes || []).forEach((n: any) => {
       const d = new Date(n.created_at);
-      const match = n.content.match(/^Refei.+?((.+?)): (.+?). Apetite:/);
+      const match = n.content.match(/^Refei.+?\((.+?)\): (.+?)\. Apetite:/);
       const mealType = match ? match[1] : 'meal';
       const mealName = match ? match[2] : n.content.substring(0, 40);
-      allEvents.push({ id: 'meal-' + n.id, title: (emojiMap[mealType] || '🍽') + ' ' + mealName, time: format(d, 'HH:mm'), date: d, type: 'meal', color: 'orange' });
+      allEvents.push({ id: 'meal-' + n.id, title: (emojiMap[mealType] || '🍽️') + ' ' + mealName, time: format(d, 'HH:mm'), date: d, type: 'meal', color: 'orange' });
     });
 
     const { data: tasks } = await (supabase as any)
@@ -189,9 +235,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
       setEnabledModules(enabledSet); setSettingsLoaded(true);
       setPersonInfo({ name: firstName, organizationId: orgId, userId: user.id, nextMedication: nextMed, medicationId: medId, medicationScheduleId: null, nextAppointment: nextAppt });
       await fetchAgendaEvents(params.id);
+      await fetchFinances(params.id);
     }
     fetchData();
-  }, [params.id, params.locale, router, supabase, dateFnsLoc, fetchAgendaEvents]);
+  }, [params.id, params.locale, router, supabase, dateFnsLoc, fetchAgendaEvents, fetchFinances]);
 
   useEffect(() => {
     if (!nextAppointmentData) return;
@@ -225,6 +272,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
   };
   const testAlarmDemo = () => { setAlarmModalOpen(true); playAlarmChime(); speakReminder(tCare.demoSpeech(personInfo.name), params.locale); };
   const triggerVibration = () => { if (typeof window !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(200); };
+  
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleAction = async (type: string, message: string, dbTable: string, payloadData: any) => {
     setLoading(true);
@@ -242,10 +290,94 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     }
     setTimeout(() => setSuccessMsg(''), 6000);
   };
+
   const undoLastAction = async () => {
     if (!lastAction) return;
     setLoading(true); await supabase.from(lastAction.table).delete().eq('id', lastAction.id);
     setLoading(false); setLastAction(null); setSuccessMsg('Ação cancelada.'); setTimeout(() => setSuccessMsg(''), 3000);
+  };
+
+  // Senior Self-Management: Log Expense
+  const handleSeniorAddExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!seniorExpenseAmount) return;
+    setSavingExpense(true);
+
+    const defaultNames: Record<string, string> = {
+      medication: 'Farmácia / Remédio',
+      food: 'Mercado / Alimentos',
+      appointment: 'Consulta / Exame',
+      housing: 'Conta da Casa',
+      other: 'Outro Gasto',
+    };
+
+    const payload = {
+      caredPersonId: params.id,
+      category: seniorExpenseCategory,
+      description: seniorExpenseDesc.trim() || defaultNames[seniorExpenseCategory] || 'Gasto registrado',
+      amount: seniorExpenseAmount,
+      date: new Date().toISOString().slice(0, 10),
+      paid_by: personInfo.name || 'Próprio Idoso',
+      notes: 'Lançado pela tela do idoso',
+    };
+
+    try {
+      const res = await fetch('/api/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        triggerVibration();
+        setSuccessMsg(tFin.expenseAdded);
+        setExpenseModalOpen(false);
+        setSeniorExpenseAmount('');
+        setSeniorExpenseDesc('');
+        await fetchFinances(params.id);
+        setTimeout(() => setSuccessMsg(''), 6000);
+      } else {
+        alert(data.error || 'Erro ao registrar gasto.');
+      }
+    } catch {
+      alert('Falha na conexão.');
+    } finally {
+      setSavingExpense(false);
+    }
+  };
+
+  // Senior Self-Management: Set Pension
+  const handleSeniorSavePension = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!seniorPensionInput) return;
+    setSavingPension(true);
+
+    try {
+      const res = await fetch('/api/finances/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          caredPersonId: params.id,
+          monthly_income: seniorPensionInput,
+          income_source: 'Aposentadoria / Renda Própria',
+          income_day: 5,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        triggerVibration();
+        setSuccessMsg(tFin.incomeUpdated);
+        setSeniorPensionModalOpen(false);
+        await fetchFinances(params.id);
+        setTimeout(() => setSuccessMsg(''), 6000);
+      } else {
+        alert(data.error || 'Erro ao atualizar aposentadoria.');
+      }
+    } catch {
+      alert('Falha na conexão.');
+    } finally {
+      setSavingPension(false);
+    }
   };
 
   const navigatePrev = () => {
@@ -266,7 +398,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     orange: { bg: 'bg-orange-50 dark:bg-orange-950/30', border: 'border-orange-200 dark:border-orange-800', text: 'text-orange-800 dark:text-orange-300', dot: 'bg-orange-500' },
     purple: { bg: 'bg-purple-50 dark:bg-purple-950/30', border: 'border-purple-200 dark:border-purple-800', text: 'text-purple-800 dark:text-purple-300', dot: 'bg-purple-500' },
   };
-  const typeEmoji: Record<string, string> = { appointment: '📅', medication: '💊', meal: '🍽', task: '✅' };
+  const typeEmoji: Record<string, string> = { appointment: '📅', medication: '💊', meal: '🍽️', task: '✅' };
 
   const renderEventCard = (ev: AgendaEvent) => {
     const cls = eventColors[ev.color] || eventColors.blue;
@@ -293,6 +425,9 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     const start = startOfWeek(selectedDate, { weekStartsOn: 0 });
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
   };
+
+  const formatCurrency = (val: number) =>
+    val.toLocaleString(displayLocale, { style: 'currency', currency: financeData.currency || 'BRL' });
 
   return (
     <div className='min-h-screen bg-stone-100/80 elderly-mode text-stone-900 pb-36'>
@@ -461,6 +596,54 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
           )}
         </div>
 
+        {/* SENIOR SELF-MANAGEMENT & FINANCIAL CARD */}
+        <div className='bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100/60 dark:from-stone-900 dark:via-emerald-950/20 dark:to-stone-900 rounded-3xl border-3 border-emerald-300 dark:border-emerald-700 p-5 sm:p-7 shadow-md space-y-4'>
+          <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3'>
+            <div className='flex items-center gap-3'>
+              <div className='w-14 h-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center text-2xl shadow-sm'>
+                <Wallet className='h-7 w-7' />
+              </div>
+              <div>
+                <span className='inline-block px-2.5 py-0.5 bg-emerald-200/80 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 font-extrabold text-xs rounded-full uppercase tracking-wider'>
+                  {tFin.selfManagementTitle}
+                </span>
+                <h2 className='text-xl sm:text-2xl font-black text-stone-900 dark:text-stone-100 leading-tight mt-0.5'>
+                  {tFin.availableBalance}
+                </h2>
+              </div>
+            </div>
+            <div className='text-left sm:text-right'>
+              <p className={`text-3xl sm:text-4xl font-black tabular-nums leading-none ${financeData.balance < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-800 dark:text-emerald-300'}`}>
+                {formatCurrency(financeData.balance)}
+              </p>
+              <p className='text-xs sm:text-sm font-bold text-stone-500 dark:text-stone-400 mt-1'>
+                {financeData.monthlyIncome > 0 ? (
+                  <>Recebido: <span className='text-emerald-700 dark:text-emerald-400 font-extrabold'>{formatCurrency(financeData.monthlyIncome)}</span> · Gastos: <span className='text-amber-700 dark:text-amber-400 font-extrabold'>{formatCurrency(financeData.totalExpenses)}</span></>
+                ) : (
+                  'Defina sua aposentadoria para abater seus gastos'
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-emerald-200/60 dark:border-emerald-800/60'>
+            <button
+              onClick={() => setExpenseModalOpen(true)}
+              className='bg-emerald-600 hover:bg-emerald-700 text-white p-4 sm:p-5 rounded-2xl flex items-center justify-center gap-3 shadow-md active:scale-95 transition-all text-center'
+            >
+              <Plus className='h-6 w-6 stroke-[3]' />
+              <span className='text-xl sm:text-2xl font-black'>{tFin.addExpense}</span>
+            </button>
+            <button
+              onClick={() => setSeniorPensionModalOpen(true)}
+              className='bg-white dark:bg-stone-800 border-2 border-emerald-400 dark:border-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 p-4 sm:p-5 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all text-center font-bold'
+            >
+              <Landmark className='h-6 w-6 text-emerald-600 dark:text-emerald-400' />
+              <span className='text-lg sm:text-xl font-extrabold'>{tFin.editIncome}</span>
+            </button>
+          </div>
+        </div>
+
         {/* QUICK ACTIONS */}
         <p className='text-center text-lg font-extrabold text-stone-600 dark:text-stone-400'>Toque em um botão para avisar sua família:</p>
         {settingsLoaded && (
@@ -493,6 +676,156 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               <div className='w-12 h-12 rounded-full bg-white/20 flex items-center justify-center animate-ping shrink-0'><AlertCircle className='h-7 w-7 text-white' /></div>
               <span className='text-2xl sm:text-4xl font-black tracking-wider uppercase'>EMERGÊNCIA / SOS</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* SENIOR EXPENSE LOGGING MODAL */}
+      {expenseModalOpen && (
+        <div className='fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200'>
+          <div className='bg-white dark:bg-stone-900 border-4 border-emerald-400 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200'>
+            <div className='flex items-center gap-3'>
+              <div className='w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl'>
+                <DollarSign className='h-7 w-7 stroke-[3]' />
+              </div>
+              <div>
+                <h3 className='text-2xl font-black text-stone-900 dark:text-stone-100'>
+                  {tFin.addExpense}
+                </h3>
+                <p className='text-xs text-stone-500 font-medium'>
+                  O valor será abatido do seu saldo deste mês.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSeniorAddExpense} className='space-y-4'>
+              <div>
+                <label className='block text-sm font-black text-stone-700 dark:text-stone-300 mb-1'>
+                  Valor Gasto (R$) *
+                </label>
+                <input
+                  type='number'
+                  step='0.01'
+                  required
+                  autoFocus
+                  placeholder='0.00'
+                  value={seniorExpenseAmount}
+                  onChange={(e) => setSeniorExpenseAmount(e.target.value)}
+                  className='w-full text-3xl font-black p-3.5 rounded-2xl border-2 border-emerald-300 focus:border-emerald-600 bg-emerald-50/50 dark:bg-stone-800 dark:text-white outline-hidden text-center'
+                />
+              </div>
+
+              <div>
+                <label className='block text-sm font-black text-stone-700 dark:text-stone-300 mb-2'>
+                  O que você comprou / pagou?
+                </label>
+                <div className='grid grid-cols-2 gap-2'>
+                  {[
+                    { key: 'medication', label: '💊 Farmácia / Remédio' },
+                    { key: 'food', label: '🛒 Mercado / Comida' },
+                    { key: 'appointment', label: '🩺 Médico / Exame' },
+                    { key: 'housing', label: '🏠 Conta da Casa' },
+                  ].map((cat) => (
+                    <button
+                      type='button'
+                      key={cat.key}
+                      onClick={() => setSeniorExpenseCategory(cat.key)}
+                      className={`p-3 rounded-xl border-2 text-sm font-bold transition-all text-left ${seniorExpenseCategory === cat.key ? 'border-emerald-500 bg-emerald-100/70 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200' : 'border-stone-200 dark:border-stone-700 hover:border-emerald-300 text-stone-700 dark:text-stone-300'}`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className='block text-xs font-bold text-stone-500 dark:text-stone-400 mb-1'>
+                  Detalhe (opcional):
+                </label>
+                <input
+                  type='text'
+                  placeholder='Ex: Remédio de pressão, Pão e leite...'
+                  value={seniorExpenseDesc}
+                  onChange={(e) => setSeniorExpenseDesc(e.target.value)}
+                  className='w-full text-base font-semibold p-3 rounded-xl border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 dark:text-white outline-hidden'
+                />
+              </div>
+
+              <div className='flex gap-3 pt-2'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  onClick={() => setExpenseModalOpen(false)}
+                  className='flex-1 h-14 text-base font-bold rounded-2xl border-stone-300'
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type='submit'
+                  disabled={savingExpense}
+                  className='flex-2 h-14 text-lg font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-lg active:scale-95'
+                >
+                  {savingExpense ? 'Salvando...' : '✓ Salvar e Abater'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* SENIOR PENSION SETUP MODAL */}
+      {seniorPensionModalOpen && (
+        <div className='fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200'>
+          <div className='bg-white dark:bg-stone-900 border-4 border-emerald-400 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200'>
+            <div className='flex items-center gap-3'>
+              <div className='w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl'>
+                <Landmark className='h-7 w-7' />
+              </div>
+              <div>
+                <h3 className='text-2xl font-black text-stone-900 dark:text-stone-100'>
+                  {tFin.editIncome}
+                </h3>
+                <p className='text-xs text-stone-500 font-medium'>
+                  Quanto você recebe por mês de aposentadoria ou renda?
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSeniorSavePension} className='space-y-4'>
+              <div>
+                <label className='block text-sm font-black text-stone-700 dark:text-stone-300 mb-1'>
+                  Valor Mensal Recebido (R$) *
+                </label>
+                <input
+                  type='number'
+                  step='0.01'
+                  required
+                  autoFocus
+                  placeholder='Ex: 3500.00'
+                  value={seniorPensionInput}
+                  onChange={(e) => setSeniorPensionInput(e.target.value)}
+                  className='w-full text-3xl font-black p-3.5 rounded-2xl border-2 border-emerald-300 focus:border-emerald-600 bg-emerald-50/50 dark:bg-stone-800 dark:text-white outline-hidden text-center'
+                />
+              </div>
+
+              <div className='flex gap-3 pt-2'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  onClick={() => setSeniorPensionModalOpen(false)}
+                  className='flex-1 h-14 text-base font-bold rounded-2xl border-stone-300'
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type='submit'
+                  disabled={savingPension}
+                  className='flex-2 h-14 text-lg font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-lg active:scale-95'
+                >
+                  {savingPension ? 'Salvando...' : '✓ Salvar Minha Renda'}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

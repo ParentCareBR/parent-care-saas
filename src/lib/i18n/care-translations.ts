@@ -231,3 +231,187 @@ export function getAlarmTexts(rawLocale?: string): AlarmI18n {
   const loc = normalizeLocale(rawLocale);
   return ALARM_I18N[loc] || ALARM_I18N['pt-BR'];
 }
+
+export interface FinanceI18n {
+  title: string;
+  subtitle: string;
+  monthlyIncome: string;
+  monthlyExpenses: string;
+  availableBalance: string;
+  pensionConfig: string;
+  incomeSource: string;
+  incomeAmount: string;
+  incomeDay: string;
+  spentSoFar: string;
+  remaining: string;
+  overBudget: string;
+  addExpense: string;
+  editIncome: string;
+  saveIncome: string;
+  saveExpense: string;
+  categoryPharmacy: string;
+  categoryMarket: string;
+  categoryDoctor: string;
+  categoryHousing: string;
+  categoryOther: string;
+  expenseAdded: string;
+  incomeUpdated: string;
+  selfManagementTitle: string;
+  selfManagementDesc: string;
+  budgetUsed: string;
+  noExpensesThisMonth: string;
+}
+
+export const FINANCE_I18N: Record<SupportedLocale, FinanceI18n> = {
+  'pt-BR': {
+    title: 'Gestão Financeira do Idoso',
+    subtitle: 'Controle de aposentadoria, despesas e saldo disponível no mês.',
+    monthlyIncome: 'Aposentadoria / Renda',
+    monthlyExpenses: 'Gastos Abatidos',
+    availableBalance: 'Saldo Disponível',
+    pensionConfig: 'Configurar Aposentadoria',
+    incomeSource: 'Fonte da Renda (ex: INSS)',
+    incomeAmount: 'Valor Mensal (R$)',
+    incomeDay: 'Dia do Recebimento',
+    spentSoFar: 'Gasto até agora',
+    remaining: 'restante',
+    overBudget: 'Orçamento Ultrapassado!',
+    addExpense: 'Anotar Gasto',
+    editIncome: 'Ajustar Renda',
+    saveIncome: 'Salvar Aposentadoria',
+    saveExpense: 'Salvar Gasto',
+    categoryPharmacy: 'Farmácia / Remédio',
+    categoryMarket: 'Mercado / Alimentos',
+    categoryDoctor: 'Médico / Exame',
+    categoryHousing: 'Contas da Casa',
+    categoryOther: 'Outros Gastos',
+    expenseAdded: 'Gasto anotado! Seu saldo foi atualizado.',
+    incomeUpdated: 'Renda mensal atualizada com sucesso!',
+    selfManagementTitle: 'Meu Dinheiro & Gastos',
+    selfManagementDesc: 'Acompanhe sua aposentadoria e anote o que você gastou.',
+    budgetUsed: 'do orçamento usado',
+    noExpensesThisMonth: 'Nenhum gasto registrado neste mês.',
+  },
+  en: {
+    title: 'Senior Financial Management',
+    subtitle: 'Pension control, monthly expenses and real-time available balance.',
+    monthlyIncome: 'Pension / Monthly Income',
+    monthlyExpenses: 'Deducted Expenses',
+    availableBalance: 'Available Balance',
+    pensionConfig: 'Configure Pension',
+    incomeSource: 'Income Source (e.g. Social Security)',
+    incomeAmount: 'Monthly Amount ($)',
+    incomeDay: 'Payment Day of Month',
+    spentSoFar: 'Spent so far',
+    remaining: 'remaining',
+    overBudget: 'Budget Exceeded!',
+    addExpense: 'Log Expense',
+    editIncome: 'Adjust Income',
+    saveIncome: 'Save Pension',
+    saveExpense: 'Save Expense',
+    categoryPharmacy: 'Pharmacy / Medicine',
+    categoryMarket: 'Groceries / Food',
+    categoryDoctor: 'Doctor / Lab Tests',
+    categoryHousing: 'Household Bills',
+    categoryOther: 'Other Expenses',
+    expenseAdded: 'Expense recorded! Balance updated.',
+    incomeUpdated: 'Monthly income updated successfully!',
+    selfManagementTitle: 'My Money & Expenses',
+    selfManagementDesc: 'Track your pension and record what you spent.',
+    budgetUsed: 'of budget used',
+    noExpensesThisMonth: 'No expenses recorded this month.',
+  },
+  es: {
+    title: 'Gestión Financiera del Adulto Mayor',
+    subtitle: 'Control de pensión/jubilación, gastos y saldo disponible en el mes.',
+    monthlyIncome: 'Pensión / Jubilación',
+    monthlyExpenses: 'Gastos Deducidos',
+    availableBalance: 'Saldo Disponible',
+    pensionConfig: 'Configurar Pensión',
+    incomeSource: 'Fuente de Ingreso (ej. Jubilación)',
+    incomeAmount: 'Monto Mensual',
+    incomeDay: 'Día de Cobro',
+    spentSoFar: 'Gastado hasta ahora',
+    remaining: 'restante',
+    overBudget: '¡Presupuesto Excedido!',
+    addExpense: 'Anotar Gasto',
+    editIncome: 'Ajustar Ingreso',
+    saveIncome: 'Guardar Pensión',
+    saveExpense: 'Guardar Gasto',
+    categoryPharmacy: 'Farmacia / Medicina',
+    categoryMarket: 'Supermercado / Comida',
+    categoryDoctor: 'Médico / Exámenes',
+    categoryHousing: 'Cuentas del Hogar',
+    categoryOther: 'Otros Gastos',
+    expenseAdded: '¡Gasto registrado! Saldo actualizado.',
+    incomeUpdated: '¡Ingreso mensual actualizado con éxito!',
+    selfManagementTitle: 'Mi Dinero y Gastos',
+    selfManagementDesc: 'Controla tu pensión y anota tus gastos.',
+    budgetUsed: 'del presupuesto usado',
+    noExpensesThisMonth: 'Sin gastos registrados este mes.',
+  },
+  fr: {
+    title: 'Gestion Financière des Aînés',
+    subtitle: 'Contrôle des pensions, dépenses et solde disponible.',
+    monthlyIncome: 'Pension / Revenu Mensuel',
+    monthlyExpenses: 'Dépenses Déduites',
+    availableBalance: 'Solde Disponible',
+    pensionConfig: 'Configurer la Pension',
+    incomeSource: 'Source du Revenu (ex: Retraite)',
+    incomeAmount: 'Montant Mensuel',
+    incomeDay: 'Jour de Versement',
+    spentSoFar: 'Dépensé jusqu’ici',
+    remaining: 'restant',
+    overBudget: 'Budget Dépassé !',
+    addExpense: 'Noter une Dépense',
+    editIncome: 'Ajuster le Revenu',
+    saveIncome: 'Enregistrer la Pension',
+    saveExpense: 'Enregistrer la Dépense',
+    categoryPharmacy: 'Pharmacie / Médicaments',
+    categoryMarket: 'Épicerie / Nourriture',
+    categoryDoctor: 'Médecin / Examens',
+    categoryHousing: 'Factures du Logement',
+    categoryOther: 'Autres Dépenses',
+    expenseAdded: 'Dépense enregistrée ! Solde mis à jour.',
+    incomeUpdated: 'Revenu mensuel mis à jour !',
+    selfManagementTitle: 'Mes Finances & Dépenses',
+    selfManagementDesc: 'Suivez votre pension et notez vos dépenses.',
+    budgetUsed: 'du budget utilisé',
+    noExpensesThisMonth: 'Aucune dépense enregistrée ce mois-ci.',
+  },
+  de: {
+    title: 'Finanzmanagement für Senioren',
+    subtitle: 'Rentenübersicht, Ausgaben und verfügbares Monatsguthaben.',
+    monthlyIncome: 'Rente / Monatseinkommen',
+    monthlyExpenses: 'Abgezogene Ausgaben',
+    availableBalance: 'Verfügbares Guthaben',
+    pensionConfig: 'Rente Konfigurieren',
+    incomeSource: 'Einkommensquelle (z. B. Rentenkasse)',
+    incomeAmount: 'Monatsbetrag',
+    incomeDay: 'Auszahlungstag',
+    spentSoFar: 'Bisher ausgegeben',
+    remaining: 'verbleibend',
+    overBudget: 'Budget Überschritten!',
+    addExpense: 'Ausgabe Eintragen',
+    editIncome: 'Einkommen Anpassen',
+    saveIncome: 'Rente Speichern',
+    saveExpense: 'Ausgabe Speichern',
+    categoryPharmacy: 'Apotheke / Medikamente',
+    categoryMarket: 'Supermarkt / Lebensmittel',
+    categoryDoctor: 'Arzt / Untersuchungen',
+    categoryHousing: 'Haushaltsrechnungen',
+    categoryOther: 'Sonstige Ausgaben',
+    expenseAdded: 'Ausgabe verbucht! Guthaben aktualisiert.',
+    incomeUpdated: 'Monatseinkommen erfolgreich aktualisiert!',
+    selfManagementTitle: 'Mein Geld & Ausgaben',
+    selfManagementDesc: 'Behalten Sie Ihre Rente im Blick und notieren Sie Ausgaben.',
+    budgetUsed: 'des Budgets verbraucht',
+    noExpensesThisMonth: 'Keine Ausgaben in diesem Monat erfasst.',
+  },
+};
+
+export function getFinanceTexts(rawLocale?: string): FinanceI18n {
+  const loc = normalizeLocale(rawLocale);
+  return FINANCE_I18N[loc] || FINANCE_I18N['pt-BR'];
+}
+
