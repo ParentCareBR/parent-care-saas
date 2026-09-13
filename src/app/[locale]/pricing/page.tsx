@@ -47,7 +47,7 @@ export default function PricingPage() {
   const [checkoutLoadingSeats, setCheckoutLoadingSeats] = useState<number | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [calculatorSeats, setCalculatorSeats] = useState<number>(3);
-  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('year');
+  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
 
   const tiersArray = Object.values(PADDLE_TIERS).sort((a, b) => a.seats - b.seats);
 
@@ -192,14 +192,14 @@ export default function PricingPage() {
 
           {/* Monthly / Annual Billing Toggle */}
           <div className="pt-4 flex justify-center">
-            <div className="inline-flex items-center bg-stone-200/80 dark:bg-stone-800 p-1.5 rounded-2xl border border-stone-300/80 dark:border-stone-700 gap-1 shadow-inner">
+            <div className="inline-flex items-center bg-stone-200/80 dark:bg-stone-800 p-1.5 rounded-2xl border border-stone-300/80 dark:border-stone-700 gap-1.5 shadow-inner">
               <button
                 type="button"
                 onClick={() => setBillingInterval('month')}
                 className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                   billingInterval === 'month'
-                    ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-xs'
-                    : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                    ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-500/30'
+                    : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-300/60 dark:hover:bg-stone-700/60'
                 }`}
               >
                 {locale === 'pt-BR' ? 'Cobrança Mensal' : 'Monthly Billing'}
@@ -209,8 +209,8 @@ export default function PricingPage() {
                 onClick={() => setBillingInterval('year')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                   billingInterval === 'year'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                    ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-500/30'
+                    : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-300/60 dark:hover:bg-stone-700/60'
                 }`}
               >
                 <span>{locale === 'pt-BR' ? 'Cobrança Anual' : 'Annual Billing'}</span>

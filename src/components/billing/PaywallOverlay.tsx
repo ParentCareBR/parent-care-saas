@@ -17,7 +17,7 @@ interface PaywallOverlayProps {
 }
 
 export function PaywallOverlay({ locale, organizationId, onCheckout, loadingSeats }: PaywallOverlayProps) {
-  const [interval, setInterval] = useState<'month' | 'year'>('annual' as any === 'annual' ? 'year' : 'year');
+  const [interval, setInterval] = useState<'month' | 'year'>('month');
 
   const standardTiers = [1, 2, 3];
 
@@ -56,14 +56,14 @@ export function PaywallOverlay({ locale, organizationId, onCheckout, loadingSeat
 
             {/* Monthly / Annual Toggle */}
             <div className="pt-4 flex justify-center">
-              <div className="inline-flex items-center bg-stone-100 dark:bg-stone-800 p-1.5 rounded-2xl border border-stone-200 dark:border-stone-700 gap-1 shadow-inner">
+              <div className="inline-flex items-center bg-stone-100 dark:bg-stone-800 p-1.5 rounded-2xl border border-stone-200 dark:border-stone-700 gap-1.5 shadow-inner">
                 <button
                   type="button"
                   onClick={() => setInterval('month')}
                   className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                     interval === 'month'
-                      ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm'
-                      : 'text-stone-500 dark:text-stone-400 hover:text-stone-900'
+                      ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-500/30'
+                      : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-700/60'
                   }`}
                 >
                   Cobrança Mensal
@@ -73,8 +73,8 @@ export function PaywallOverlay({ locale, organizationId, onCheckout, loadingSeat
                   onClick={() => setInterval('year')}
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                     interval === 'year'
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'text-stone-500 dark:text-stone-400 hover:text-stone-900'
+                      ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-500/30'
+                      : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-700/60'
                   }`}
                 >
                   <span>Cobrança Anual</span>

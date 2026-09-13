@@ -102,7 +102,7 @@ export default function SubscriptionSettingsPage() {
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [showDowngradeDialog, setShowDowngradeDialog] = useState(false);
   const [calculatorSeats, setCalculatorSeats] = useState<number>(3);
-  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('year');
+  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
 
   const successParam = searchParams.get('success') === 'true';
   const canceledParam = searchParams.get('canceled') === 'true';
@@ -369,8 +369,8 @@ export default function SubscriptionSettingsPage() {
 
       {/* Page Title */}
       <div>
-        <h1 className="text-2xl font-bold text-stone-900">{tBilling('subscription_title')}</h1>
-        <p className="text-stone-500 text-sm mt-1">{tBilling('subscription_desc')}</p>
+        <h1 className="text-2xl font-bold text-stone-900 dark:text-stone-100">{tBilling('subscription_title')}</h1>
+        <p className="text-stone-500 dark:text-stone-400 text-sm mt-1">{tBilling('subscription_desc')}</p>
       </div>
 
       {/* Success Banner */}
@@ -713,21 +713,21 @@ export default function SubscriptionSettingsPage() {
       <div>
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold text-stone-900">
+            <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100">
               {subscription ? tBilling('change_plan_title') : tPlan('title')}
             </h2>
-            <p className="text-stone-500 text-sm mt-1">{tPlan('subtitle')}</p>
+            <p className="text-stone-500 dark:text-stone-400 text-sm mt-1">{tPlan('subtitle')}</p>
           </div>
 
           {/* Monthly / Annual Billing Toggle */}
-          <div className="inline-flex items-center bg-stone-100 dark:bg-stone-800 p-1.5 rounded-2xl border border-stone-200 dark:border-stone-700 gap-1 shadow-inner shrink-0">
+          <div className="inline-flex items-center bg-stone-100 dark:bg-stone-800 p-1.5 rounded-2xl border border-stone-200 dark:border-stone-700 gap-1.5 shadow-inner shrink-0">
             <button
               type="button"
               onClick={() => setBillingInterval('month')}
               className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                 billingInterval === 'month'
-                  ? 'bg-white dark:bg-stone-700 text-stone-900 dark:text-stone-100 shadow-sm'
-                  : 'text-stone-500 dark:text-stone-400 hover:text-stone-900'
+                  ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-500/30'
+                  : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-700/60'
               }`}
             >
               {locale === 'pt-BR' ? 'Cobrança Mensal' : 'Monthly Billing'}
@@ -737,8 +737,8 @@ export default function SubscriptionSettingsPage() {
               onClick={() => setBillingInterval('year')}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                 billingInterval === 'year'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-stone-500 dark:text-stone-400 hover:text-stone-900'
+                  ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-500/30'
+                  : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-700/60'
               }`}
             >
               <span>{locale === 'pt-BR' ? 'Cobrança Anual' : 'Annual Billing'}</span>
@@ -782,30 +782,30 @@ export default function SubscriptionSettingsPage() {
           const isDowngradeInCalc = subscription && isTrialOrActive && calculatorSeats < subscription.seat_limit;
 
           return (
-            <div id="plan-selector" className="mb-8 bg-gradient-to-br from-white via-emerald-50/20 to-white border-2 border-emerald-500/40 rounded-3xl p-6 sm:p-8 shadow-md relative overflow-hidden">
+            <div id="plan-selector" className="mb-8 bg-gradient-to-br from-white via-emerald-50/20 to-white dark:from-stone-900 dark:via-stone-900/90 dark:to-stone-900 border-2 border-emerald-500/40 dark:border-emerald-500/30 rounded-3xl p-6 sm:p-8 shadow-md relative overflow-hidden">
               <div className="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
               <div className="max-w-4xl mx-auto space-y-6 relative">
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 pb-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 dark:border-stone-800 pb-5">
                   <div>
-                    <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold mb-2">
-                      <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                    <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-xs font-bold mb-2">
+                      <Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                       <span>{calcLabels.badge}</span>
                     </div>
-                    <h2 className="text-xl sm:text-2xl font-extrabold text-stone-900 tracking-tight">
+                    <h2 className="text-xl sm:text-2xl font-extrabold text-stone-900 dark:text-stone-100 tracking-tight">
                       {calcLabels.title}
                     </h2>
-                    <p className="text-xs sm:text-sm text-stone-500 mt-1">
+                    <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-1">
                       {calcLabels.subtitle}
                     </p>
                   </div>
 
                   <div className="sm:text-right shrink-0">
-                    <span className="text-xs font-semibold text-stone-400 block uppercase tracking-wider">
+                    <span className="text-xs font-semibold text-stone-400 dark:text-stone-500 block uppercase tracking-wider">
                       {calcLabels.selectedTag}
                     </span>
-                    <span className="text-base sm:text-lg font-bold text-emerald-700">
+                    <span className="text-base sm:text-lg font-bold text-emerald-700 dark:text-emerald-400">
                       {calculatorSeats <= 6 ? tPlan(`tier_${calculatorSeats}` as any) : calcLabels.customTag}
                     </span>
                   </div>
@@ -814,7 +814,7 @@ export default function SubscriptionSettingsPage() {
                 {/* Slider & Stepper Controls */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-stone-700">
+                    <span className="text-sm font-semibold text-stone-700 dark:text-stone-300">
                       {locale === 'pt-BR' ? 'Acessos para familiares e cuidadores:' : 'Family and caregiver seats:'}
                     </span>
                     <div className="flex items-center gap-3">
@@ -822,18 +822,18 @@ export default function SubscriptionSettingsPage() {
                         type="button"
                         onClick={() => setCalculatorSeats((prev) => Math.max(1, prev - 1))}
                         disabled={calculatorSeats <= 1}
-                        className="w-8 h-8 rounded-full border border-stone-300 flex items-center justify-center text-stone-700 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                        className="w-8 h-8 rounded-full border border-stone-300 dark:border-stone-700 flex items-center justify-center text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
                       >
                         <Minus className="h-4 w-4" />
                       </button>
-                      <span className="text-2xl font-black text-stone-900 w-12 text-center">
+                      <span className="text-2xl font-black text-stone-900 dark:text-stone-100 w-12 text-center">
                         {calculatorSeats}
                       </span>
                       <button
                         type="button"
                         onClick={() => setCalculatorSeats((prev) => Math.min(100, prev + 1))}
                         disabled={calculatorSeats >= 100}
-                        className="w-8 h-8 rounded-full border border-stone-300 flex items-center justify-center text-stone-700 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                        className="w-8 h-8 rounded-full border border-stone-300 dark:border-stone-700 flex items-center justify-center text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
                       >
                         <Plus className="h-4 w-4" />
                       </button>
@@ -847,12 +847,12 @@ export default function SubscriptionSettingsPage() {
                     max={100}
                     value={calculatorSeats}
                     onChange={(e) => setCalculatorSeats(Number(e.target.value))}
-                    className="w-full h-2.5 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-brand-green"
+                    className="w-full h-2.5 bg-stone-200 dark:bg-stone-700 rounded-lg appearance-none cursor-pointer accent-brand-green"
                   />
 
                   {/* Quick Select Chips */}
                   <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                    <span className="text-xs text-stone-400 mr-1">{calcLabels.shortcuts}</span>
+                    <span className="text-xs text-stone-400 dark:text-stone-500 mr-1">{calcLabels.shortcuts}</span>
                     {[1, 2, 3, 4, 5, 6, 10, 15, 20, 50, 100].map((s) => (
                       <button
                         key={s}
@@ -861,7 +861,7 @@ export default function SubscriptionSettingsPage() {
                         className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition-all ${
                           calculatorSeats === s
                             ? 'bg-emerald-600 text-white shadow-sm'
-                            : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                            : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
                         }`}
                       >
                         {s} {s === 1 ? (locale === 'pt-BR' ? 'acesso' : 'seat') : (locale === 'pt-BR' ? 'acessos' : 'seats')}
@@ -871,37 +871,37 @@ export default function SubscriptionSettingsPage() {
                 </div>
 
                 {/* Calculation Summary Card */}
-                <div className="bg-white border border-emerald-200/80 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-5">
+                <div className="bg-white dark:bg-stone-800/90 border border-emerald-200/80 dark:border-emerald-700/50 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-5">
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-baseline gap-2">
-                      <span className="text-3xl sm:text-4xl font-black text-stone-900">
+                      <span className="text-3xl sm:text-4xl font-black text-stone-900 dark:text-stone-100">
                         {calcPricing.totalFormatted}
                       </span>
-                      <span className="text-stone-500 text-sm font-medium">
+                      <span className="text-stone-500 dark:text-stone-400 text-sm font-medium">
                         {billingInterval === 'year' ? (locale === 'pt-BR' ? '/ ano' : '/ year') : tPlan('total_month')}
                       </span>
                       {billingInterval === 'year' && calcPricing.monthlyEquivalentFormatted && (
-                        <span className="text-xs sm:text-sm text-emerald-700 font-bold ml-1">
+                        <span className="text-xs sm:text-sm text-emerald-700 dark:text-emerald-400 font-bold ml-1">
                           ({locale === 'pt-BR' ? `equivale a ${calcPricing.monthlyEquivalentFormatted}/mês` : `equiv. ${calcPricing.monthlyEquivalentFormatted}/mo`})
                         </span>
                       )}
                       {billingInterval === 'year' && calcPricing.annualSavingsFormatted && (
-                        <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-xs font-bold ml-2">
+                        <Badge className="bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-700 text-xs font-bold ml-2">
                           🎉 {locale === 'pt-BR' ? `2 meses grátis (-${calcPricing.annualSavingsFormatted})` : `2 mo free (-${calcPricing.annualSavingsFormatted})`}
                         </Badge>
                       )}
                       {billingInterval === 'month' && calcPricing.savingsPercentage > 0 && (
-                        <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-xs font-bold ml-2">
+                        <Badge className="bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-700 text-xs font-bold ml-2">
                           {calculatorSeats > 6 ? calcLabels.maxDiscountTag : tPlan('save_discount', { percent: calcPricing.savingsPercentage })}
                         </Badge>
                       )}
                     </div>
 
-                    <p className="text-xs sm:text-sm text-stone-500">
+                    <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400">
                       {calcPricing.unitFormatted} {tPlan('per_seat')} • {calculatorSeats} {calcLabels.seatsWord}
                     </p>
 
-                    <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5 w-fit">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-1.5 w-fit">
                       <Heart className="h-3.5 w-3.5 fill-emerald-200 text-emerald-600 shrink-0" />
                       <span>{tPlan('cared_included', { count: calcPricing.caredPeopleLimit })}</span>
                     </div>
@@ -965,7 +965,7 @@ export default function SubscriptionSettingsPage() {
 
         {/* Section divider and title for standard plans */}
         <div className="mb-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-stone-400">
+          <p className="text-xs font-semibold uppercase tracking-wider text-stone-400 dark:text-stone-500">
             {locale === 'pt-BR' ? 'Ou escolha um dos planos fixos:' : 'Or choose from fixed plans:'}
           </p>
         </div>
@@ -981,10 +981,10 @@ export default function SubscriptionSettingsPage() {
                 key={tier.seats}
                 className={`relative flex flex-col transition-all ${
                   isCurrent
-                    ? 'border-emerald-500 ring-2 ring-emerald-400/30 shadow-md bg-emerald-50/30'
+                    ? 'border-emerald-500 ring-2 ring-emerald-400/30 shadow-md bg-emerald-50/30 dark:bg-emerald-950/20'
                     : isPopular
-                    ? 'border-brand-green/60 shadow-md bg-white'
-                    : 'border-stone-200 bg-white hover:border-stone-300 hover:shadow-sm'
+                    ? 'border-brand-green/60 shadow-md bg-white dark:bg-stone-800/90'
+                    : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-800/70 hover:border-stone-300 dark:hover:border-stone-700 hover:shadow-sm'
                 }`}
               >
                 {/* Popular badge */}
@@ -1010,15 +1010,15 @@ export default function SubscriptionSettingsPage() {
                 <CardHeader className="pb-3 pt-6">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">
+                      <p className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide mb-1">
                         {tier.seats === 1 ? tPlan('seat_single') : tPlan('seat_plural', { count: tier.seats })}
                       </p>
-                      <CardTitle className="text-base font-bold text-stone-900">
+                      <CardTitle className="text-base font-bold text-stone-900 dark:text-stone-100">
                         {tPlan(`tier_${tier.seats}` as any)}
                       </CardTitle>
                     </div>
                     {tier.savingsPercentage > 0 && (
-                      <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[11px] font-bold shrink-0">
+                      <Badge className="bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-700 text-[11px] font-bold shrink-0">
                         {tPlan('save_discount', { percent: tier.savingsPercentage })}
                       </Badge>
                     )}
@@ -1029,25 +1029,25 @@ export default function SubscriptionSettingsPage() {
                   {/* Pricing */}
                   <div>
                     <div className="flex items-end gap-1">
-                      <span className="text-3xl font-extrabold text-stone-900">
+                      <span className="text-3xl font-extrabold text-stone-900 dark:text-stone-100">
                         {pricing.totalFormatted}
                       </span>
-                      <span className="text-stone-500 text-sm mb-1">
+                      <span className="text-stone-500 dark:text-stone-400 text-sm mb-1">
                         {billingInterval === 'year' ? (locale === 'pt-BR' ? '/ ano' : '/ year') : tPlan('total_month')}
                       </span>
                     </div>
                     {billingInterval === 'year' && pricing.monthlyEquivalentFormatted ? (
-                      <p className="text-xs text-emerald-700 font-bold mt-0.5">
+                      <p className="text-xs text-emerald-700 dark:text-emerald-400 font-bold mt-0.5">
                         {locale === 'pt-BR' ? `Equivale a ${pricing.monthlyEquivalentFormatted}/mês` : `Equiv. ${pricing.monthlyEquivalentFormatted}/mo`}
                       </p>
                     ) : tier.seats > 1 ? (
-                      <p className="text-xs text-stone-500 mt-0.5">
+                      <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
                         {pricing.unitFormatted} {tPlan('per_seat')}
                       </p>
                     ) : null}
                     {billingInterval === 'year' && pricing.annualSavingsFormatted && (
                       <div className="mt-1.5">
-                        <span className="inline-block text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded-md">
+                        <span className="inline-block text-[10px] font-bold text-amber-900 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 px-1.5 py-0.5 rounded-md">
                           🎉 {locale === 'pt-BR' ? `2 meses off (-${pricing.annualSavingsFormatted})` : `2 mo off (-${pricing.annualSavingsFormatted})`}
                         </span>
                       </div>
@@ -1055,38 +1055,38 @@ export default function SubscriptionSettingsPage() {
                   </div>
 
                   {/* Cared people note - PROGRESSIVE SENIORS COUNT */}
-                  <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-800 rounded-lg px-3 py-2">
                     <Heart className="h-3.5 w-3.5 shrink-0 fill-emerald-200 text-emerald-600" />
                     <span className="font-medium">{tPlan('cared_included', { count: pricing.caredPeopleLimit })}</span>
                   </div>
 
                   {/* Localized Features */}
                   <ul className="space-y-1.5">
-                    <li className="flex items-center gap-2 text-xs text-stone-600">
+                    <li className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
                       <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                       {tPlan('feat_routine_meds')}
                     </li>
-                    <li className="flex items-center gap-2 text-xs text-stone-600">
+                    <li className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
                       <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                       {tPlan('feat_schedule')}
                     </li>
-                    <li className="flex items-center gap-2 text-xs text-stone-600">
+                    <li className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
                       <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                       {tPlan('feat_history')}
                     </li>
-                    <li className="flex items-center gap-2 text-xs text-stone-600">
+                    <li className="flex items-center gap-2 text-xs text-stone-600 dark:text-stone-300">
                       <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                       {tPlan('feat_alerts')}
                     </li>
-                    <li className="flex items-center gap-2 text-xs text-stone-600 font-semibold text-emerald-800">
+                    <li className="flex items-center gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
                       <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                       {tPlan('feat_seniors', { count: pricing.caredPeopleLimit })}
                     </li>
                   </ul>
 
                   {/* Free trial note */}
-                  <p className="text-xs text-stone-400 flex items-center gap-1">
-                    <ShieldCheck className="h-3.5 w-3.5 text-stone-400 shrink-0" />
+                  <p className="text-xs text-stone-400 dark:text-stone-500 flex items-center gap-1">
+                    <ShieldCheck className="h-3.5 w-3.5 text-stone-400 dark:text-stone-500 shrink-0" />
                     {tPlan('free_trial')}
                   </p>
                 </CardContent>
