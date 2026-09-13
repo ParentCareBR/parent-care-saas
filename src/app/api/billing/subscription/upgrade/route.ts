@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { cookies } from 'next/headers';
-import { getAuthorizedPriceId, validateSeatQuantity, PADDLE_TIERS } from '@/lib/billing/paddle-catalog';
+import { getAuthorizedPriceId, validateSeatQuantity, PADDLE_TIERS, getCurrencyFromPriceId } from '@/lib/billing/paddle-catalog';
 import { getPaddleClient, getPaddleEnvironment } from '@/lib/billing/paddle-client';
 import { syncOrganizationEntitlementCounts } from '@/lib/billing/entitlements';
 
@@ -65,7 +65,8 @@ export async function POST(req: NextRequest) {
 
     const isProduction = (process.env.PADDLE_ENVIRONMENT || process.env.NEXT_PUBLIC_PADDLE_ENV) === 'production';
     const paddleEnv = isProduction ? 'production' : 'sandbox';
-    const newPriceId = getAuthorizedPriceId(newSeats, paddleEnv);
+    const subCurrency = currentSub.paddle_price_id ? getCurrencyFromPriceId(currentSub.paddle_price_id) : null;
+    const newPriceId = getAuthorizedPriceId(newSeats, paddleEnv, subCurrency || 'pt-BR');
     const targetTier = PADDLE_TIERS[newSeats];
 
     // Call Paddle API to update subscription items immediately with proration

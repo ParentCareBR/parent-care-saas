@@ -278,7 +278,7 @@ export default function SubscriptionSettingsPage() {
               settings: {
                 displayMode: 'overlay',
                 theme: 'light',
-                locale: ({ 'pt-BR': 'pt', 'en': 'en', 'es': 'es', 'fr': 'fr', 'de': 'de' } as Record<string, string>)[locale] || locale.split('-')[0] || 'pt',
+                locale: ({ 'pt-BR': 'pt', 'en': 'en', 'en-GB': 'en', 'es': 'es', 'fr': 'fr', 'de': 'de' } as Record<string, string>)[locale] || locale.split('-')[0] || 'pt',
                 successUrl: `${window.location.origin}/${locale}/dashboard/settings/subscription?success=true`,
               },
             });

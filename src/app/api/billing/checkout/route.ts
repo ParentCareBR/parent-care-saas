@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     // 3. Resolve authorized price ID server-side (prevents client tampering)
     const paddleEnv = getPaddleEnvironment() === 'production' ? 'production' : 'sandbox';
-    const priceId = getAuthorizedPriceId(numSeats, paddleEnv);
+    const priceId = getAuthorizedPriceId(numSeats, paddleEnv, locale);
 
     // 4. Retrieve or create customer record safely
     const { data: org } = await adminSupabase

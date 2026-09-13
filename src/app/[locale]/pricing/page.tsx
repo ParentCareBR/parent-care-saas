@@ -88,7 +88,7 @@ export default function PricingPage() {
             }
 
             const paddleLocaleMap: Record<string, string> = {
-              'pt-BR': 'pt', 'en': 'en', 'es': 'es', 'fr': 'fr', 'de': 'de',
+              'pt-BR': 'pt', 'en': 'en', 'en-GB': 'en', 'es': 'es', 'fr': 'fr', 'de': 'de',
             };
             const paddleLocale = paddleLocaleMap[locale] || locale.split('-')[0] || 'pt';
 

@@ -11,11 +11,12 @@ import {
 import { Button } from '@/components/ui/button';
 
 const LANGUAGES = [
-  { code: 'pt-BR', label: 'Português (Brasil)', flag: '🇧🇷' },
-  { code: 'en', label: 'English (US)', flag: '🇺🇸' },
-  { code: 'es', label: 'Español', flag: '🇪🇸' },
-  { code: 'fr', label: 'Français', flag: '🇫🇷' },
-  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
+  { code: 'pt-BR', label: 'Português (Brasil)', flag: '🇧🇷', badge: 'PT' },
+  { code: 'en', label: 'English (US)', flag: '🇺🇸', badge: 'US' },
+  { code: 'en-GB', label: 'English (UK)', flag: '🇬🇧', badge: 'UK' },
+  { code: 'es', label: 'Español', flag: '🇪🇸', badge: 'ES' },
+  { code: 'fr', label: 'Français', flag: '🇫🇷', badge: 'FR' },
+  { code: 'de', label: 'Deutsch', flag: '🇩🇪', badge: 'DE' },
 ];
 
 export function LanguageSwitcher({ className }: { className?: string }) {
@@ -53,7 +54,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
           title="Alterar Idioma / Switch Language"
         >
           <span className="text-sm sm:text-base leading-none">{currentLang.flag}</span>
-          <span className="uppercase text-[11px] font-bold tracking-tight">{currentLang.code.split('-')[0]}</span>
+          <span className="uppercase text-[11px] font-bold tracking-tight">{currentLang.badge || currentLang.code.split('-')[0]}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="rounded-xl border-stone-200 dark:border-stone-800 dark:bg-stone-900 shadow-lg min-w-[170px] z-50">
