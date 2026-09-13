@@ -115,20 +115,12 @@ export function usePaddle() {
       }
 
       try {
-        const localeMap: Record<string, string> = {
-          'pt-BR': 'pt',
-          en: 'en',
-          es: 'es',
-          fr: 'fr',
-          de: 'de',
-        };
-
         window.Paddle.Checkout.open({
           transactionId: options.transactionId,
           settings: {
             displayMode: 'overlay',
             theme: 'light',
-            locale: localeMap[options.locale || 'pt-BR'] || 'pt',
+            locale: options.locale || 'pt-BR',
             frameTarget: 'self',
             frameInitialHeight: 450,
             frameStyle: 'width: 100%; background-color: transparent; border: none;',

@@ -94,10 +94,7 @@ export default function PricingPage() {
               window.Paddle.Setup({ token });
             }
 
-            const paddleLocaleMap: Record<string, string> = {
-              'pt-BR': 'pt', 'en': 'en', 'en-GB': 'en', 'es': 'es', 'fr': 'fr', 'de': 'de',
-            };
-            const paddleLocale = paddleLocaleMap[locale] || locale.split('-')[0] || 'pt';
+            const paddleLocale = locale || 'pt-BR';
 
             window.Paddle.Checkout.open({
               transactionId: data.transactionId,
