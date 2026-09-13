@@ -232,123 +232,182 @@ export default function ElderlyViewPage({
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 elderly-mode">
-      {/* Top Bar */}
-      <div className="bg-white border-b-4 border-stone-200 p-6 flex justify-between items-center sticky top-0 z-10 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="h-16 w-16 bg-brand-soft rounded-full flex items-center justify-center">
-            <Heart className="h-8 w-8 text-brand-green" />
+    <div className="min-h-screen bg-stone-100/80 elderly-mode text-stone-900 pb-36">
+      {/* Top Bar with Live LED Connection */}
+      <header className="bg-white border-b border-stone-200 sticky top-0 z-20 shadow-xs px-4 py-4 sm:px-8">
+        <div className="max-w-3xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="h-14 w-14 sm:h-16 sm:w-16 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-700 shadow-xs">
+              <Heart className="h-8 w-8 fill-emerald-600 text-emerald-600" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl sm:text-3xl font-black text-stone-900">Olá, {personInfo.name}!</h1>
+              </div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 led-glow-green animate-led-pulse" />
+                  <span className="text-xs font-bold text-emerald-800">Família Conectada</span>
+                </span>
+                <span className="text-xs sm:text-sm text-stone-500 font-medium">
+                  {currentTime.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                </span>
+              </div>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-bold text-stone-900">Olá, {personInfo.name}</h1>
-            <p className="text-xl text-stone-500 font-medium">
-              {currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-            </p>
+          
+          <div className="flex items-center gap-3">
+            <div className="text-right hidden sm:block">
+              <div className="text-2xl font-black text-stone-800 tabular-nums">
+                {currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                supabase.auth.signOut();
+                router.push(`/${params.locale}/care/login`);
+              }} 
+              className="text-stone-600 border-stone-300 hover:bg-stone-100 h-11 px-4 text-sm font-bold rounded-xl"
+            >
+              Sair
+            </Button>
           </div>
         </div>
-        
-        <Button 
-          variant="ghost" 
-          onClick={() => {
-            supabase.auth.signOut();
-            router.push(`/${params.locale}/care/login`);
-          }} 
-          className="text-stone-400 hover:text-stone-600 h-16 w-16"
-        >
-          Sair
-        </Button>
-      </div>
+      </header>
 
-      <div className={`p-6 max-w-2xl mx-auto space-y-6 ${enabledModules.has('checkin_btn_emergency') ? 'pb-36' : 'pb-12'}`}>
+      <main className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
+        {/* Success / Notification Banner */}
         {successMsg && (
-          <div className="bg-emerald-100 border-4 border-emerald-500 text-emerald-800 p-6 rounded-3xl flex items-center gap-4 mb-8 shadow-lg animate-in slide-in-from-top-4">
-            <CheckCircle2 className="h-10 w-10 shrink-0" />
-            <p className="text-2xl font-bold flex-1">{successMsg}</p>
+          <div className="bg-emerald-50 border-2 border-emerald-500 text-emerald-900 p-5 rounded-3xl flex items-center gap-4 shadow-md animate-in slide-in-from-top-3">
+            <div className="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
+              <CheckCircle2 className="h-7 w-7" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xl font-black leading-tight">{successMsg}</p>
+            </div>
             {lastAction && (
-              <Button onClick={undoLastAction} variant="outline" className="h-14 border-emerald-500 text-emerald-700 bg-emerald-50 hover:bg-emerald-200 text-xl px-6 rounded-2xl gap-2">
-                <RotateCcw className="h-6 w-6" /> Desfazer
+              <Button 
+                onClick={undoLastAction} 
+                variant="outline" 
+                className="h-12 border-emerald-600 text-emerald-800 bg-white hover:bg-emerald-100 text-base font-bold px-4 rounded-xl gap-2"
+              >
+                <RotateCcw className="h-5 w-5" /> Desfazer
               </Button>
             )}
           </div>
         )}
 
-        {/* Daily Summary Cards (Only shown if module is enabled for this person) */}
+        {/* PRÓXIMO MEDICAMENTO: Destaque de 1-toque com confirmação direta */}
         {enabledModules.has('meds_scheduled') && personInfo.nextMedication && (
-          <div className="bg-white p-6 rounded-3xl border-4 border-blue-100 flex items-center gap-6 shadow-sm">
-            <div className="bg-blue-100 p-4 rounded-2xl">
-              <Pill className="h-10 w-10 text-blue-600" />
+          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-6 rounded-3xl shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0">
+                <Pill className="h-8 w-8 text-white" />
+              </div>
+              <div>
+                <span className="inline-block uppercase tracking-wider text-xs font-bold text-blue-200">
+                  Próximo Remédio de Hoje
+                </span>
+                <p className="text-2xl font-black">{personInfo.nextMedication}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-stone-500 font-bold text-xl uppercase tracking-wider mb-1">Próximo Remédio</p>
-              <p className="text-3xl font-bold text-stone-900">{personInfo.nextMedication}</p>
-            </div>
+            {personInfo.medicationId && (
+              <Button
+                disabled={loading}
+                onClick={() => handleAction('medication', `Tomei ${personInfo.nextMedication}`, 'medication_confirmations', { medication_id: personInfo.medicationId, confirmed_by: personInfo.userId, status: 'taken' })}
+                className="w-full sm:w-auto h-14 px-6 bg-white hover:bg-blue-50 text-blue-800 font-black text-lg rounded-2xl shadow-md active:scale-95 transition-transform"
+              >
+                ✓ Já Tomei
+              </Button>
+            )}
           </div>
         )}
 
+        {/* PRÓXIMA CONSULTA */}
         {enabledModules.has('schedule_appointments') && personInfo.nextAppointment && (
-          <div className="bg-white p-6 rounded-3xl border-4 border-purple-100 flex items-center gap-6 shadow-sm">
-            <div className="bg-purple-100 p-4 rounded-2xl">
-              <Calendar className="h-10 w-10 text-purple-600" />
+          <div className="bg-white p-5 rounded-3xl border-2 border-purple-200 flex items-center gap-4 shadow-xs">
+            <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center text-purple-700 shrink-0">
+              <Calendar className="h-7 w-7" />
             </div>
             <div>
-              <p className="text-stone-500 font-bold text-xl uppercase tracking-wider mb-1">Próxima Consulta</p>
-              <p className="text-2xl font-bold text-stone-900">{personInfo.nextAppointment}</p>
+              <p className="text-stone-500 font-bold text-xs uppercase tracking-wider">Próximo Compromisso</p>
+              <p className="text-xl font-bold text-stone-900">{personInfo.nextAppointment}</p>
             </div>
           </div>
         )}
 
-        {/* Action Grid (Category L Check-in Buttons) */}
+        {/* INSTRUÇÃO CLARA */}
+        <div className="text-center pt-2">
+          <p className="text-lg font-extrabold text-stone-600">
+            Toque em um dos botões abaixo para avisar sua família:
+          </p>
+        </div>
+
+        {/* GRID DE BOTÕES GIGANTES TÁTEIS */}
         {settingsLoaded && (
-          <div className="grid grid-cols-2 gap-6 mt-8">
+          <div className="grid grid-cols-2 gap-4 sm:gap-6">
             {enabledModules.has('checkin_btn_im_well') && (
               <button 
                 disabled={loading}
-                onClick={() => handleAction('mood', 'Estou bem', 'check_ins', { mood: 'great', checked_by: personInfo.userId, notes: 'Estou bem' })}
-                className="bg-white border-4 border-stone-200 hover:border-emerald-500 active:bg-emerald-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
+                onClick={() => handleAction('mood', 'Estou bem!', 'check_ins', { mood: 'great', checked_by: personInfo.userId, notes: 'Estou bem' })}
+                className="bg-white hover:bg-emerald-50/70 border-3 border-emerald-300 hover:border-emerald-500 active:bg-emerald-100 p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 transition-all shadow-sm active:scale-95 group text-center"
               >
-                <div className="bg-emerald-100 p-6 rounded-full">
-                  <Heart className="h-14 w-14 text-emerald-600" />
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-emerald-100 group-hover:bg-emerald-200 flex items-center justify-center transition-colors shadow-xs">
+                  <Heart className="h-12 w-12 sm:h-14 sm:w-14 text-emerald-600 fill-emerald-600" />
                 </div>
-                <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Estou<br/>Bem</span>
-              </button>
-            )}
-
-            {enabledModules.has('checkin_btn_ate') && (
-              <button 
-                disabled={loading}
-                onClick={() => handleAction('meal', 'Já me alimentei', 'meals', { meal_type: 'other', logged_by: personInfo.userId })}
-                className="bg-white border-4 border-stone-200 hover:border-amber-500 active:bg-amber-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
-              >
-                <div className="bg-amber-100 p-6 rounded-full">
-                  <Coffee className="h-14 w-14 text-amber-600" />
+                <div>
+                  <span className="text-2xl sm:text-3xl font-black text-stone-900 block leading-tight">Estou Bem</span>
+                  <span className="text-xs sm:text-sm font-semibold text-emerald-700">Tudo calmo por aqui</span>
                 </div>
-                <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Já<br/>Comi</span>
-              </button>
-            )}
-
-            {enabledModules.has('checkin_btn_took_med') && (
-              <button 
-                disabled={loading || !personInfo.medicationId}
-                onClick={() => handleAction('medication', 'Remédio tomado', 'medication_confirmations', { medication_id: personInfo.medicationId, confirmed_by: personInfo.userId, status: 'taken' })}
-                className="bg-white border-4 border-stone-200 hover:border-blue-500 active:bg-blue-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95 disabled:opacity-50"
-              >
-                <div className="bg-blue-100 p-6 rounded-full">
-                  <Pill className="h-14 w-14 text-blue-600" />
-                </div>
-                <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Tomei o<br/>Remédio</span>
               </button>
             )}
 
             {enabledModules.has('checkin_btn_drank_water') && (
               <button 
                 disabled={loading}
-                onClick={() => handleAction('hydration', 'Bebi água', 'hydration_logs', { amount_ml: 250, logged_by: personInfo.userId })}
-                className="bg-white border-4 border-stone-200 hover:border-cyan-500 active:bg-cyan-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
+                onClick={() => handleAction('hydration', 'Bebi água!', 'hydration_logs', { amount_ml: 250, logged_by: personInfo.userId })}
+                className="bg-white hover:bg-sky-50/70 border-3 border-sky-300 hover:border-sky-500 active:bg-sky-100 p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 transition-all shadow-sm active:scale-95 group text-center"
               >
-                <div className="bg-cyan-100 p-6 rounded-full">
-                  <Droplet className="h-14 w-14 text-cyan-600" />
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-sky-100 group-hover:bg-sky-200 flex items-center justify-center transition-colors shadow-xs">
+                  <Droplet className="h-12 w-12 sm:h-14 sm:w-14 text-sky-600 fill-sky-600" />
                 </div>
-                <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Bebi<br/>Água</span>
+                <div>
+                  <span className="text-2xl sm:text-3xl font-black text-stone-900 block leading-tight">Bebi Água</span>
+                  <span className="text-xs sm:text-sm font-semibold text-sky-700">+ 1 copo d’água</span>
+                </div>
+              </button>
+            )}
+
+            {enabledModules.has('checkin_btn_ate') && (
+              <button 
+                disabled={loading}
+                onClick={() => handleAction('meal', 'Já me alimentei!', 'meals', { meal_type: 'other', logged_by: personInfo.userId })}
+                className="bg-white hover:bg-amber-50/70 border-3 border-amber-300 hover:border-amber-500 active:bg-amber-100 p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 transition-all shadow-sm active:scale-95 group text-center"
+              >
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center transition-colors shadow-xs">
+                  <Coffee className="h-12 w-12 sm:h-14 sm:w-14 text-amber-600" />
+                </div>
+                <div>
+                  <span className="text-2xl sm:text-3xl font-black text-stone-900 block leading-tight">Já Comi</span>
+                  <span className="text-xs sm:text-sm font-semibold text-amber-700">Refeição feita</span>
+                </div>
+              </button>
+            )}
+
+            {enabledModules.has('checkin_btn_took_med') && (
+              <button 
+                disabled={loading || !personInfo.medicationId}
+                onClick={() => handleAction('medication', 'Remédio tomado!', 'medication_confirmations', { medication_id: personInfo.medicationId, confirmed_by: personInfo.userId, status: 'taken' })}
+                className="bg-white hover:bg-blue-50/70 border-3 border-blue-300 hover:border-blue-500 active:bg-blue-100 p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 transition-all shadow-sm active:scale-95 group text-center disabled:opacity-50"
+              >
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center transition-colors shadow-xs">
+                  <Pill className="h-12 w-12 sm:h-14 sm:w-14 text-blue-600" />
+                </div>
+                <div>
+                  <span className="text-2xl sm:text-3xl font-black text-stone-900 block leading-tight">Tomei Remédio</span>
+                  <span className="text-xs sm:text-sm font-semibold text-blue-700">Horário cumprido</span>
+                </div>
               </button>
             )}
 
@@ -356,12 +415,15 @@ export default function ElderlyViewPage({
               <button 
                 disabled={loading}
                 onClick={() => handleAction('wake', 'Bom dia! Avisamos que você acordou', 'check_ins', { mood: 'great', checked_by: personInfo.userId, notes: 'Acordou - Início do dia' })}
-                className="bg-white border-4 border-stone-200 hover:border-yellow-500 active:bg-yellow-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
+                className="bg-white hover:bg-yellow-50/70 border-3 border-yellow-300 hover:border-yellow-500 active:bg-yellow-100 p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 transition-all shadow-sm active:scale-95 group text-center"
               >
-                <div className="bg-yellow-100 p-6 rounded-full">
-                  <Sun className="h-14 w-14 text-yellow-600" />
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-yellow-100 group-hover:bg-yellow-200 flex items-center justify-center transition-colors shadow-xs">
+                  <Sun className="h-12 w-12 sm:h-14 sm:w-14 text-yellow-600" />
                 </div>
-                <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Acordei</span>
+                <div>
+                  <span className="text-2xl sm:text-3xl font-black text-stone-900 block leading-tight">Acordei</span>
+                  <span className="text-xs sm:text-sm font-semibold text-yellow-700">Bom dia!</span>
+                </div>
               </button>
             )}
 
@@ -369,12 +431,15 @@ export default function ElderlyViewPage({
               <button 
                 disabled={loading}
                 onClick={() => handleAction('sleep', 'Boa noite! Registramos seu descanso', 'check_ins', { mood: 'good', checked_by: personInfo.userId, notes: 'Foi dormir - Descanso noturno' })}
-                className="bg-white border-4 border-stone-200 hover:border-indigo-500 active:bg-indigo-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
+                className="bg-white hover:bg-indigo-50/70 border-3 border-indigo-300 hover:border-indigo-500 active:bg-indigo-100 p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 transition-all shadow-sm active:scale-95 group text-center"
               >
-                <div className="bg-indigo-100 p-6 rounded-full">
-                  <Moon className="h-14 w-14 text-indigo-600" />
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-indigo-100 group-hover:bg-indigo-200 flex items-center justify-center transition-colors shadow-xs">
+                  <Moon className="h-12 w-12 sm:h-14 sm:w-14 text-indigo-600" />
                 </div>
-                <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Vou<br/>Dormir</span>
+                <div>
+                  <span className="text-2xl sm:text-3xl font-black text-stone-900 block leading-tight">Vou Dormir</span>
+                  <span className="text-xs sm:text-sm font-semibold text-indigo-700">Boa noite!</span>
+                </div>
               </button>
             )}
 
@@ -382,12 +447,15 @@ export default function ElderlyViewPage({
               <button 
                 disabled={loading}
                 onClick={() => handleAction('activity', 'Parabéns! Atividade concluída', 'check_ins', { mood: 'great', checked_by: personInfo.userId, notes: 'Atividade concluída com sucesso' })}
-                className="bg-white border-4 border-stone-200 hover:border-purple-500 active:bg-purple-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
+                className="bg-white hover:bg-violet-50/70 border-3 border-violet-300 hover:border-violet-500 active:bg-violet-100 p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 transition-all shadow-sm active:scale-95 group text-center"
               >
-                <div className="bg-purple-100 p-6 rounded-full">
-                  <ActivityIcon className="h-14 w-14 text-purple-600" />
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-violet-100 group-hover:bg-violet-200 flex items-center justify-center transition-colors shadow-xs">
+                  <ActivityIcon className="h-12 w-12 sm:h-14 sm:w-14 text-violet-600" />
                 </div>
-                <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Fiz<br/>Atividade</span>
+                <div>
+                  <span className="text-2xl sm:text-3xl font-black text-stone-900 block leading-tight">Atividade</span>
+                  <span className="text-xs sm:text-sm font-semibold text-violet-700">Caminhada/exercício</span>
+                </div>
               </button>
             )}
 
@@ -395,51 +463,61 @@ export default function ElderlyViewPage({
               <button 
                 disabled={loading}
                 onClick={() => handleAction('remind_later', 'Lembrete adiado em 15 minutos', 'check_ins', { checked_by: personInfo.userId, notes: 'Lembrar mais tarde (15 min)' })}
-                className="bg-white border-4 border-stone-200 hover:border-slate-500 active:bg-slate-50 p-8 rounded-[2rem] flex flex-col items-center justify-center gap-6 transition-all shadow-sm active:scale-95"
+                className="bg-white hover:bg-slate-50/70 border-3 border-slate-300 hover:border-slate-500 active:bg-slate-100 p-6 sm:p-8 rounded-3xl flex flex-col items-center justify-center gap-4 transition-all shadow-sm active:scale-95 group text-center"
               >
-                <div className="bg-slate-100 p-6 rounded-full">
-                  <Clock className="h-14 w-14 text-slate-600" />
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-slate-100 group-hover:bg-slate-200 flex items-center justify-center transition-colors shadow-xs">
+                  <Clock className="h-12 w-12 sm:h-14 sm:w-14 text-slate-600" />
                 </div>
-                <span className="text-3xl font-bold text-stone-800 text-center leading-tight">Lembrar<br/>Depois</span>
+                <div>
+                  <span className="text-2xl sm:text-3xl font-black text-stone-900 block leading-tight">Depois</span>
+                  <span className="text-xs sm:text-sm font-semibold text-slate-600">Lembrar em 15 min</span>
+                </div>
               </button>
             )}
           </div>
         )}
 
-        {/* Big Help Button */}
+        {/* Preciso de Ajuda */}
         {enabledModules.has('checkin_btn_need_help') && (
           <button 
             disabled={loading}
             onClick={() => {
-              if(window.confirm('Tem certeza que precisa de ajuda agora?')) {
-                handleAction('help', 'Preciso de ajuda', 'help_requests', { message: 'Preciso de ajuda geral', requested_by: personInfo.userId });
+              if (window.confirm('Tem certeza que deseja pedir a atenção da família agora?')) {
+                handleAction('help', 'Preciso de ajuda com a rotina', 'help_requests', { message: 'Preciso de ajuda geral', requested_by: personInfo.userId });
               }
             }}
-            className="w-full bg-white border-4 border-orange-200 hover:border-orange-500 active:bg-orange-50 p-8 rounded-[2rem] flex items-center justify-center gap-6 transition-all shadow-sm active:scale-95 mt-6"
+            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white p-6 sm:p-7 rounded-3xl flex items-center justify-center gap-5 transition-all shadow-lg active:scale-95"
           >
-            <div className="bg-orange-100 p-5 rounded-full">
-              <BellRing className="h-12 w-12 text-orange-600" />
+            <div className="bg-white/20 p-3 rounded-2xl">
+              <BellRing className="h-10 w-10 text-white" />
             </div>
-            <span className="text-4xl font-bold text-stone-800">Preciso de Ajuda</span>
+            <div className="text-left">
+              <span className="text-2xl sm:text-3xl font-black block leading-none">Preciso de Ajuda</span>
+              <span className="text-sm font-medium text-amber-100">Avisar a família para me ligar</span>
+            </div>
           </button>
         )}
-      </div>
+      </main>
 
-      {/* Emergency Button - Fixed Bottom (Only if enabled) */}
+      {/* SOS / EMERGÊNCIA FIXED BOTTOM */}
       {enabledModules.has('checkin_btn_emergency') && (
-        <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white to-transparent">
-          <div className="max-w-2xl mx-auto">
+        <div className="fixed bottom-0 left-0 right-0 p-4 sm:p-6 bg-gradient-to-t from-white via-white/95 to-transparent z-30">
+          <div className="max-w-3xl mx-auto">
             <button 
               disabled={loading}
               onClick={() => {
-                if(window.confirm('ALERTA DE EMERGÊNCIA! Deseja enviar um alerta para todos os familiares agora?')) {
-                  handleAction('emergency', 'EMERGÊNCIA! Preciso de ajuda imediata', 'emergency_events', { reported_by: personInfo.userId, description: 'Emergência acionada pela tela do idoso', severity: 'critical' });
+                if (window.confirm('ALERTA DE EMERGÊNCIA! Deseja enviar um aviso urgente com som para toda a família agora?')) {
+                  handleAction('emergency', 'EMERGÊNCIA! Preciso de socorro imediato', 'emergency_events', { reported_by: personInfo.userId, description: 'Emergência acionada pela tela do idoso', severity: 'critical' });
                 }
               }}
-              className="w-full bg-red-600 hover:bg-red-700 active:bg-red-800 text-white p-8 rounded-[2rem] flex items-center justify-center gap-6 shadow-[0_10px_30px_rgba(220,38,38,0.4)] transition-all active:scale-95 active:translate-y-2 border-b-8 border-red-800"
+              className="w-full bg-red-600 hover:bg-red-700 active:bg-red-800 text-white p-5 sm:p-6 rounded-3xl flex items-center justify-center gap-4 sm:gap-6 shadow-xl led-glow-red transition-all active:scale-95 border-b-6 border-red-800"
             >
-              <AlertCircle className="h-14 w-14" />
-              <span className="text-4xl font-black tracking-widest uppercase">Emergência</span>
+              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center animate-ping shrink-0">
+                <AlertCircle className="h-7 w-7 text-white" />
+              </div>
+              <span className="text-2xl sm:text-4xl font-black tracking-wider uppercase">
+                EMERGÊNCIA / SOS
+              </span>
             </button>
           </div>
         </div>
