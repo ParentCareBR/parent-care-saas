@@ -178,6 +178,16 @@ export function PaywallOverlay({ locale, organizationId, onCheckout, loadingSeat
                         </>
                       )}
                     </Button>
+
+                    {locale === 'pt-BR' && (
+                      <p className="text-[11px] text-stone-500 dark:text-stone-400 text-center mt-2">
+                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">Pix:</span>{' '}
+                        <span className="font-bold text-stone-800 dark:text-stone-200">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pricing.rawTotal + Math.round(pricing.rawTotal * 0.035 * 100) / 100)}
+                        </span>
+                        <span className="text-[10px] text-stone-400 dark:text-stone-500"> (c/ 3,5% IOF)</span>
+                      </p>
+                    )}
                   </div>
                 </div>
               );

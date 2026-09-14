@@ -964,8 +964,8 @@ export default function SubscriptionSettingsPage() {
                         <span>
                           <strong>Pix:</strong>{' '}
                           {billingInterval === 'year'
-                            ? `Total com IOF de 3,5%: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calcPricing.rawTotal * 1.035)}/ano`
-                            : `Total com IOF de 3,5%: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calcPricing.rawTotal * 1.035)}/mês`
+                            ? `Total com IOF de 3,5%: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calcPricing.rawTotal + Math.round(calcPricing.rawTotal * 0.035 * 100) / 100)}/ano`
+                            : `Total com IOF de 3,5%: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calcPricing.rawTotal + Math.round(calcPricing.rawTotal * 0.035 * 100) / 100)}/mês`
                           }{' '}(cobrado pelo Ebanx na etapa de pagamento)
                         </span>
                       </div>
@@ -1105,7 +1105,7 @@ export default function SubscriptionSettingsPage() {
                   </p>
                 </CardContent>
 
-                <CardFooter className="pt-0">
+                <CardFooter className="pt-0 flex flex-col gap-1.5">
                   {isCurrent ? (
                     <Button
                       className="w-full h-10 rounded-xl bg-stone-100 text-stone-500 hover:bg-stone-200 cursor-default"
@@ -1148,39 +1148,21 @@ export default function SubscriptionSettingsPage() {
                       )}
                     </Button>
                   )}
+
+                  {/* Subtle Pix IOF line (Brazil only) */}
+                  {locale === 'pt-BR' && (
+                    <p className="text-[11px] text-stone-500 dark:text-stone-400 text-center">
+                      <span className="font-semibold text-emerald-700 dark:text-emerald-400">Pix:</span>{' '}
+                      <span className="font-bold text-stone-800 dark:text-stone-200">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pricing.rawTotal + Math.round(pricing.rawTotal * 0.035 * 100) / 100)}
+                      </span>
+                      <span className="text-[10px] text-stone-400 dark:text-stone-500"> (c/ 3,5% IOF)</span>
+                    </p>
+                  )}
                 </CardFooter>
               </Card>
             );
           })}
-
-          {/* Custom Plan Card */}
-          <Card className="border-dashed border-2 border-stone-200 bg-stone-50/50 flex flex-col justify-between">
-            <CardHeader className="pb-3 pt-6">
-              <div className="flex items-center gap-2 mb-1">
-                <Sparkles className="h-5 w-5 text-emerald-600" />
-                <CardTitle className="text-base font-bold text-stone-900">{tPlan('custom_plan_title')}</CardTitle>
-              </div>
-              <CardDescription className="text-xs text-stone-500 leading-relaxed">{tPlan('custom_plan_desc')}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2 text-xs text-stone-600">
-              <p className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" /> {tPlan('custom_feature_1')}</p>
-              <p className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" /> {tPlan('custom_feature_2')}</p>
-              <p className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" /> {tPlan('custom_feature_3')}</p>
-            </CardContent>
-            <CardFooter className="pt-0 pb-6">
-              <Button
-                type="button"
-                onClick={() => {
-                  setCalculatorSeats(10);
-                  document.getElementById('plan-selector')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="w-full h-10 rounded-xl font-bold bg-brand-green hover:bg-emerald-800 text-white text-xs gap-1.5 shadow-sm"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>{tPlan('btn_custom')}</span>
-              </Button>
-            </CardFooter>
-          </Card>
         </div>
 
         {/* Security note */}
