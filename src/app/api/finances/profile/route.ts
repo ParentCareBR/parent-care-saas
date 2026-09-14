@@ -37,7 +37,19 @@ export async function GET(req: NextRequest) {
       .maybeSingle();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const orgSettings = (org?.settings as any) || {};
+    let orgSettings = (org?.settings as any) || {};
+    if (!orgSettings.financial_profiles && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const adminSupabase = createAdminClient();
+        const { data: adminOrg } = await adminSupabase
+          .from('organizations')
+          .select('settings')
+          .eq('id', person.organization_id)
+          .maybeSingle();
+        if (adminOrg?.settings) orgSettings = adminOrg.settings as any;
+      } catch (_) {}
+    }
+
     const profile = orgSettings.financial_profiles?.[caredPersonId] || {
       monthly_income: 0,
       income_source: 'Aposentadoria INSS',
@@ -78,15 +90,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Pessoa cuidada não encontrada.' }, { status: 404 });
     }
 
-    const adminSupabase = createAdminClient();
-    const { data: org } = await adminSupabase
+    // 1. Fetch current settings using authenticated client
+    const { data: org } = await supabase
       .from('organizations')
       .select('settings')
       .eq('id', person.organization_id)
-      .single();
+      .maybeSingle();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const currentSettings = (org?.settings as any) || {};
+    let currentSettings = (org?.settings as any) || {};
+
+    if (!org?.settings && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const adminSupabase = createAdminClient();
+        const { data: adminOrg } = await adminSupabase
+          .from('organizations')
+          .select('settings')
+          .eq('id', person.organization_id)
+          .maybeSingle();
+        if (adminOrg?.settings) currentSettings = adminOrg.settings;
+      } catch (_) {}
+    }
+
     const currentProfiles = { ...(currentSettings.financial_profiles || {}) };
 
     const parsedIncome = typeof monthly_income === 'string'
@@ -105,16 +130,41 @@ export async function POST(req: NextRequest) {
 
     currentProfiles[caredPersonId] = newProfile;
 
-    await adminSupabase
+    const updatedSettings = {
+      ...currentSettings,
+      financial_profiles: currentProfiles,
+    };
+
+    // 2. Persist in organizations.settings using authenticated client
+    let { error: updateErr } = await supabase
       .from('organizations')
       .update({
-        settings: {
-          ...currentSettings,
-          financial_profiles: currentProfiles,
-        },
+        settings: updatedSettings,
         updated_at: new Date().toISOString(),
       })
       .eq('id', person.organization_id);
+
+    // Fallback: If service role key is configured and user update failed, try admin client
+    if (updateErr && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const adminSupabase = createAdminClient();
+        const { error: adminErr } = await adminSupabase
+          .from('organizations')
+          .update({
+            settings: updatedSettings,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', person.organization_id);
+        if (!adminErr) {
+          updateErr = null;
+        }
+      } catch (_) {}
+    }
+
+    if (updateErr) {
+      console.error('[Finances Profile] Update error:', updateErr);
+      return NextResponse.json({ error: updateErr.message || 'Erro ao salvar renda no banco de dados.' }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true, profile: newProfile });
   } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any

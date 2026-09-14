@@ -277,12 +277,36 @@ export default function ExpensesPage() {
       });
 
       const data = await res.json();
-      if (res.ok && data.success) {
+      if (res.ok && data.success && data.profile) {
         toast({
           title: tFin.incomeUpdated,
           description: `Renda configurada: R$ ${Number(data.profile.monthly_income).toFixed(2)} / mês`,
         });
         setPensionModalOpen(false);
+
+        // Immediate reactive update
+        const updatedProfile = data.profile;
+        setProfile(updatedProfile);
+        setPensionForm({
+          monthly_income: updatedProfile.monthly_income > 0 ? String(updatedProfile.monthly_income) : '',
+          income_source: updatedProfile.income_source || 'Aposentadoria INSS',
+          income_day: String(updatedProfile.income_day || 5),
+          notes: updatedProfile.notes || '',
+        });
+
+        const newIncome = Number(updatedProfile.monthly_income) || 0;
+        setSummary((prev) => {
+          const newBal = newIncome - prev.totalExpenses;
+          const newPct = newIncome > 0 ? (prev.totalExpenses / newIncome) * 100 : 0;
+          return {
+            ...prev,
+            monthlyIncome: newIncome,
+            balance: newBal,
+            percentageUsed: Number(newPct.toFixed(1)),
+            isOverBudget: newIncome > 0 && prev.totalExpenses > newIncome,
+          };
+        });
+
         await fetchExpenses();
       } else {
         toast({

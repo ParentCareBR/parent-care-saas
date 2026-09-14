@@ -42,15 +42,26 @@ export async function GET(req: NextRequest) {
       .eq('id', person.organization_id)
       .maybeSingle();
 
-    const orgSettings = (org?.settings as any) || {};
+    let orgSettings = (org?.settings as any) || {};
+    if (!orgSettings.financial_profiles && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const adminSupabase = createAdminClient();
+        const { data: adminOrg } = await adminSupabase
+          .from('organizations')
+          .select('settings')
+          .eq('id', person.organization_id)
+          .maybeSingle();
+        if (adminOrg?.settings) orgSettings = adminOrg.settings as any;
+      } catch (_) {}
+    }
+
     const expensesMeta = orgSettings.expenses_meta || {};
     const fallbackList = orgSettings.expenses?.[caredPersonId] || [];
 
     // 2. Fetch from expenses table in Supabase
     let dbExpenses: any[] = [];
     try {
-      const adminSupabase = createAdminClient();
-      const { data, error } = await adminSupabase
+      const { data, error } = await supabase
         .from('expenses')
         .select('*')
         .eq('cared_person_id', caredPersonId)
@@ -58,6 +69,14 @@ export async function GET(req: NextRequest) {
 
       if (!error && data) {
         dbExpenses = data;
+      } else if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        const adminSupabase = createAdminClient();
+        const { data: adminData } = await adminSupabase
+          .from('expenses')
+          .select('*')
+          .eq('cared_person_id', caredPersonId)
+          .order('paid_at', { ascending: false });
+        if (adminData) dbExpenses = adminData;
       }
     } catch (_) {
       // safe fallback if table issue
@@ -203,8 +222,7 @@ export async function POST(req: NextRequest) {
 
     // 1. Insert into public.expenses table
     try {
-      const adminSupabase = createAdminClient();
-      const { data, error } = await adminSupabase
+      const { data, error } = await supabase
         .from('expenses')
         .insert({
           organization_id: person.organization_id,
@@ -222,8 +240,24 @@ export async function POST(req: NextRequest) {
 
       if (!error && data) {
         createdRecord = data;
-      } else if (error) {
-        console.warn('Could not insert into expenses table, using fallback:', error.message);
+      } else if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        const adminSupabase = createAdminClient();
+        const { data: adminData } = await adminSupabase
+          .from('expenses')
+          .insert({
+            organization_id: person.organization_id,
+            cared_person_id: caredPersonId,
+            category,
+            description: description.trim(),
+            amount: numericAmount,
+            currency: 'BRL',
+            paid_at: paidAtDate,
+            paid_by: dbPaidBy,
+            created_by: user.id,
+          })
+          .select()
+          .single();
+        if (adminData) createdRecord = adminData;
       }
     } catch (err: any) {
       console.warn('Expenses table insert exception:', err?.message);
