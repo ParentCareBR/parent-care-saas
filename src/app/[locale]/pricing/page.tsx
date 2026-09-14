@@ -433,6 +433,20 @@ export default function PricingPage() {
                     <p className="text-[11px] text-center text-stone-400">
                       {calcLabels.trialText}
                     </p>
+
+                    {/* PIX IOF Notice — Brazil only */}
+                    {locale === 'pt-BR' && (
+                      <div className="flex items-start gap-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 text-[11px] text-amber-800 dark:text-amber-300">
+                        <span className="text-amber-500 mt-0.5 shrink-0">⚠️</span>
+                        <span>
+                          <strong>Pix:</strong>{' '}
+                          {billingInterval === 'year'
+                            ? `Total com IOF de 3,5%: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calcPricing.rawTotal * 1.035)}/ano`
+                            : `Total com IOF de 3,5%: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calcPricing.rawTotal * 1.035)}/mês`
+                          }{' '}(cobrado pelo Ebanx na etapa de pagamento)
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
