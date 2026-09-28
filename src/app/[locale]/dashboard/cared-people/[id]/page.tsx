@@ -517,7 +517,7 @@ export default function CaredPersonProfilePage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-bold">Medicamentos em Uso</CardTitle>
                 <Button asChild size="sm" className="bg-brand-green text-white text-xs">
-                  <Link href={`/${locale}/dashboard/medications`}>Gerenciar Remédios</Link>
+                  <Link href={`/${locale}/dashboard/medications`}>Gerenciar Medicamentos</Link>
                 </Button>
               </div>
             </CardHeader>

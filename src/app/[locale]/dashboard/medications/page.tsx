@@ -139,14 +139,24 @@ export default function MedicationsPage() {
                 <div className="bg-stone-50 dark:bg-stone-800/70 p-4 sm:w-48 border-r border-stone-100 dark:border-stone-700 flex flex-col justify-center">
                   <span className="text-sm text-stone-500 dark:text-stone-400 font-medium">Horários previstos</span>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {med.medication_schedules?.map((sched: any) => (
-                      <span key={sched.id} className="bg-white dark:bg-stone-700 border border-stone-200 dark:border-stone-600 text-stone-700 dark:text-stone-200 text-xs px-2 py-1 rounded-md font-medium">
-                        {sched.time_of_day.slice(0, 5)}
-                      </span>
-                    ))}
-                    {(!med.medication_schedules || med.medication_schedules.length === 0) && (
-                      <span className="text-xs text-stone-400 dark:text-stone-500 italic">Sem horário definido</span>
-                    )}
+                    {med.medication_schedules && med.medication_schedules.length > 0 ? (
+                      med.medication_schedules.map((sched: any) => (
+                        <span key={sched.id} className="bg-white dark:bg-stone-700 border border-stone-200 dark:border-stone-600 text-stone-700 dark:text-stone-200 text-xs px-2 py-1 rounded-md font-medium">
+                          {sched.time_of_day.slice(0, 5)}
+                        </span>
+                      ))
+                    ) : (() => {
+                      const schedMatch = med.instructions?.match(/\[Horários:\s*(.+?)\]/i);
+                      const times = schedMatch ? schedMatch[1].split(',').map((s: string) => s.trim()) : [];
+                      if (times.length > 0) {
+                        return times.map((t: string, ti: number) => (
+                          <span key={ti} className="bg-white dark:bg-stone-700 border border-stone-200 dark:border-stone-600 text-stone-700 dark:text-stone-200 text-xs px-2 py-1 rounded-md font-medium">
+                            {t}
+                          </span>
+                        ));
+                      }
+                      return <span className="text-xs text-stone-400 dark:text-stone-500 italic">Sem horário definido</span>;
+                    })()}
                   </div>
                 </div>
                 <div className="flex-1 p-5 flex justify-between items-center">

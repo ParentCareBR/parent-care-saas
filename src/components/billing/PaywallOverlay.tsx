@@ -142,7 +142,7 @@ export function PaywallOverlay({ locale, organizationId, onCheckout, loadingSeat
                     <ul className="space-y-2 text-xs text-stone-600 dark:text-stone-300 pt-2 border-t border-stone-100 dark:border-stone-800">
                       <li className="flex items-center gap-2">
                         <Check className="h-4 w-4 text-emerald-500 shrink-0" />
-                        <span>Controle de remédios e alarmes</span>
+                        <span>Controle de medicamentos e alarmes</span>
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="h-4 w-4 text-emerald-500 shrink-0" />

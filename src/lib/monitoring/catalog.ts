@@ -170,7 +170,7 @@ export const MONITORING_CATALOG: CatalogCategory[] = [
         id: 'd1000000-0000-0000-0000-000000000013',
         code: 'meds_not_taken_reason',
         name: 'Medicamento não tomado (com motivo)',
-        description: 'Justificativa informada caso o remédio não seja ingerido.',
+        description: 'Justificativa informada caso o medicamento não seja ingerido.',
         translationKey: 'monitoring.defs.meds_not_taken_reason',
         descriptionTranslationKey: 'monitoring.defs.desc.meds_not_taken_reason',
         fieldType: 'text',
@@ -725,7 +725,7 @@ export const MONITORING_CATALOG: CatalogCategory[] = [
       {
         id: 'd1000000-0000-0000-0000-000000000057',
         code: 'checkin_btn_took_med',
-        name: 'Botão "Tomei o remédio"',
+        name: 'Botão "Tomei o medicamento"',
         description: 'Registra a confirmação do horário de medicação com botão gigante.',
         translationKey: 'monitoring.defs.checkin_btn_took_med',
         descriptionTranslationKey: 'monitoring.defs.desc.checkin_btn_took_med',

@@ -125,10 +125,10 @@ export function InteractiveElderSimulator({ locale = 'pt-BR' }: { locale?: strin
               </div>
             </button>
 
-            {/* Tomei Remédio */}
+            {/* Tomei Medicamento */}
             <button
               type="button"
-              onClick={() => handleAction('med', 'Parabéns Dona Maria! Remédio Losartana das nove horas confirmado.', 'Remédio tomado: Losartana 50mg confirmado às 09:30')}
+              onClick={() => handleAction('med', 'Parabéns Dona Maria! Medicamento Losartana das nove horas confirmado.', 'Medicamento tomado: Losartana 50mg confirmado às 09:30')}
               className={cn(
                 'bg-white border-2 p-3 sm:p-4 rounded-2xl flex flex-col items-center gap-2 text-center transition-all active:scale-95 shadow-sm',
                 lastClicked === 'med' ? 'border-blue-500 bg-blue-50/50 scale-102 ring-2 ring-blue-400' : 'border-blue-200 hover:border-blue-400'
@@ -138,7 +138,7 @@ export function InteractiveElderSimulator({ locale = 'pt-BR' }: { locale?: strin
                 <Pill className="h-6 w-6" />
               </div>
               <div>
-                <span className="text-sm font-black text-stone-900 block leading-tight">Tomei Remédio</span>
+                <span className="text-sm font-black text-stone-900 block leading-tight">Tomei Medicamento</span>
                 <span className="text-[10px] text-blue-700 font-medium">Losartana 50mg</span>
               </div>
             </button>

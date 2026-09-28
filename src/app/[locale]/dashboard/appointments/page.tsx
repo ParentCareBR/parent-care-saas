@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Calendar, Plus, MapPin, User, CheckCircle2, Clock, XCircle,
   RefreshCw, BellRing, ChevronLeft, ChevronRight, Pill, CheckSquare,
-  Stethoscope,
+  Stethoscope, Utensils, Activity,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import RecurrenceSelector, { RecurrenceConfig, recurrenceLabel } from '@/components/ui/RecurrenceSelector';
@@ -28,7 +28,7 @@ import { ptBR, enUS, es as esLocale, fr as frLocale, de as deLocale } from 'date
 import { cn } from '@/lib/utils';
 
 type ViewMode = 'day' | 'week' | 'month';
-type EventType = 'appointment' | 'medication' | 'task';
+type EventType = 'appointment' | 'medication' | 'task' | 'meal' | 'routine';
 type NewItemType = 'appointment' | 'task';
 
 interface AgendaEvent {
@@ -77,6 +77,22 @@ const TYPE_CONFIG: Record<EventType, { color: string; bgLight: string; bgDark: s
     label: 'Tarefa',
     Icon: CheckSquare,
   },
+  meal: {
+    color: 'text-orange-700 dark:text-orange-300',
+    bgLight: 'bg-orange-50',
+    bgDark: 'dark:bg-orange-950/30',
+    border: 'border-orange-200 dark:border-orange-800',
+    label: 'Alimentação',
+    Icon: Utensils,
+  },
+  routine: {
+    color: 'text-sky-700 dark:text-sky-300',
+    bgLight: 'bg-sky-50',
+    bgDark: 'dark:bg-sky-950/30',
+    border: 'border-sky-200 dark:border-sky-800',
+    label: 'Rotina',
+    Icon: Activity,
+  },
 };
 
 export default function AppointmentsPage() {
@@ -90,6 +106,7 @@ export default function AppointmentsPage() {
 
   const [events, setEvents] = useState<AgendaEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [typeFilter, setTypeFilter] = useState<'all' | EventType>('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [newItemType, setNewItemType] = useState<NewItemType>('appointment');
   const [saving, setSaving] = useState(false);
@@ -108,7 +125,7 @@ export default function AppointmentsPage() {
   const [recurrence, setRecurrence] = useState<RecurrenceConfig>({ type: 'none' });
   const [alarm, setAlarm] = useState<string>('15m');
 
-  // ── Fetch all 3 sources ──────────────────────────────────────
+  // ── Fetch all 5 sources ──────────────────────────────────────
   const fetchEvents = useCallback(async () => {
     if (!selectedPerson || !currentOrganizationId) { setLoading(false); return; }
     setLoading(true);
@@ -141,60 +158,153 @@ export default function AppointmentsPage() {
       });
     });
 
-    // 2. Medications — generate occurrences for the range based on schedules
+    // 2. Medications — generate occurrences for the range based on schedules (with fallback to instructions)
     const { data: meds } = await supabase
       .from('medications')
-      .select('id, name, dosage, unit, medication_schedules(id, time_of_day)')
+      .select('id, name, dosage, unit, instructions, medication_schedules(id, time_of_day, is_active)')
       .eq('cared_person_id', selectedPerson.id)
       .eq('is_active', true);
 
     (meds || []).forEach((med: any) => {
-      const schedules: any[] = med.medication_schedules || [];
-      schedules.forEach((sched: any) => {
-        const timeStr: string = (sched.time_of_day || '00:00:00').slice(0, 5);
-        // Generate one event per day for the next 30 days
+      const rawSchedules: any[] = med.medication_schedules || [];
+      const activeSchedules = rawSchedules.filter((s: any) => s.is_active !== false);
+
+      let scheduleTimes: { id: string; time: string }[] = [];
+
+      if (activeSchedules.length > 0) {
+        scheduleTimes = activeSchedules.map((s: any) => ({
+          id: s.id,
+          time: (s.time_of_day || '08:00:00').slice(0, 5),
+        }));
+      } else {
+        // Fallback: parse hours from instructions (e.g. [Horários: 08:00, 20:00] or raw HH:mm)
+        let parsedHours: string[] = [];
+        if (med.instructions) {
+          const match = med.instructions.match(/\[(?:Horários|Horarios|Times):\s*([^\]]+)\]/i);
+          if (match) {
+            parsedHours = match[1].split(',').map((h: string) => h.trim()).filter((h: string) => /^\d{2}:\d{2}$/.test(h));
+          } else {
+            const rawTimes = med.instructions.match(/\b\d{2}:\d{2}\b/g);
+            if (rawTimes) parsedHours = Array.from(new Set(rawTimes));
+          }
+        }
+        if (parsedHours.length === 0) parsedHours = ['08:00'];
+
+        scheduleTimes = parsedHours.map((t, idx) => ({
+          id: `fallback-${idx}`,
+          time: t,
+        }));
+      }
+
+      // Generate daily occurrences for -7 to +30 days
+      scheduleTimes.forEach(sched => {
         for (let i = -7; i <= 30; i++) {
           const d = addDays(new Date(), i);
-          const [h, m] = timeStr.split(':').map(Number);
+          const [h, m] = sched.time.split(':').map(Number);
           d.setHours(h, m, 0, 0);
           all.push({
             id: `med-${med.id}-${sched.id}-${i}`,
             type: 'medication',
-            title: `${med.name} ${med.dosage}${med.unit}`,
-            subtitle: timeStr,
-            time: timeStr,
+            title: `${med.name} ${med.dosage || ''}${med.unit || ''}`.trim(),
+            subtitle: `Horário: ${sched.time}`,
+            time: sched.time,
             date: new Date(d),
             status: 'scheduled',
-            raw: { ...med, scheduleId: sched.id },
+            raw: { ...med, scheduleId: sched.id, description: med.instructions },
           });
         }
       });
     });
 
-    // 3. Tasks with due_date
+    // 3. Tasks (both with due_date and without)
     const { data: tasks } = await supabase
       .from('tasks')
       .select('*')
       .eq('cared_person_id', selectedPerson.id)
-      .not('due_date', 'is', null)
       .order('due_date', { ascending: true });
 
     (tasks || []).forEach((t: any) => {
-      if (!t.due_date) return;
-      const d = new Date(t.due_date);
+      const d = t.due_date ? new Date(t.due_date) : new Date(t.created_at || Date.now());
+      const timeStr = t.due_date ? format(d, 'HH:mm') : '--:--';
       all.push({
         id: `task-${t.id}`,
         type: 'task',
         title: t.title,
         subtitle: t.priority ? `Prioridade: ${t.priority}` : undefined,
-        time: format(d, 'HH:mm'),
+        time: timeStr,
         date: d,
         status: t.status,
         raw: t,
       });
     });
 
-    // Sort by date+time
+    // 4. Meals / Alimentação
+    const mealRangeStart = new Date();
+    mealRangeStart.setDate(mealRangeStart.getDate() - 14);
+    const { data: meals } = await supabase
+      .from('meals')
+      .select('id, meal_type, description, notes, consumed_at')
+      .eq('cared_person_id', selectedPerson.id)
+      .gte('consumed_at', mealRangeStart.toISOString())
+      .order('consumed_at', { ascending: true });
+
+    const mealTypeNames: Record<string, string> = {
+      breakfast: 'Café da Manhã',
+      lunch: 'Almoço',
+      snack: 'Lanche',
+      dinner: 'Jantar',
+      other: 'Alimentação',
+    };
+
+    (meals || []).forEach((m: any) => {
+      const d = new Date(m.consumed_at);
+      const label = mealTypeNames[m.meal_type] || 'Refeição';
+      all.push({
+        id: `meal-${m.id}`,
+        type: 'meal',
+        title: label + (m.description ? `: ${m.description}` : ''),
+        subtitle: m.notes || undefined,
+        time: format(d, 'HH:mm'),
+        date: d,
+        status: 'completed',
+        raw: m,
+      });
+    });
+
+    // 5. Routine & Check-ins
+    const routineRangeStart = new Date();
+    routineRangeStart.setDate(routineRangeStart.getDate() - 14);
+    const { data: checkins } = await supabase
+      .from('check_ins')
+      .select('id, mood, notes, checked_at, created_at')
+      .eq('cared_person_id', selectedPerson.id)
+      .gte('created_at', routineRangeStart.toISOString())
+      .order('created_at', { ascending: true });
+
+    const moodLabels: Record<string, string> = {
+      great: 'Excelente',
+      good: 'Bem',
+      okay: 'Normal',
+      bad: 'Indisposto',
+      critical: 'Alerta / Mal',
+    };
+
+    (checkins || []).forEach((c: any) => {
+      const d = new Date(c.checked_at || c.created_at);
+      const moodText = c.mood ? ` (Estado: ${moodLabels[c.mood] || c.mood})` : '';
+      all.push({
+        id: `checkin-${c.id}`,
+        type: 'routine',
+        title: c.notes ? `${c.notes}${moodText}` : `Check-in de Rotina${moodText}`,
+        subtitle: 'Acompanhamento e registro diário',
+        time: format(d, 'HH:mm'),
+        date: d,
+        status: 'completed',
+        raw: c,
+      });
+    });
+
+    // Sort all by date + time
     all.sort((a, b) => a.date.getTime() - b.date.getTime());
     setEvents(all);
     setLoading(false);
@@ -287,13 +397,21 @@ export default function AppointmentsPage() {
 
   // ── View Filtering ────────────────────────────────────────────
   const getViewEvents = () => {
-    if (viewMode === 'day') return events.filter(e => isSameDay(e.date, navDate));
-    if (viewMode === 'week') {
+    let list: AgendaEvent[] = [];
+    if (viewMode === 'day') {
+      list = events.filter(e => isSameDay(e.date, navDate));
+    } else if (viewMode === 'week') {
       const ws = startOfWeek(navDate, { weekStartsOn: 1 });
       const we = endOfWeek(navDate, { weekStartsOn: 1 });
-      return events.filter(e => e.date >= ws && e.date <= we);
+      list = events.filter(e => e.date >= ws && e.date <= we);
+    } else {
+      list = events.filter(e => isSameMonth(e.date, navDate));
     }
-    return events.filter(e => isSameMonth(e.date, navDate));
+
+    if (typeFilter !== 'all') {
+      list = list.filter(e => e.type === typeFilter);
+    }
+    return list;
   };
 
   const navigate = (dir: 1 | -1) => {
@@ -338,7 +456,7 @@ export default function AppointmentsPage() {
           </h1>
           <p className="text-stone-500 dark:text-stone-400 text-sm mt-1">
             {selectedPerson
-              ? `Consultas, medicamentos e tarefas de ${selectedPerson.full_name}`
+              ? `Bússola diária: medicamentos, consultas, alimentação, tarefas e rotina de ${selectedPerson.full_name}`
               : 'Selecione uma pessoa cuidada para ver a agenda'}
           </p>
         </div>
@@ -505,14 +623,42 @@ export default function AppointmentsPage() {
         </Dialog>
       </div>
 
-      {/* ── Legend ─────────────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-2">
-        {(Object.entries(TYPE_CONFIG) as [EventType, typeof TYPE_CONFIG[EventType]][]).map(([type, cfg]) => (
-          <span key={type} className={cn('inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border', cfg.bgLight, cfg.bgDark, cfg.border, cfg.color)}>
-            <cfg.Icon className="h-3 w-3" />
-            {cfg.label}
-          </span>
-        ))}
+      {/* ── Filters & Compass Legend ─────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setTypeFilter('all')}
+          className={cn(
+            'inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all cursor-pointer',
+            typeFilter === 'all'
+              ? 'bg-stone-900 text-white border-stone-900 dark:bg-stone-100 dark:text-stone-900 dark:border-stone-100 shadow-xs font-bold'
+              : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 border-stone-200 dark:border-stone-700 hover:border-stone-400'
+          )}
+        >
+          <span>Todos ({events.length})</span>
+        </button>
+
+        {(Object.entries(TYPE_CONFIG) as [EventType, typeof TYPE_CONFIG[EventType]][]).map(([type, cfg]) => {
+          const count = events.filter(e => e.type === type).length;
+          const isActive = typeFilter === type;
+          return (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setTypeFilter(isActive ? 'all' : type)}
+              className={cn(
+                'inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all cursor-pointer',
+                isActive
+                  ? cn(cfg.bgLight, cfg.bgDark, cfg.border, cfg.color, 'ring-2 ring-offset-1 ring-current font-bold')
+                  : cn(cfg.bgLight, cfg.bgDark, cfg.border, cfg.color, 'opacity-70 hover:opacity-100')
+              )}
+            >
+              <cfg.Icon className="h-3.5 w-3.5" />
+              <span>{cfg.label}</span>
+              <span className="text-[10px] font-bold opacity-80">({count})</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── View Mode + Navigation ──────────────────────────────── */}
@@ -559,7 +705,9 @@ export default function AppointmentsPage() {
           </div>
           <div className="grid grid-cols-7">
             {getMonthDays().map((day, idx) => {
-              const dayEvents = events.filter(e => isSameDay(e.date, day));
+              const dayEvents = events
+                .filter(e => isSameDay(e.date, day))
+                .filter(e => typeFilter === 'all' || e.type === typeFilter);
               const isNow = isSameDay(day, new Date());
               const isCurrentMonth = isSameMonth(day, navDate);
               return (

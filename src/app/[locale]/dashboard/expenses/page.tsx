@@ -858,7 +858,7 @@ export default function ExpensesPage() {
                 <Label htmlFor="description" className="text-sm font-bold">Descrição *</Label>
                 <Input
                   id="description"
-                  placeholder="Ex: Caixa de remédio, Compra de mercado"
+                  placeholder="Ex: Medicamento na farmácia, Compra de mercado"
                   required
                   value={form.description}
                   onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}

@@ -25,7 +25,7 @@ export function QuickActionFAB() {
       href: `/${locale}/dashboard/medications/new`,
       icon: Pill,
       color: 'bg-emerald-600 hover:bg-emerald-700 text-white',
-      badge: 'Remédios',
+      badge: 'Medicamentos',
     },
     {
       label: 'Nova Tarefa Familiar',

@@ -66,13 +66,18 @@ export default function NewMedicationPage() {
       ? ` [${tAlarm.badgePrefix}: ${alarmLabels[alarm] || alarm}]`
       : '';
 
+    const cleanSchedules = schedules.filter(t => t.trim());
+    const schedulesSuffix = cleanSchedules.length > 0
+      ? ` [Horários: ${cleanSchedules.join(', ')}]`
+      : '';
+
     const { data: med, error } = await (supabase as any).from('medications').insert({
       cared_person_id: selectedPerson.id,
       organization_id: currentOrganizationId!,
       name: formData.name,
       dosage: formData.dosage,
       unit: formData.unit,
-      instructions: (formData.instructions || '') + recurrenceSuffix + alarmSuffix || null,
+      instructions: ((formData.instructions || '') + recurrenceSuffix + alarmSuffix + schedulesSuffix).trim() || null,
       created_by: user.id,
       is_active: true,
     }).select('id').single();
@@ -83,16 +88,20 @@ export default function NewMedicationPage() {
       return;
     }
 
-    // Save schedules
-    const scheduleRows = schedules
-      .filter(t => t.trim())
-      .map(t => ({
+    // Save schedules with organization_id
+    if (cleanSchedules.length > 0) {
+      const scheduleRows = cleanSchedules.map(t => ({
         medication_id: med.id,
+        organization_id: currentOrganizationId!,
         time_of_day: t.length === 5 ? `${t}:00` : t,
+        days_of_week: [1, 2, 3, 4, 5, 6, 7],
+        is_active: true,
       }));
 
-    if (scheduleRows.length > 0) {
-      await (supabase as any).from('medication_schedules').insert(scheduleRows);
+      const { error: schedError } = await (supabase as any).from('medication_schedules').insert(scheduleRows);
+      if (schedError) {
+        console.error('Error inserting schedules:', schedError);
+      }
     }
 
     setLoading(false);

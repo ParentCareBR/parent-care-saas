@@ -280,7 +280,7 @@ export const FINANCE_I18N: Record<SupportedLocale, FinanceI18n> = {
     editIncome: 'Ajustar Renda',
     saveIncome: 'Salvar Aposentadoria',
     saveExpense: 'Salvar Gasto',
-    categoryPharmacy: 'Farmácia / Remédio',
+    categoryPharmacy: 'Farmácia / Medicamento',
     categoryMarket: 'Mercado / Alimentos',
     categoryDoctor: 'Médico / Exame',
     categoryHousing: 'Contas da Casa',

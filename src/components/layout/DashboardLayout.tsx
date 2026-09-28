@@ -493,7 +493,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <span className={cn('text-[10px] font-semibold', pathname === `/${locale}/dashboard` ? 'text-emerald-600 dark:text-[#19D3A2]' : 'text-stone-500 dark:text-slate-400')}>Início</span>
           </Link>
 
-          {/* Remédios */}
+          {/* Medicamentos */}
           <Link
             href={`/${locale}/dashboard/medications`}
             className="flex flex-col items-center gap-0.5 min-w-[52px] group"
@@ -506,7 +506,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             )}>
               <Pill className={cn('h-5 w-5', pathname.includes('/medications') ? 'text-emerald-600 dark:text-[#19D3A2]' : 'text-stone-500 dark:text-slate-400')} />
             </div>
-            <span className={cn('text-[10px] font-semibold', pathname.includes('/medications') ? 'text-emerald-600 dark:text-[#19D3A2]' : 'text-stone-500 dark:text-slate-400')}>Remédios</span>
+            <span className={cn('text-[10px] font-semibold', pathname.includes('/medications') ? 'text-emerald-600 dark:text-[#19D3A2]' : 'text-stone-500 dark:text-slate-400')}>Medicamentos</span>
           </Link>
 
           {/* Agenda (central — destaque) */}

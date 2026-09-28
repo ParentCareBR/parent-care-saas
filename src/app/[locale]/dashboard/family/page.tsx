@@ -284,7 +284,7 @@ export default function FamilyPage() {
                         <SelectValue placeholder="Selecione o papel" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="caregiver">Cuidador Profissional (Focado na rotina e remédios • Sem acesso financeiro)</SelectItem>
+                        <SelectItem value="caregiver">Cuidador Profissional (Focado na rotina e medicamentos • Sem acesso financeiro)</SelectItem>
                         <SelectItem value="collaborator">Familiar (Acesso à rotina, tarefas e histórico)</SelectItem>
                         <SelectItem value="admin">Administrador da Família (Acesso total, gestão e plano)</SelectItem>
                       </SelectContent>
@@ -454,7 +454,7 @@ export default function FamilyPage() {
         <div>
           <h3 className="font-bold text-lg">Cuidado Compartilhado</h3>
           <p className="text-emerald-100 text-sm mt-1 max-w-xl">
-            Convide irmãos, filhos e cuidadores para que todos recebam notificações de remédios tomados, consultas agendadas e nunca sobrecarreguem uma só pessoa.
+            Convide irmãos, filhos e cuidadores para que todos recebam notificações de medicamentos tomados, consultas agendadas e nunca sobrecarreguem uma só pessoa.
           </p>
         </div>
         <Button onClick={copyInviteLink} className="bg-white text-emerald-800 hover:bg-emerald-50 rounded-xl font-semibold flex-shrink-0">
