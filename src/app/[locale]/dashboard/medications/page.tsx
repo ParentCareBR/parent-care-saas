@@ -7,10 +7,12 @@ import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Plus, Pill, Clock, CheckCircle2, AlertCircle, RefreshCw, BellRing } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Plus, Pill, Clock, CheckCircle2, AlertCircle, RefreshCw, BellRing, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { getAlarmTexts } from '@/lib/i18n/care-translations';
 import { useToast } from '@/hooks/use-toast';
+
 
 export default function MedicationsPage() {
   const params = useParams();
@@ -22,7 +24,10 @@ export default function MedicationsPage() {
   const [medications, setMedications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [deleteConfirmMed, setDeleteConfirmMed] = useState<{id: string; name: string} | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const supabase = createClient() as any;
+
 
   const handleConfirmMedication = async (medicationId: string, medName: string) => {
     if (!user || !selectedPerson || !currentOrganizationId) return;
@@ -44,6 +49,28 @@ export default function MedicationsPage() {
       toast({ title: 'Erro', description: err.message, variant: 'destructive' });
     } finally {
       setConfirmingId(null);
+    }
+  };
+
+  const handleDeleteMedication = async () => {
+    if (!deleteConfirmMed) return;
+    setDeleting(true);
+    try {
+      // Delete schedules first
+      await supabase.from('medication_schedules').delete().eq('medication_id', deleteConfirmMed.id);
+      // Then delete the medication (soft delete by setting is_active=false, or hard delete)
+      const { error } = await supabase.from('medications').delete().eq('id', deleteConfirmMed.id);
+      if (error) {
+        toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: '🗑️ Medicamento excluído', description: `${deleteConfirmMed.name} foi removido da lista.` });
+        setMedications(prev => prev.filter(m => m.id !== deleteConfirmMed.id));
+        setDeleteConfirmMed(null);
+      }
+    } catch (err: any) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -165,6 +192,15 @@ export default function MedicationsPage() {
                       <CheckCircle2 className="h-4 w-4 mr-1.5" />
                       {confirmingId === med.id ? 'Registrando...' : 'Confirmar Dose'}
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDeleteConfirmMed({ id: med.id, name: med.name })}
+                      className="text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl min-h-[38px] px-2.5"
+                      title="Excluir medicamento"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -172,6 +208,39 @@ export default function MedicationsPage() {
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteConfirmMed} onOpenChange={(open) => { if (!open) setDeleteConfirmMed(null); }}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600">
+              <Trash2 className="h-5 w-5" />
+              Excluir Medicamento
+            </DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir <strong>{deleteConfirmMed?.name}</strong>? Esta ação não pode ser desfeita e todos os horários cadastrados serão removidos.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirmMed(null)}
+              disabled={deleting}
+              className="rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleDeleteMedication}
+              disabled={deleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl"
+            >
+              <Trash2 className="h-4 w-4 mr-1.5" />
+              {deleting ? 'Excluindo...' : 'Sim, excluir'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

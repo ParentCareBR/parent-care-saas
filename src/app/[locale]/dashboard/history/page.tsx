@@ -174,11 +174,11 @@ export default function HistoryPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-stone-900 flex items-center gap-2.5">
-            <FileText className="h-7 w-7 text-emerald-600" />
+          <h1 className="text-2xl font-bold text-stone-900 dark:text-[#F8FAFC] flex items-center gap-2.5">
+            <FileText className="h-7 w-7 text-emerald-500" />
             Histórico Clínico e Linha do Tempo
           </h1>
-          <p className="text-stone-500 text-sm mt-1">
+          <p className="text-stone-500 dark:text-slate-400 text-sm mt-1">
             {selectedPerson 
               ? `Linha cronológica de cuidados de ${selectedPerson.full_name}`
               : 'Selecione uma pessoa cuidada para ver o histórico'}
@@ -187,30 +187,30 @@ export default function HistoryPage() {
 
         <Dialog open={noteOpen} onOpenChange={setNoteOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 rounded-xl">
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">
               <Plus className="h-4 w-4 mr-2" /> Nova Anotação Clínica
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[450px]">
+          <DialogContent className="sm:max-w-[450px] dark:bg-[#101D2B] dark:border-[#172433] dark:text-[#F8FAFC]">
             <form onSubmit={handleAddNote}>
               <DialogHeader>
-                <DialogTitle>Registrar Anotação de Cuidado</DialogTitle>
-                <DialogDescription>
+                <DialogTitle className="text-stone-900 dark:text-[#F8FAFC]">Registrar Anotação de Cuidado</DialogTitle>
+                <DialogDescription className="text-stone-500 dark:text-slate-400">
                   Adicione observações diárias, sintomas, alterações de humor ou incidentes.
                 </DialogDescription>
               </DialogHeader>
 
               <div className="grid gap-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="category">Categoria do Registro</Label>
+                  <Label htmlFor="category" className="text-stone-700 dark:text-slate-300">Categoria do Registro</Label>
                   <Select 
                     value={noteForm.category} 
                     onValueChange={(val) => setNoteForm(prev => ({ ...prev, category: val }))}
                   >
-                    <SelectTrigger id="category">
+                    <SelectTrigger id="category" className="dark:bg-[#172433] dark:border-[#23354d] dark:text-[#F8FAFC]">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="dark:bg-[#101D2B] dark:border-[#172433] dark:text-[#F8FAFC]">
                       <SelectItem value="observation">Observação Geral / Rotina</SelectItem>
                       <SelectItem value="health">Sintoma / Queixa de Saúde</SelectItem>
                       <SelectItem value="mood">Humor e Comportamento</SelectItem>
@@ -220,13 +220,13 @@ export default function HistoryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="content">Descrição da Ocorrência *</Label>
+                  <Label htmlFor="content" className="text-stone-700 dark:text-slate-300">Descrição da Ocorrência *</Label>
                   <textarea 
                     id="content" 
                     rows={4}
                     required
                     placeholder="Descreva o que foi observado, medicamentos tomados fora de hora, pressão aferida, etc."
-                    className="w-full rounded-md border border-stone-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    className="w-full rounded-md border border-stone-200 dark:border-[#23354d] dark:bg-[#172433] dark:text-[#F8FAFC] p-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     value={noteForm.content}
                     onChange={(e) => setNoteForm(prev => ({ ...prev, content: e.target.value }))}
                   />
@@ -234,8 +234,8 @@ export default function HistoryPage() {
               </div>
 
               <DialogFooter>
-                <Button type="button" variant="ghost" onClick={() => setNoteOpen(false)}>Cancelar</Button>
-                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={savingNote}>
+                <Button type="button" variant="ghost" onClick={() => setNoteOpen(false)} className="dark:text-slate-300 dark:hover:bg-[#172433]">Cancelar</Button>
+                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={savingNote}>
                   {savingNote ? 'Salvando...' : 'Salvar Registro'}
                 </Button>
               </DialogFooter>
@@ -246,7 +246,7 @@ export default function HistoryPage() {
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        <span className="text-xs font-semibold text-stone-400 uppercase tracking-wider mr-2 flex items-center gap-1">
+        <span className="text-xs font-semibold text-stone-400 dark:text-slate-400 uppercase tracking-wider mr-2 flex items-center gap-1">
           <Filter className="h-3.5 w-3.5" /> Filtrar:
         </span>
         {[
@@ -262,7 +262,7 @@ export default function HistoryPage() {
             className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-colors ${
               filterType === f.key 
                 ? 'bg-emerald-600 text-white shadow-xs' 
-                : 'bg-white border border-stone-200 text-stone-600 hover:bg-stone-50'
+                : 'bg-white dark:bg-[#101D2B] border border-stone-200 dark:border-[#172433] text-stone-600 dark:text-slate-300 hover:bg-stone-50 dark:hover:bg-[#172433]'
             }`}
           >
             {f.label}
@@ -271,28 +271,28 @@ export default function HistoryPage() {
       </div>
 
       {/* Timeline Card */}
-      <Card className="rounded-2xl border-stone-200">
+      <Card className="rounded-3xl border-stone-200 dark:border-[#172433] bg-white dark:bg-[#101D2B] shadow-xs">
         <CardContent className="p-6">
           {loading ? (
             <div className="py-12 flex justify-center">
-              <div className="animate-spin h-8 w-8 border-4 border-emerald-600 border-t-transparent rounded-full" />
+              <div className="animate-spin h-8 w-8 border-4 border-emerald-500 border-t-transparent rounded-full" />
             </div>
           ) : filteredItems.length > 0 ? (
             <div className="relative pl-6 space-y-6">
               {/* Connecting line */}
-              <div className="absolute left-2.5 top-3 bottom-3 w-0.5 bg-stone-200" />
+              <div className="absolute left-2.5 top-3 bottom-3 w-0.5 bg-stone-200 dark:bg-[#172433]" />
 
               {filteredItems.map((item) => (
                 <div key={item.id} className="relative flex items-start gap-4">
                   {/* Bullet */}
-                  <div className="absolute -left-6 mt-1 w-6 h-6 rounded-full bg-white border-2 border-emerald-500 flex items-center justify-center shadow-xs">
+                  <div className="absolute -left-6 mt-1 w-6 h-6 rounded-full bg-white dark:bg-[#08162A] border-2 border-emerald-500 flex items-center justify-center shadow-xs">
                     {getEventIcon(item.type, item.category)}
                   </div>
 
-                  <div className="flex-1 bg-stone-50/70 hover:bg-stone-50 p-4 rounded-xl border border-stone-100 transition-colors">
+                  <div className="flex-1 bg-stone-50/70 dark:bg-[#172433] hover:bg-stone-100/80 dark:hover:bg-[#172433]/80 p-4 rounded-2xl border border-stone-100 dark:border-[#1e3046] transition-colors">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                      <h4 className="font-semibold text-stone-900 text-sm">{item.title}</h4>
-                      <span className="text-xs text-stone-400 flex items-center gap-1">
+                      <h4 className="font-bold text-stone-900 dark:text-[#F8FAFC] text-sm">{item.title}</h4>
+                      <span className="text-xs text-stone-400 dark:text-slate-400 flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {new Date(item.timestamp).toLocaleString('pt-BR', {
                           day: '2-digit',
@@ -303,14 +303,14 @@ export default function HistoryPage() {
                       </span>
                     </div>
                     {item.description && (
-                      <p className="text-stone-600 text-sm mt-1 leading-relaxed">{item.description}</p>
+                      <p className="text-stone-600 dark:text-slate-300 text-sm mt-1 leading-relaxed">{item.description}</p>
                     )}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="py-12 text-center text-stone-400">
+            <div className="py-12 text-center text-stone-400 dark:text-slate-500">
               <FileText className="h-10 w-10 mx-auto mb-2 opacity-40" />
               <p className="text-sm">Nenhum evento registrado nesta categoria.</p>
             </div>

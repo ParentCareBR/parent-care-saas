@@ -327,16 +327,16 @@ export default function FamilyPage() {
 
       {/* Seat Usage Badge */}
       {entitlements && (
-        <Card className={`border ${seatsFull ? 'border-amber-200 bg-amber-50' : 'border-emerald-100 bg-emerald-50/60'} rounded-2xl`}>
+        <Card className={`border ${seatsFull ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30' : 'border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/60 dark:bg-emerald-950/20'} rounded-2xl`}>
           <CardContent className="py-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <Users className={`h-5 w-5 ${seatsFull ? 'text-amber-600' : 'text-emerald-600'}`} />
+                <Users className={`h-5 w-5 ${seatsFull ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`} />
                 <div>
-                  <span className="font-bold text-stone-900 text-sm">
+                  <span className="font-bold text-stone-900 dark:text-stone-100 text-sm">
                     {entitlements.totalUsedSeats} de {entitlements.seatLimit} assentos utilizados
                   </span>
-                  <div className="text-xs text-stone-500 mt-0.5">
+                  <div className="text-xs text-stone-500 dark:text-slate-400 mt-0.5">
                     {entitlements.activeMembersCount} membro(s) ativo(s) + {entitlements.reservedInvitesCount} convite(s) pendente(s)
                   </div>
                 </div>
@@ -437,8 +437,8 @@ export default function FamilyPage() {
                   {user?.email?.charAt(0).toUpperCase() || 'U'}
                 </div>
                 <div>
-                  <p className="font-semibold text-stone-900 text-sm">{user?.user_metadata?.full_name || user?.email}</p>
-                  <p className="text-xs text-stone-500">{user?.email}</p>
+                  <p className="font-semibold text-stone-900 dark:text-stone-100 text-sm">{user?.user_metadata?.full_name || user?.email}</p>
+                  <p className="text-xs text-stone-500 dark:text-slate-400">{user?.email}</p>
                 </div>
               </div>
               <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">

@@ -1,42 +1,51 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Users, DollarSign, BarChart3,
-  HeadphonesIcon, Settings, LogOut, ShieldAlert,
+  HeadphonesIcon, Settings, LogOut, Heart,
+  GitBranch, Receipt, TrendingUp, MessageSquare, Tag, FileText,
 } from 'lucide-react';
 import { createBrowserClient } from '@supabase/ssr';
-import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
-const navigation = [
-  { name: 'Dashboard', href: '/admin/analytics', icon: LayoutDashboard },
+const navGroups = [
   {
-    name: 'CRM', icon: Users, children: [
-      { name: 'Clientes & Leads', href: '/admin/crm' },
-      { name: 'Funil', href: '/admin/crm/funnel' },
-    ]
+    label: null,
+    items: [
+      { name: 'Dashboard', href: '/admin/analytics', icon: LayoutDashboard },
+    ],
   },
   {
-    name: 'Financeiro', icon: DollarSign, children: [
-      { name: 'Visão Geral', href: '/admin/finance' },
-      { name: 'Receitas', href: '/admin/finance/revenue' },
-      { name: 'Despesas', href: '/admin/finance/expenses' },
-      { name: 'Fluxo de Caixa', href: '/admin/finance/cashflow' },
-    ]
-  },
-  { name: 'Analytics / BI', href: '/admin/analytics', icon: BarChart3 },
-  {
-    name: 'Suporte', icon: HeadphonesIcon, children: [
-      { name: 'Tickets', href: '/admin/support' },
-    ]
+    label: 'CRM',
+    items: [
+      { name: 'Clientes & Leads', href: '/admin/crm', icon: Users },
+      { name: 'Funil', href: '/admin/crm/funnel', icon: GitBranch },
+    ],
   },
   {
-    name: 'Configurações', icon: Settings, children: [
-      { name: 'Planos & Preços', href: '/admin/settings/plans' },
-      { name: 'Cupons', href: '/admin/settings/coupons' },
-      { name: 'Conteúdo', href: '/admin/settings/content' },
-    ]
+    label: 'Financeiro',
+    items: [
+      { name: 'Visão Geral', href: '/admin/finance', icon: TrendingUp },
+      { name: 'Receitas', href: '/admin/finance/revenue', icon: DollarSign },
+      { name: 'Despesas', href: '/admin/finance/expenses', icon: Receipt },
+      { name: 'Fluxo de Caixa', href: '/admin/finance/cashflow', icon: BarChart3 },
+    ],
+  },
+  {
+    label: 'Suporte',
+    items: [
+      { name: 'Tickets', href: '/admin/support', icon: HeadphonesIcon },
+    ],
+  },
+  {
+    label: 'Configurações',
+    items: [
+      { name: 'Planos & Preços', href: '/admin/settings/plans', icon: Tag },
+      { name: 'Cupons', href: '/admin/settings/coupons', icon: FileText },
+      { name: 'Conteúdo', href: '/admin/settings/content', icon: MessageSquare },
+    ],
   },
 ];
 
@@ -54,70 +63,61 @@ export default function AdminSidebar() {
   };
 
   return (
-    <div className="flex flex-col h-full w-64 bg-gray-900 text-white">
+    <div className="flex flex-col h-full w-60 bg-[#060d1a] border-r border-[#1a2744] text-white flex-shrink-0">
       {/* Logo */}
-      <div className="flex items-center gap-2 px-6 py-5 border-b border-gray-800">
-        <ShieldAlert className="h-6 w-6 text-emerald-400" />
+      <div className="flex items-center gap-3 px-5 py-5 border-b border-[#1a2744]">
+        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
+          <Heart className="h-4 w-4 text-emerald-400" />
+        </div>
         <div>
-          <p className="text-sm font-bold text-white">Parent Care</p>
-          <p className="text-xs text-gray-400">Admin Panel</p>
+          <p className="text-sm font-bold text-white leading-none">Parent Care</p>
+          <p className="text-[10px] text-emerald-400 font-medium mt-0.5">Admin Panel</p>
         </div>
       </div>
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-1">
-        {navigation.map((item) => {
-          if (item.children) {
-            return (
-              <div key={item.name} className="mb-2">
-                <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  <item.icon className="h-4 w-4" />
+        {navGroups.map((group, gi) => (
+          <div key={gi} className={gi > 0 ? 'pt-4' : ''}>
+            {group.label && (
+              <p className="px-3 mb-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                {group.label}
+              </p>
+            )}
+            {group.items.map((item) => {
+              const isActive =
+                pathname === item.href ||
+                (item.href !== '/admin/analytics' && pathname.startsWith(item.href));
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
+                    isActive
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                  )}
+                >
+                  <item.icon
+                    className={cn(
+                      'h-4 w-4 flex-shrink-0',
+                      isActive ? 'text-emerald-400' : 'text-slate-500'
+                    )}
+                  />
                   {item.name}
-                </div>
-                <div className="ml-4 space-y-1">
-                  {item.children.map((child) => {
-                    const active = pathname === child.href;
-                    return (
-                      <Link
-                        key={child.href}
-                        href={child.href}
-                        className={`block px-3 py-2 rounded-md text-sm transition-colors ${
-                          active
-                            ? 'bg-emerald-600 text-white'
-                            : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                        }`}
-                      >
-                        {child.name}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          }
-          const active = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href!}
-              className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                active
-                  ? 'bg-emerald-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-              }`}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.name}
-            </Link>
-          );
-        })}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
-      {/* Footer */}
-      <div className="px-3 py-4 border-t border-gray-800">
+      {/* Footer logout */}
+      <div className="px-3 pb-4 border-t border-[#1a2744] pt-4">
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-all"
         >
           <LogOut className="h-4 w-4" />
           Sair

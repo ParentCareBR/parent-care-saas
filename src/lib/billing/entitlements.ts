@@ -22,47 +22,95 @@ export interface EntitlementInfo {
  * Rule: used_seats = active members (including owner) + reserved pending invites.
  * Senior users using only the simplified view do not consume a seat.
  */
-export async function getOrganizationEntitlements(organizationId: string): Promise<EntitlementInfo> {
-  const supabase = createAdminClient();
+export async function getOrganizationEntitlements(
+  organizationId: string,
+  userSupabaseClient?: any
+): Promise<EntitlementInfo> {
+  const supabase = userSupabaseClient || createAdminClient();
+  const adminSupabase = createAdminClient();
 
-  // 1. Fetch entitlement record
+  // 1. Fetch organization record to get the true registration timestamp
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('id, name, created_at, trial_ends_at, subscription_status, settings')
+    .eq('id', organizationId)
+    .maybeSingle();
+
+  // 2. Fetch entitlement record
   let { data: entitlement } = await supabase
     .from('organization_entitlements')
     .select('*')
     .eq('organization_id', organizationId)
     .maybeSingle();
 
-  // If no entitlement record exists, initialize a 30-day Free Trial
+  // If not found with user client, try adminSupabase
   if (!entitlement) {
-    const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: created } = await supabase
-      .from('organization_entitlements')
-      .insert({
-        organization_id: organizationId,
-        seat_limit: 1,
-        cared_people_limit: 2,
-        active_members_count: 1,
-        reserved_invites_count: 0,
-        subscription_status: 'trial',
-        access_valid_until: thirtyDaysFromNow,
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (created) {
-      entitlement = created;
+    try {
+      const { data: adminEnt } = await adminSupabase
+        .from('organization_entitlements')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .maybeSingle();
+      if (adminEnt) entitlement = adminEnt;
+    } catch {
+      // ignore
     }
   }
 
-  // 2. Count active members in the organization
+  // Calculate the TRUE trial expiration date anchored to organization registration:
+  const orgCreatedAt = org?.created_at ? new Date(org.created_at) : new Date();
+  const trialEnd = org?.trial_ends_at
+    ? new Date(org.trial_ends_at)
+    : (entitlement?.access_valid_until
+        ? new Date(entitlement.access_valid_until)
+        : new Date(orgCreatedAt.getTime() + 30 * 24 * 60 * 60 * 1000));
+
+  // Sync trial_ends_at in organizations table if not yet set
+  if (org && !org.trial_ends_at) {
+    try {
+      await adminSupabase
+        .from('organizations')
+        .update({ trial_ends_at: trialEnd.toISOString() })
+        .eq('id', organizationId);
+    } catch {
+      // ignore
+    }
+  }
+
+  // If no entitlement record exists, initialize with trialEnd
+  if (!entitlement) {
+    try {
+      const { data: created } = await adminSupabase
+        .from('organization_entitlements')
+        .insert({
+          organization_id: organizationId,
+          seat_limit: 1,
+          cared_people_limit: 2,
+          active_members_count: 1,
+          reserved_invites_count: 0,
+          subscription_status: 'trial',
+          access_valid_until: trialEnd.toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .maybeSingle();
+
+      if (created) {
+        entitlement = created;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 3. Count active members in the organization
   const { count: activeMembersCount } = await supabase
     .from('organization_members')
     .select('id', { count: 'exact', head: true })
     .eq('organization_id', organizationId)
     .eq('status', 'active');
 
-  // 3. Count pending invitations that have reserved_seat = true
+  // 4. Count pending invitations that have reserved_seat = true
   const { count: reservedInvitesCount } = await supabase
     .from('organization_invitations')
     .select('id', { count: 'exact', head: true })
@@ -77,8 +125,8 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
   const totalUsedSeats = activeMembers + reservedInvites;
   const availableSeats = Math.max(0, seatLimit - totalUsedSeats);
 
-  const rawStatus = entitlement?.subscription_status ?? 'trial';
-  const accessValidUntil = entitlement?.access_valid_until ?? null;
+  const rawStatus = entitlement?.subscription_status ?? org?.subscription_status ?? 'trial';
+  const accessValidUntil = entitlement?.access_valid_until ?? trialEnd.toISOString();
 
   let daysRemaining = 30;
   let isTrialExpired = false;
@@ -90,21 +138,19 @@ export async function getOrganizationEntitlements(organizationId: string): Promi
     isPaywallBlocked = false;
     daysRemaining = 0;
   } else if (isTrial) {
-    if (accessValidUntil) {
-      const diffMs = new Date(accessValidUntil).getTime() - Date.now();
-      daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-      isTrialExpired = diffMs <= 0;
-      isPaywallBlocked = isTrialExpired;
-    } else {
-      daysRemaining = 30;
-      isTrialExpired = false;
-      isPaywallBlocked = false;
-    }
+    // Dynamic countdown based on true registration timestamp
+    const now = new Date();
+    const diffMs = trialEnd.getTime() - now.getTime();
+    isTrialExpired = diffMs <= 0;
+    isPaywallBlocked = isTrialExpired;
+    // Calculate days remaining dynamically:
+    daysRemaining = isTrialExpired ? 0 : Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
   } else if (rawStatus === 'canceled' || rawStatus === 'past_due') {
     isTrialExpired = true;
     isPaywallBlocked = true;
     daysRemaining = 0;
   }
+
 
   return {
     organizationId,

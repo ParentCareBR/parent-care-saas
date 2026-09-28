@@ -44,8 +44,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Organização não encontrada.' }, { status: 404 });
     }
 
-    const entitlements = await getOrganizationEntitlements(targetOrgId);
+    const entitlements = await getOrganizationEntitlements(targetOrgId, supabase);
     return NextResponse.json({ entitlements });
+
   } catch (error: any) {
     console.error('[API/Entitlements] Error:', error);
     return NextResponse.json({ error: error.message || 'Erro ao carregar permissões.' }, { status: 500 });

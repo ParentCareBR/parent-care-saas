@@ -43,6 +43,9 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleteConfirmTask, setDeleteConfirmTask] = useState<{id: string; title: string} | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
 
   const [form, setForm] = useState({
     title: '',
@@ -144,6 +147,25 @@ export default function TasksPage() {
     if (error) {
       toast({ title: 'Erro ao atualizar tarefa', description: error.message, variant: 'destructive' });
       fetchTasks();
+    }
+  };
+
+  const handleDeleteTask = async () => {
+    if (!deleteConfirmTask) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.from('tasks').delete().eq('id', deleteConfirmTask.id);
+      if (error) {
+        toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: '🗑️ Tarefa excluída', description: `"${deleteConfirmTask.title}" foi removida da lista.` });
+        setTasks(prev => prev.filter(t => t.id !== deleteConfirmTask.id));
+        setDeleteConfirmTask(null);
+      }
+    } catch (err: any) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -385,7 +407,7 @@ export default function TasksPage() {
 
                       <div className="space-y-1 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h4 className={cn("font-semibold text-sm", isCompleted ? "line-through text-stone-400" : "text-stone-900")}>
+                          <h4 className={cn("font-semibold text-sm", isCompleted ? "line-through text-stone-400" : "text-stone-900 dark:text-stone-100")}>
                             {task.title}
                           </h4>
                           {getPriorityBadge(task.priority)}
@@ -417,6 +439,16 @@ export default function TasksPage() {
                         )}
                       </div>
                     </div>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteConfirmTask({ id: task.id, title: task.title })}
+                      className="text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl h-8 w-8 p-0 shrink-0"
+                      title="Excluir tarefa"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 );
               })}
@@ -437,6 +469,39 @@ export default function TasksPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteConfirmTask} onOpenChange={(open) => { if (!open) setDeleteConfirmTask(null); }}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600">
+              <Trash2 className="h-5 w-5" />
+              Excluir Tarefa
+            </DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir a tarefa <strong>&ldquo;{deleteConfirmTask?.title}&rdquo;</strong>? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirmTask(null)}
+              disabled={deleting}
+              className="rounded-xl"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleDeleteTask}
+              disabled={deleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl"
+            >
+              <Trash2 className="h-4 w-4 mr-1.5" />
+              {deleting ? 'Excluindo...' : 'Sim, excluir'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

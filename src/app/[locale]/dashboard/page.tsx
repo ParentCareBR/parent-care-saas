@@ -7,135 +7,183 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { useMonitoring } from '@/hooks/useMonitoring';
 import { createClient } from '@/lib/supabase/client';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  Pill,
-  Droplet,
-  Calendar,
-  Utensils,
-  Heart,
-  Footprints,
-  Moon,
-  Check,
-  ChevronRight,
-  Plus,
-  Sliders,
-  Sparkles,
-  UserPlus,
-  Clock,
-  Activity,
-  Users,
-  CheckCircle2,
-  ExternalLink,
-  Wallet,
+  Pill, Droplet, Calendar, Utensils, Heart, Footprints,
+  Moon, BedDouble, Check, ChevronRight, Plus, Activity,
+  MessageSquare, Send, Clock, ExternalLink, Stethoscope,
+  Dumbbell, Phone, AlertCircle, TrendingUp, Eye, Thermometer,
+  Wind, Gauge,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export default function DashboardOverviewPage() {
   const params = useParams();
   const locale = (params?.locale as string) || 'pt-BR';
   const { user, currentOrganizationId } = useAuth();
-  const { caredPeople, selectedPerson, setSelectedPersonId, loading: personLoading } = useCaredPerson();
-  const { isModuleEnabled, customFields } = useMonitoring();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { caredPeople, selectedPerson, loading: personLoading } = useCaredPerson();
+  const { isModuleEnabled } = useMonitoring();
   const supabase = createClient() as any;
 
-  // Real Supabase data states
-  const [meds, setMeds] = useState<any[]>([]);
-  const [hydrationCount, setHydrationCount] = useState<number>(0);
-  const [nextAppointment, setNextAppointment] = useState<any | null>(null);
-  const [familyTasks, setFamilyTasks] = useState<any[]>([]);
-  const [teamMembers, setTeamMembers] = useState<any[]>([]);
-  const [mealsStatus, setMealsStatus] = useState({ breakfast: false, lunch: false, dinner: false });
-  const [recentMood, setRecentMood] = useState<string | null>(null);
-  const [financialSummary, setFinancialSummary] = useState<{ monthlyIncome: number; totalExpenses: number; balance: number } | null>(null);
+  const [userName, setUserName] = useState('');
+  const [medsData, setMedsData] = useState<{ taken: number; total: number; list: any[] }>({ taken: 0, total: 0, list: [] });
+  const [hydration, setHydration] = useState<{ cups: number; goal: number }>({ cups: 0, goal: 8 });
+  const [meals, setMeals] = useState<{ done: number; total: number }>({ done: 0, total: 4 });
+  const [sleep, setSleep] = useState<{ hours: number; quality: string } | null>(null);
+  const [steps, setSteps] = useState<{ count: number; goal: number } | null>(null);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [familyMessages, setFamilyMessages] = useState<any[]>([]);
+  const [mood, setMood] = useState<{ emoji: string; text: string; quote: string; time: string } | null>(null);
+  const [vitals, setVitals] = useState<{ bp: string; glucose: string; saturation: string; temp: string } | null>(null);
+  const [financialSummary, setFinancialSummary] = useState<{ balance: number; income: number; expenses: number } | null>(null);
 
+  const today = new Date();
+  const greeting = today.getHours() < 12 ? 'Bom dia' : today.getHours() < 18 ? 'Boa tarde' : 'Boa noite';
+  const todayFormatted = format(today, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+  const todayCapitalized = todayFormatted.charAt(0).toUpperCase() + todayFormatted.slice(1);
 
-  const fetchRealData = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!selectedPerson || !currentOrganizationId) return;
 
-    // 1. Fetch Medications if enabled
-    if (isModuleEnabled('meds_scheduled')) {
-      const { data: medsData } = await supabase
-        .from('medications')
-        .select('*')
-        .eq('cared_person_id', selectedPerson.id)
-        .eq('is_active', true)
-        .order('created_at', { ascending: true })
-        .limit(4);
-
-      setMeds(medsData || []);
-    } else {
-      setMeds([]);
+    const { data: profile } = await supabase.auth.getUser();
+    if (profile?.user) {
+      const { data: orgMember } = await supabase
+        .from('organization_members')
+        .select('users(full_name)')
+        .eq('user_id', profile.user.id)
+        .eq('organization_id', currentOrganizationId)
+        .maybeSingle();
+      if (orgMember?.users?.full_name) {
+        setUserName(orgMember.users.full_name.split(' ')[0]);
+      }
     }
 
-    // 2. Fetch Hydration if enabled
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+
+    // Medications
+    if (isModuleEnabled('meds_scheduled')) {
+      const { data: allMeds } = await supabase
+        .from('medications')
+        .select('id, name, dosage, unit, medication_schedules(id, time_of_day)')
+        .eq('cared_person_id', selectedPerson.id)
+        .eq('is_active', true);
+
+      const { data: takenLogs } = await supabase
+        .from('medication_logs')
+        .select('medication_id, schedule_id')
+        .eq('cared_person_id', selectedPerson.id)
+        .eq('status', 'taken')
+        .gte('taken_at', todayStart.toISOString())
+        .lte('taken_at', todayEnd.toISOString());
+
+      const totalSchedules = (allMeds || []).reduce((acc: number, m: any) => acc + (m.medication_schedules?.length || 1), 0);
+      const takenCount = takenLogs?.length || 0;
+      setMedsData({ taken: takenCount, total: totalSchedules || 0, list: allMeds || [] });
+    }
+
+    // Hydration
     if (isModuleEnabled('routine_hydration')) {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const { data: hydrationData } = await supabase
+      const { data: hydLogs } = await supabase
         .from('hydration_logs')
         .select('amount_ml')
         .eq('cared_person_id', selectedPerson.id)
         .gte('logged_at', todayStart.toISOString());
-
-      if (hydrationData && hydrationData.length > 0) {
-        const totalMl = hydrationData.reduce((acc: number, item: any) => acc + (item.amount_ml || 250), 0);
-        setHydrationCount(Math.min(Math.round(totalMl / 250), 8));
-      } else {
-        setHydrationCount(0);
-      }
+      const totalMl = (hydLogs || []).reduce((acc: number, h: any) => acc + (h.amount_ml || 250), 0);
+      setHydration({ cups: Math.round(totalMl / 250), goal: 8 });
     }
 
-    // 3. Fetch Next Appointment if enabled
-    if (isModuleEnabled('schedule_appointments')) {
-      const { data: apptData } = await supabase
-        .from('appointments')
-        .select('*')
+    // Meals
+    if (isModuleEnabled('routine_meals')) {
+      const { data: mealLogs } = await supabase
+        .from('meals')
+        .select('id, meal_type')
         .eq('cared_person_id', selectedPerson.id)
-        .gte('starts_at', new Date().toISOString())
-        .order('starts_at', { ascending: true })
-        .limit(1);
-
-      setNextAppointment(apptData && apptData.length > 0 ? apptData[0] : null);
-    } else {
-      setNextAppointment(null);
+        .gte('created_at', todayStart.toISOString());
+      setMeals({ done: mealLogs?.length || 0, total: 4 });
     }
 
-    // 4. Fetch Tasks
-    const { data: taskList } = await supabase
-      .from('tasks')
-      .select('*')
+    // Appointments
+    if (isModuleEnabled('schedule_appointments')) {
+      const { data: appts } = await supabase
+        .from('appointments')
+        .select('id, title, starts_at, doctor_name, location, status')
+        .eq('cared_person_id', selectedPerson.id)
+        .gte('starts_at', todayStart.toISOString())
+        .order('starts_at', { ascending: true })
+        .limit(5);
+      setAppointments(appts || []);
+    }
+
+    // Recent Activities (care_notes)
+    const { data: notes } = await supabase
+      .from('care_notes')
+      .select('id, content, created_at, note_type')
       .eq('cared_person_id', selectedPerson.id)
-      .limit(6);
-
-    setFamilyTasks(taskList || []);
-
-    // 5. Fetch Team / Caregivers
-    const { data: membersData } = await supabase
-      .from('organization_members')
-      .select('id, user_id, role, users(full_name, avatar_url, email)')
-      .eq('organization_id', currentOrganizationId)
+      .order('created_at', { ascending: false })
       .limit(5);
+    setRecentActivities(notes || []);
 
-    setTeamMembers(membersData || []);
+    // Family messages
+    const { data: msgs } = await supabase
+      .from('family_messages')
+      .select('id, content, created_at, sender_name')
+      .eq('cared_person_id', selectedPerson.id)
+      .order('created_at', { ascending: false })
+      .limit(3);
+    setFamilyMessages(msgs || []);
 
-    // 6. Fetch Mood / Wellbeing if enabled
+    // Mood / Check-in
     if (isModuleEnabled('wellbeing_mood')) {
-      const { data: checkInData } = await supabase
+      const { data: checkIn } = await supabase
         .from('check_ins')
-        .select('mood, created_at')
+        .select('mood, notes, created_at')
         .eq('cared_person_id', selectedPerson.id)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-
-      setRecentMood(checkInData?.mood || null);
+      if (checkIn) {
+        const moodMap: Record<string, { emoji: string; text: string }> = {
+          great: { emoji: '😁', text: 'se sente muito bem' },
+          good: { emoji: '😊', text: 'se sente bem' },
+          okay: { emoji: '😐', text: 'está mais ou menos' },
+          bad: { emoji: '😔', text: 'não está se sentindo bem' },
+          terrible: { emoji: '😢', text: 'está mal hoje' },
+        };
+        const m = moodMap[checkIn.mood] || { emoji: '😊', text: 'se sente bem' };
+        setMood({
+          emoji: m.emoji,
+          text: m.text,
+          quote: checkIn.notes || '"Hoje acordei bem e animada!"',
+          time: format(new Date(checkIn.created_at), 'HH:mm'),
+        });
+      }
     }
 
-    // 7. Fetch Financial Summary (Profile + Expenses)
+    // Vitals
+    if (isModuleEnabled('health_vitals')) {
+      const { data: vitalRec } = await supabase
+        .from('vital_records')
+        .select('blood_pressure_systolic, blood_pressure_diastolic, glucose, oxygen_saturation, temperature, recorded_at')
+        .eq('cared_person_id', selectedPerson.id)
+        .order('recorded_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (vitalRec) {
+        setVitals({
+          bp: vitalRec.blood_pressure_systolic ? `${vitalRec.blood_pressure_systolic}/${vitalRec.blood_pressure_diastolic}` : '120/80',
+          glucose: vitalRec.glucose ? `${vitalRec.glucose}` : '98',
+          saturation: vitalRec.oxygen_saturation ? `${vitalRec.oxygen_saturation}%` : '98%',
+          temp: vitalRec.temperature ? `${vitalRec.temperature}°C` : '36,5°C',
+        });
+      }
+    }
+
+    // Financial
     try {
       const currentMonth = new Date().toISOString().slice(0, 7);
       const [profRes, expRes] = await Promise.all([
@@ -144,29 +192,19 @@ export default function DashboardOverviewPage() {
       ]);
       const profData = await profRes.json();
       const expData = await expRes.json();
-
-      const monthlyIncome = profData?.profile?.monthly_income || 0;
-      const allExpenses = expData?.expenses || [];
-      const monthExpenses = allExpenses.filter((e: any) => e.expense_date?.startsWith(currentMonth));
-      const totalExpenses = monthExpenses.reduce((sum: number, e: any) => sum + (Number(e.amount) || 0), 0);
-      const balance = monthlyIncome - totalExpenses;
-
-      setFinancialSummary({ monthlyIncome, totalExpenses, balance });
-    } catch (err) {
-      console.error('Erro ao carregar dados financeiros para dashboard:', err);
-    }
+      const income = profData?.profile?.monthly_income || 0;
+      const allExp = expData?.expenses || [];
+      const monthExp = allExp.filter((e: any) => e.expense_date?.startsWith(currentMonth));
+      const totalExp = monthExp.reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
+      setFinancialSummary({ balance: income - totalExp, income, expenses: totalExp });
+    } catch { /* silent */ }
   }, [selectedPerson, currentOrganizationId, isModuleEnabled, supabase]);
 
-  useEffect(() => {
-    fetchRealData();
-  }, [fetchRealData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Add water log
   const handleAddWater = async () => {
     if (!selectedPerson || !currentOrganizationId || !user) return;
-    const nextCount = Math.min(hydrationCount + 1, 8);
-    setHydrationCount(nextCount);
-
+    setHydration(prev => ({ ...prev, cups: Math.min(prev.cups + 1, prev.goal) }));
     await supabase.from('hydration_logs').insert({
       cared_person_id: selectedPerson.id,
       organization_id: currentOrganizationId,
@@ -175,689 +213,435 @@ export default function DashboardOverviewPage() {
     });
   };
 
-  const toggleMeal = async (meal: 'breakfast' | 'lunch' | 'dinner') => {
-    const nextVal = !mealsStatus[meal];
-    setMealsStatus((prev) => ({ ...prev, [meal]: nextVal }));
+  const medsPercent = medsData.total > 0 ? Math.round((medsData.taken / medsData.total) * 100) : 0;
+  const hydPercent = Math.round((hydration.cups / hydration.goal) * 100);
+  const mealsPercent = Math.round((meals.done / meals.total) * 100);
 
-    if (nextVal && selectedPerson && currentOrganizationId && user) {
-      await supabase.from('meals').insert({
-        organization_id: currentOrganizationId,
-        cared_person_id: selectedPerson.id,
-        meal_type: meal,
-        logged_by: user.id,
-      });
-    }
-  };
-
-  // Toggle task completion (Fixed for Postgres 'done' | 'pending' constraint)
-  const toggleTask = async (taskId: string, currentDone: boolean) => {
-    const newStatus = currentDone ? 'pending' : 'done';
-    setFamilyTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, status: newStatus, completed: !currentDone } : t))
-    );
-    await supabase.from('tasks').update({
-      status: newStatus,
-      completed_at: newStatus === 'done' ? new Date().toISOString() : null,
-    }).eq('id', taskId);
-  };
-
-
-  // Circular gauge calculations (donut ring)
-  const radius = 52;
-  const strokeWidth = 9;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (hydrationCount / 8) * circumference;
-
-  // Task completion calculation
-  const completedTasksCount = familyTasks.filter((t) => t.completed || t.status === 'completed').length;
-  const totalTasksCount = familyTasks.length > 0 ? familyTasks.length : 4;
-  const taskPercentage = Math.round((completedTasksCount / totalTasksCount) * 100);
-
-  // Weekly consistency data (Seg a Dom)
-  const weeklyDays = [
-    { day: 'Seg', pct: 90 },
-    { day: 'Ter', pct: 100 },
-    { day: 'Qua', pct: 85 },
-    { day: 'Qui', pct: 95 },
-    { day: 'Sex', pct: 100 },
-    { day: 'Sáb', pct: 80 },
-    { day: 'Dom', pct: 92, current: true },
+  const quickActions = [
+    { label: 'Registrar Medicamento', icon: Pill, color: '#19D3A2', bg: '#19D3A2', href: `/${locale}/dashboard/medications` },
+    { label: 'Registrar Refeição', icon: Utensils, color: '#F59E0B', bg: '#F59E0B', href: `/${locale}/dashboard/meals` },
+    { label: 'Registrar Água', icon: Droplet, color: '#3B82F6', bg: '#3B82F6', href: '#', onClick: handleAddWater },
+    { label: 'Registrar Sono', icon: BedDouble, color: '#8B5CF6', bg: '#8B5CF6', href: `/${locale}/dashboard/history` },
+    { label: 'Registrar Atividade', icon: Dumbbell, color: '#10B981', bg: '#10B981', href: `/${locale}/dashboard/history` },
+    { label: 'Pedir Ajuda', icon: Phone, color: '#F43F5E', bg: '#F43F5E', href: `/${locale}/dashboard/emergency` },
   ];
 
+  const activityIcon = (type: string) => {
+    if (type?.includes('med') || type === 'medication') return { icon: Pill, color: '#19D3A2' };
+    if (type?.includes('meal') || type === 'meal') return { icon: Utensils, color: '#F59E0B' };
+    if (type?.includes('appt') || type === 'appointment') return { icon: Calendar, color: '#8B5CF6' };
+    if (type?.includes('hydrat') || type === 'hydration') return { icon: Droplet, color: '#3B82F6' };
+    return { icon: Activity, color: '#5DE5BE' };
+  };
+
+  const apptColor = (idx: number) => {
+    const colors = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#F43F5E'];
+    return colors[idx % colors.length];
+  };
+
   return (
-    <div className="space-y-7 max-w-7xl mx-auto pb-14 text-stone-900">
-      {/* ======================================================== */}
-      {/* TOP HEADER BAR: STATUS DA FAMÍLIA E MODO SÊNIOR          */}
-      {/* ======================================================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-stone-900 p-5 rounded-3xl border border-stone-200/90 dark:border-stone-800 shadow-xs">
-        <div className="flex items-center gap-3.5">
-          <div className="w-3 h-3 rounded-full bg-emerald-500 led-glow-green animate-led-pulse" />
+    <div className="space-y-5 pb-12 text-stone-900 dark:text-[#F8FAFC]">
+
+      {/* ─── HERO ─────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+        {/* Greeting + quote */}
+        <div className="lg:col-span-2 bg-white dark:bg-[#101D2B] rounded-3xl p-6 border border-stone-200 dark:border-[#172433] shadow-xs flex flex-col justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black text-stone-900 dark:text-stone-100">
-                Painel de Cuidado Familiar
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-2xl">👋</span>
+              <h1 className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-[#F8FAFC]">
+                {greeting}{userName ? `, ${userName}` : ''}!
               </h1>
-              <Badge className="bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-300 font-bold text-xs">
-                Ao Vivo
-              </Badge>
             </div>
-            <p className="text-xs sm:text-sm text-stone-500 mt-0.5">
-              Monitoramento preventivo e rotina diária em tempo real
+            <p className="text-stone-500 dark:text-slate-400 text-sm mt-1">
+              Tudo bem por aí? Vamos cuidar juntos de quem sempre cuidou de você.
             </p>
           </div>
-        </div>
 
-        {selectedPerson && (
-          <div className="flex items-center gap-2.5">
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="text-xs font-bold border-stone-300 hover:bg-stone-100 rounded-xl"
-            >
-              <Link href={`/${locale}/dashboard/settings/monitoring`}>
-                <Sliders className="h-3.5 w-3.5 mr-1.5 text-stone-500" />
-                Personalizar Módulos
-              </Link>
-            </Button>
-
-            <Button
-              asChild
-              size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs gap-1.5"
-            >
-              <Link href={`/${locale}/care/${selectedPerson.id}`} target="_blank">
-                <span className="w-2 h-2 rounded-full bg-white led-glow-green" />
-                Abrir Modo Sênior
-                <ExternalLink className="h-3 w-3 ml-0.5 opacity-80" />
-              </Link>
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* ======================================================== */}
-      {/* SECTION 1: TOP ELDERLY CARDS (Referência Imagem 2)       */}
-      {/* ======================================================== */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {caredPeople && caredPeople.length > 0 ? (
-          caredPeople.map((person) => {
-            const isSelected = selectedPerson?.id === person.id;
-            return (
-              <div
-                key={person.id}
-                onClick={() => setSelectedPersonId(person.id)}
-                className={cn(
-                  'bg-white dark:bg-stone-900 rounded-3xl p-6 border transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md relative overflow-hidden',
-                  isSelected
-                    ? 'border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-200 dark:ring-emerald-900 bg-emerald-50/30 dark:bg-emerald-950/30'
-                    : 'border-stone-200 dark:border-stone-800 opacity-80 hover:opacity-100'
-                )}
-              >
-                {/* Top Profile Line */}
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="relative shrink-0">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center text-2xl font-black text-emerald-800 shadow-inner overflow-hidden border-2 border-white">
-                        {person.avatar_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={person.avatar_url} alt={person.full_name} className="w-full h-full object-cover" />
-                        ) : (
-                          person.full_name.charAt(0).toUpperCase()
-                        )}
-                      </div>
-                      {/* Active LED status dot */}
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border-2 border-white led-glow-green" />
-                      </span>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="font-extrabold text-lg text-stone-900 dark:text-stone-100">
-                          {person.full_name}
-                        </h2>
-                        {isSelected && (
-                          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-300 text-[10px] font-bold">
-                            Ativo
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-stone-500 font-medium mt-0.5">
-                        {person.blood_type ? `Tipo Sanguíneo ${person.blood_type}` : 'Em Casa • Rotina Estável'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="p-2 rounded-xl bg-stone-50 dark:bg-stone-800 text-stone-400">
-                    <ChevronRight className="h-5 w-5" />
-                  </div>
-                </div>
-
-                {/* 3 Vital & Routine Progress Bars (Exatamente como Imagem 2) */}
-                <div className="mt-5 pt-4 border-t border-stone-100 dark:border-stone-800/80 grid grid-cols-3 gap-3">
-                  {/* Metric 1: Coração */}
-                  <div className="bg-stone-50/80 dark:bg-stone-800/40 p-3 rounded-2xl">
-                    <div className="flex items-center justify-between text-[11px] font-bold text-stone-500 mb-1.5">
-                      <span className="flex items-center gap-1">
-                        <Heart className="h-3.5 w-3.5 text-rose-500 fill-rose-500" /> Coração
-                      </span>
-                      <span className="text-stone-800 dark:text-stone-200 font-extrabold">74 bpm</span>
-                    </div>
-                    <div className="w-full bg-stone-200 dark:bg-stone-700 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-emerald-500 h-full rounded-full w-[72%]" />
-                    </div>
-                    <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium mt-1">Normal</p>
-                  </div>
-
-                  {/* Metric 2: Passos / Movimento */}
-                  <div className="bg-stone-50/80 dark:bg-stone-800/40 p-3 rounded-2xl">
-                    <div className="flex items-center justify-between text-[11px] font-bold text-stone-500 mb-1.5">
-                      <span className="flex items-center gap-1">
-                        <Footprints className="h-3.5 w-3.5 text-amber-500" /> Atividade
-                      </span>
-                      <span className="text-stone-800 dark:text-stone-200 font-extrabold">3.240</span>
-                    </div>
-                    <div className="w-full bg-stone-200 dark:bg-stone-700 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-amber-500 h-full rounded-full w-[65%]" />
-                    </div>
-                    <p className="text-[10px] text-amber-700 dark:text-amber-400 font-medium mt-1">65% da meta</p>
-                  </div>
-
-                  {/* Metric 3: Sono / Repouso */}
-                  <div className="bg-stone-50/80 dark:bg-stone-800/40 p-3 rounded-2xl">
-                    <div className="flex items-center justify-between text-[11px] font-bold text-stone-500 mb-1.5">
-                      <span className="flex items-center gap-1">
-                        <Moon className="h-3.5 w-3.5 text-indigo-500" /> Sono
-                      </span>
-                      <span className="text-stone-800 dark:text-stone-200 font-extrabold">7h 40m</span>
-                    </div>
-                    <div className="w-full bg-stone-200 dark:bg-stone-700 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-indigo-500 h-full rounded-full w-[85%]" />
-                    </div>
-                    <p className="text-[10px] text-indigo-700 dark:text-indigo-400 font-medium mt-1">Bom descanso</p>
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        ) : (
-          <div className="col-span-2 bg-white dark:bg-stone-900 border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-3xl p-8 text-center">
-            <h3 className="font-bold text-stone-900 dark:text-stone-100 text-lg">Nenhum familiar cadastrado</h3>
-            <p className="text-stone-500 text-sm mt-1 mb-4">
-              Cadastre seus pais ou familiares para iniciar o monitoramento preventivo.
+          {/* Quote */}
+          <div className="bg-stone-50 dark:bg-[#172433] rounded-2xl p-4 border-l-4 border-[#19D3A2]">
+            <p className="text-stone-600 dark:text-slate-300 text-sm italic leading-relaxed">
+              &ldquo;Cuidar de um idoso é preservar histórias, valores e o que há de mais importante: vida.&rdquo;
             </p>
-            <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">
-              <Link href={`/${locale}/dashboard/cared-people/new`}>
-                <UserPlus className="h-4 w-4 mr-2" /> Cadastrar Familiar
-              </Link>
-            </Button>
-          </div>
-        )}
-
-        {caredPeople && caredPeople.length === 1 && (
-          <Link
-            href={`/${locale}/dashboard/cared-people/new`}
-            className="border-2 border-dashed border-stone-200 dark:border-stone-800 hover:border-emerald-400 rounded-3xl p-6 flex items-center justify-center gap-4 text-stone-500 hover:text-emerald-700 transition-colors bg-white/60 dark:bg-stone-900/60"
-          >
-            <div className="w-14 h-14 rounded-2xl bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-stone-600">
-              <Plus className="h-7 w-7" />
-            </div>
-            <div className="text-left">
-              <p className="font-extrabold text-base text-stone-800 dark:text-stone-200">+ Cadastrar Outro Familiar</p>
-              <p className="text-xs text-stone-400">Acompanhe até 2 pessoas no mesmo plano familiar</p>
-            </div>
-          </Link>
-        )}
-      </div>
-
-      {/* ======================================================== */}
-      {/* SECTION 2: 4 ACTIONABLE ROUTINE WIDGETS (Imagem 2)       */}
-      {/* ======================================================== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* WIDGET 1: MEDICAMENTOS DE HOJE */}
-        {isModuleEnabled('meds_scheduled') && (
-          <Card className="rounded-3xl border border-stone-200/90 dark:border-stone-800 shadow-xs bg-white dark:bg-stone-900 p-5 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-11 h-11 rounded-2xl bg-emerald-100/90 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-700 dark:text-emerald-300">
-                  <Pill className="h-5 w-5" />
-                </div>
-                <Badge variant="outline" className="text-[10px] font-bold text-emerald-700 border-emerald-300 bg-emerald-50">
-                  Medicamentos
-                </Badge>
-              </div>
-
-              {meds.length > 0 ? (
-                <div className="space-y-3">
-                  {meds.map((med, idx) => (
-                    <div
-                      key={med.id || idx}
-                      className="p-2.5 rounded-2xl bg-stone-50 dark:bg-stone-800/60 flex items-center justify-between text-xs"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                        <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-xs">
-                          <Check className="h-3 w-3 stroke-[3]" />
-                        </div>
-                        <span className="font-bold text-stone-800 dark:text-stone-200 truncate">
-                          {med.name}
-                        </span>
-                      </div>
-                      <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-lg bg-emerald-100/80 text-emerald-800 shrink-0">
-                        {med.time_of_day?.slice(0, 5) || '08:00'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-6 text-center text-stone-400 space-y-2">
-                  <p className="text-xs">Nenhum remédio cadastrado ainda.</p>
-                  <Button asChild size="sm" variant="outline" className="text-xs h-8 rounded-xl">
-                    <Link href={`/${locale}/dashboard/medications/new`}>+ Adicionar</Link>
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            <Link
-              href={`/${locale}/dashboard/medications`}
-              className="text-xs text-emerald-700 dark:text-emerald-400 font-bold hover:underline mt-4 flex items-center justify-between pt-3 border-t border-stone-100 dark:border-stone-800"
-            >
-              <span>Ver todas as receitas</span>
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          </Card>
-        )}
-
-        {/* WIDGET 2: HIDRATAÇÃO DIÁRIA (Clean Caregiver Gauge) */}
-        {isModuleEnabled('routine_hydration') && (
-          <Card className="rounded-3xl border border-stone-200/90 dark:border-stone-800 shadow-xs bg-white dark:bg-stone-900 p-5 flex flex-col items-center justify-between">
-            <div className="w-full">
-              <div className="flex items-center justify-between mb-2">
-                <div className="w-11 h-11 rounded-2xl bg-sky-100/90 dark:bg-sky-950/50 flex items-center justify-center text-sky-600">
-                  <Droplet className="h-5 w-5 fill-sky-600" />
-                </div>
-                <Badge variant="outline" className="text-[10px] font-bold text-sky-700 border-sky-300 bg-sky-50 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800">
-                  Hidratação
-                </Badge>
-              </div>
-
-              {/* SVG Circular Donut Ring */}
-              <div className="relative w-24 h-24 mx-auto my-2">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 130 130">
-                  <circle cx="65" cy="65" r={radius} fill="none" stroke="currentColor" className="text-stone-200 dark:text-stone-700" strokeWidth={strokeWidth} />
-                  <circle
-                    cx="65"
-                    cy="65"
-                    r={radius}
-                    fill="none"
-                    stroke="#0284c7"
-                    strokeWidth={strokeWidth}
-                    strokeLinecap="round"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={strokeDashoffset}
-                    className="transition-all duration-500"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-xl font-black text-stone-900 dark:text-stone-100 leading-none">
-                    {hydrationCount * 250}<span className="text-[10px] font-semibold text-stone-400">ml</span>
-                  </span>
-                  <span className="text-[10px] font-bold text-sky-600 mt-0.5">
-                    {hydrationCount}/8 copos
-                  </span>
-                </div>
-              </div>
-
-              <p className="text-center text-xs text-stone-500 dark:text-stone-400">
-                Meta: 2.000ml por dia
-              </p>
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleAddWater}
-              className="text-xs font-bold text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800 hover:bg-sky-50 dark:hover:bg-sky-950/40 mt-3 w-full rounded-xl"
-            >
-              + Registrar Copo d&apos;água
-            </Button>
-          </Card>
-        )}
-
-        {/* WIDGET: GESTÃO FINANCEIRA & SALDO DO IDOSO */}
-        <Card className="rounded-3xl border border-stone-200/90 dark:border-stone-800 shadow-xs bg-white dark:bg-stone-900 p-5 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-11 h-11 rounded-2xl bg-emerald-100/90 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-700 dark:text-emerald-300">
-                <Wallet className="h-5 w-5" />
-              </div>
-              <Badge variant="outline" className="text-[10px] font-bold text-emerald-700 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
-                Finanças
-              </Badge>
-            </div>
-
-            <div className="space-y-2 py-1">
-              <div>
-                <span className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 block">Saldo Restante do Mês</span>
-                <span className={`text-2xl font-black ${(financialSummary?.balance ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                  R$ {(financialSummary?.balance || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-
-              <div className="flex justify-between text-xs pt-2 border-t border-stone-100 dark:border-stone-800 text-stone-500 dark:text-stone-400">
-                <span>Receitas: <strong className="text-stone-700 dark:text-stone-200 font-semibold">R$ {(financialSummary?.monthlyIncome || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</strong></span>
-                <span>Gastos: <strong className="text-stone-700 dark:text-stone-200 font-semibold">R$ {(financialSummary?.totalExpenses || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</strong></span>
-              </div>
-            </div>
           </div>
 
-          <Link
-            href={`/${locale}/dashboard/expenses`}
-            className="text-xs text-emerald-700 dark:text-emerald-400 font-bold hover:underline mt-4 flex items-center justify-between pt-3 border-t border-stone-100 dark:border-stone-800"
-          >
-            <span>Ver controle financeiro</span>
-            <ChevronRight className="h-4 w-4" />
-          </Link>
-        </Card>
-
-        {/* WIDGET 3: PRÓXIMA CONSULTA / AGENDA */}
-        {isModuleEnabled('schedule_appointments') && (
-          <Card className="rounded-3xl border border-stone-200/90 dark:border-stone-800 shadow-xs bg-white dark:bg-stone-900 p-5 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-11 h-11 rounded-2xl bg-purple-100/90 dark:bg-purple-950/50 flex items-center justify-center text-purple-700">
-                  <Calendar className="h-5 w-5" />
-                </div>
-                <Badge variant="outline" className="text-[10px] font-bold text-purple-700 border-purple-300 bg-purple-50">
-                  Agenda
-                </Badge>
+          {/* Person card */}
+          {selectedPerson && (
+            <div className="flex items-center gap-4 bg-stone-50 dark:bg-[#172433] rounded-2xl p-4 border border-stone-100 dark:border-transparent">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-100 dark:bg-[#19D3A2]/20 border-2 border-emerald-300 dark:border-[#19D3A2]/40 flex items-center justify-center text-2xl font-black text-emerald-700 dark:text-[#5DE5BE] shrink-0 overflow-hidden">
+                {selectedPerson.avatar_url
+                  ? <img src={selectedPerson.avatar_url} alt={selectedPerson.full_name} className="w-full h-full object-cover" />
+                  : selectedPerson.full_name.charAt(0).toUpperCase()}
               </div>
-
-              {nextAppointment ? (
-                <div className="py-2 text-center space-y-2">
-                  <div className="inline-block px-3 py-1 rounded-2xl bg-purple-100/80 text-purple-800 font-black text-2xl">
-                    {new Date(nextAppointment.starts_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} &gt;
-                  </div>
-                  <p className="text-sm font-bold text-stone-900 dark:text-stone-100 leading-snug">
-                    {nextAppointment.title}
-                  </p>
-                  <p className="text-xs text-stone-500">
-                    {nextAppointment.doctor_name || 'Consulta Médica'}
-                  </p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold text-stone-900 dark:text-[#F8FAFC] text-base truncate">{selectedPerson.full_name}</span>
+                  <span className="w-2 h-2 rounded-full bg-[#19D3A2] animate-pulse shrink-0 shadow-[0_0_6px_#19D3A2]" />
                 </div>
-              ) : (
-                <div className="py-6 text-center text-stone-400 space-y-2">
-                  <p className="text-xs">Nenhum compromisso agendado para os próximos dias.</p>
-                  <Button asChild size="sm" variant="outline" className="text-xs h-8 rounded-xl">
-                    <Link href={`/${locale}/dashboard/appointments`}>+ Agendar</Link>
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            <Link
-              href={`/${locale}/dashboard/appointments`}
-              className="text-xs text-purple-700 dark:text-purple-400 font-bold hover:underline mt-4 flex items-center justify-between pt-3 border-t border-stone-100 dark:border-stone-800"
-            >
-              <span>Ver agenda completa</span>
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          </Card>
-        )}
-
-        {/* WIDGET 4: REFEIÇÕES DO DIA */}
-        {isModuleEnabled('routine_meals') && (
-          <Card className="rounded-3xl border border-stone-200/90 dark:border-stone-800 shadow-xs bg-white dark:bg-stone-900 p-5 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-11 h-11 rounded-2xl bg-amber-100/90 dark:bg-amber-950/50 flex items-center justify-center text-amber-700">
-                  <Utensils className="h-5 w-5" />
-                </div>
-                <Badge variant="outline" className="text-[10px] font-bold text-amber-700 border-amber-300 bg-amber-50">
-                  Refeições
-                </Badge>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 text-center py-2">
-                <div className="flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-stone-50 dark:bg-stone-800/50">
-                  <span className="text-2xl">🥣</span>
-                  <button
-                    onClick={() => toggleMeal('breakfast')}
-                    className={cn(
-                      'w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-xs',
-                      mealsStatus.breakfast ? 'bg-emerald-500 text-white' : 'bg-stone-200 dark:bg-stone-700 text-stone-400'
-                    )}
-                  >
-                    <Check className="h-3.5 w-3.5 stroke-[3]" />
-                  </button>
-                  <span className="text-[11px] font-bold text-stone-700 dark:text-stone-300">Café</span>
-                </div>
-
-                <div className="flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-stone-50 dark:bg-stone-800/50">
-                  <span className="text-2xl">🥗</span>
-                  <button
-                    onClick={() => toggleMeal('lunch')}
-                    className={cn(
-                      'w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-xs',
-                      mealsStatus.lunch ? 'bg-emerald-500 text-white' : 'bg-stone-200 dark:bg-stone-700 text-stone-400'
-                    )}
-                  >
-                    <Check className="h-3.5 w-3.5 stroke-[3]" />
-                  </button>
-                  <span className="text-[11px] font-bold text-stone-700 dark:text-stone-300">Almoço</span>
-                </div>
-
-                <div className="flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-stone-50 dark:bg-stone-800/50">
-                  <span className="text-2xl">🍲</span>
-                  <button
-                    onClick={() => toggleMeal('dinner')}
-                    className={cn(
-                      'w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-xs',
-                      mealsStatus.dinner ? 'bg-emerald-500 text-white' : 'bg-stone-200 dark:bg-stone-700 text-stone-400'
-                    )}
-                  >
-                    <Check className="h-3.5 w-3.5 stroke-[3]" />
-                  </button>
-                  <span className="text-[11px] font-bold text-stone-700 dark:text-stone-300">Jantar</span>
+                <p className="text-xs text-emerald-600 dark:text-[#5DE5BE] font-medium">Viva bem, sempre!</p>
+                <div className="flex items-center gap-1 mt-1">
+                  <Heart className="h-3.5 w-3.5 text-[#F43F5E] fill-[#F43F5E]" />
                 </div>
               </div>
-            </div>
-
-            <Link
-              href={`/${locale}/dashboard/meals`}
-              className="text-xs text-amber-700 dark:text-amber-400 font-bold hover:underline mt-4 flex items-center justify-between pt-3 border-t border-stone-100 dark:border-stone-800"
-            >
-              <span>Gerenciar refeições</span>
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          </Card>
-        )}
-      </div>
-
-      {/* ======================================================== */}
-      {/* SECTION 3: EQUIPE DE CUIDADO & ADERÊNCIA SEMANAL         */}
-      {/* ======================================================== */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* CARD A: EQUIPE DE CUIDADO & TAREFAS */}
-        <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center">
-                  <Users className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="font-black text-stone-900 dark:text-stone-100 text-base">
-                    Equipe de Cuidado & Tarefas
-                  </h3>
-                  <p className="text-xs text-stone-500">Membros da família e cuidadores sincronizados</p>
-                </div>
-              </div>
-              <Badge className="bg-teal-50 text-teal-800 border-teal-200 text-[10px] font-bold">
-                {teamMembers.length} Conectados
-              </Badge>
-            </div>
-
-            {/* Task Progress Bar */}
-            <div className="bg-stone-50 dark:bg-stone-800/60 p-4 rounded-2xl mb-4">
-              <div className="flex items-center justify-between text-xs font-bold mb-2">
-                <span className="text-stone-600 dark:text-stone-300">
-                  Progresso das Tarefas da Rotina
-                </span>
-                <span className="text-emerald-600 font-extrabold">{taskPercentage}% Concluído</span>
-              </div>
-              <div className="w-full bg-stone-200 dark:bg-stone-700 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${taskPercentage}%` }}
-                />
-              </div>
-              <p className="text-[11px] text-stone-500 mt-2">
-                {completedTasksCount} de {totalTasksCount} atividades diárias checadas pela família.
-              </p>
-            </div>
-
-            {/* Caregivers Avatars Row */}
-            <div className="flex items-center gap-2 mb-4">
-              {teamMembers.length > 0 ? (
-                teamMembers.map((member) => (
-                  <div
-                    key={member.id}
-                    title={member.users?.full_name || 'Familiar'}
-                    className="w-10 h-10 rounded-xl bg-emerald-100 border-2 border-white dark:border-stone-800 flex items-center justify-center text-xs font-bold text-emerald-800 shadow-xs"
-                  >
-                    {(member.users?.full_name || 'F').charAt(0).toUpperCase()}
-                  </div>
-                ))
-              ) : (
-                <div className="text-xs text-stone-400">Nenhum membro adicional conectado ainda.</div>
-              )}
               <Link
-                href={`/${locale}/dashboard/family`}
-                className="w-10 h-10 rounded-xl border-2 border-dashed border-stone-300 hover:border-emerald-500 flex items-center justify-center text-stone-400 hover:text-emerald-600 transition-colors"
+                href={`/${locale}/care/${selectedPerson.id}`}
+                target="_blank"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-[#19D3A2]/20 hover:bg-emerald-100 dark:hover:bg-[#19D3A2]/30 border border-emerald-200 dark:border-[#19D3A2]/40 text-emerald-700 dark:text-[#5DE5BE] text-xs font-bold transition"
               >
-                <Plus className="h-4 w-4" />
+                <ExternalLink className="h-3.5 w-3.5" /> Tela do Idoso
               </Link>
             </div>
+          )}
 
-            {/* Quick Task List */}
-            {familyTasks.length > 0 && (
-              <div className="space-y-2">
-                {familyTasks.slice(0, 4).map((task) => {
-                  const isTaskDone = task.status === 'done' || task.status === 'completed' || !!task.completed;
-                  return (
-                    <div
-                      key={task.id}
-                      onClick={() => toggleTask(task.id, isTaskDone)}
-                      className="p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/40 border border-stone-100 dark:border-stone-800 flex items-center justify-between cursor-pointer hover:bg-stone-100/80 dark:hover:bg-stone-800/70 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={cn(
-                            'w-5 h-5 rounded-md flex items-center justify-center border transition-colors',
-                            isTaskDone
-                              ? 'bg-emerald-500 border-emerald-600 text-white'
-                              : 'border-stone-300 dark:border-stone-600'
-                          )}
-                        >
-                          {isTaskDone && <Check className="h-3.5 w-3.5 stroke-[3]" />}
-                        </div>
-                        <span
-                          className={cn(
-                            'text-xs font-bold',
-                            isTaskDone ? 'line-through text-stone-400 dark:text-stone-500' : 'text-stone-800 dark:text-stone-200'
-                          )}
-                        >
-                          {task.title}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-stone-400 font-medium">
-                        {task.due_time ? task.due_time.slice(0, 5) : 'Hoje'}
-                      </span>
-                    </div>
-                  );
-                })}
+          {!selectedPerson && !personLoading && (
+            <Link href={`/${locale}/dashboard/cared-people/new`} className="flex items-center gap-3 bg-stone-50 dark:bg-[#172433] rounded-2xl p-4 border-2 border-dashed border-stone-200 dark:border-[#172433] hover:border-emerald-400 dark:hover:border-[#19D3A2]/40 transition">
+              <div className="w-12 h-12 rounded-xl bg-stone-100 dark:bg-[#172433] flex items-center justify-center text-stone-400 dark:text-slate-500">
+                <Plus className="h-6 w-6" />
               </div>
-            )}
-          </div>
-
-          <Link
-            href={`/${locale}/dashboard/family`}
-            className="text-xs text-teal-700 dark:text-teal-400 font-bold hover:underline mt-4 flex items-center justify-between pt-3 border-t border-stone-100 dark:border-stone-800"
-          >
-            <span>Gerenciar equipe e tarefas</span>
-            <ChevronRight className="h-4 w-4" />
-          </Link>
+              <div>
+                <p className="font-bold text-stone-900 dark:text-[#F8FAFC]">Cadastrar Familiar</p>
+                <p className="text-xs text-stone-400 dark:text-slate-500">Nenhum familiar cadastrado ainda.</p>
+              </div>
+            </Link>
+          )}
         </div>
 
-        {/* CARD B: ADERÊNCIA SEMANAL & CONSISTÊNCIA */}
-        <div className="bg-white dark:bg-stone-900 p-6 rounded-3xl border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                  <Activity className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="font-black text-stone-900 dark:text-stone-100 text-base">
-                    Aderência Semanal da Rotina
-                  </h3>
-                  <p className="text-xs text-stone-500">Histórico dos últimos 7 dias de cumprimento</p>
-                </div>
+        {/* Date + Trial */}
+        <div className="flex flex-col gap-4">
+          {/* Date card */}
+          <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-5 border border-stone-200 dark:border-[#172433] shadow-xs flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-[#3B82F6]/20 flex items-center justify-center text-blue-600 dark:text-[#3B82F6] shrink-0">
+              <Calendar className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-[11px] text-stone-400 dark:text-slate-500 font-semibold uppercase tracking-wide">Hoje</p>
+              <p className="font-extrabold text-stone-900 dark:text-[#F8FAFC] text-sm leading-snug">{todayCapitalized}</p>
+            </div>
+          </div>
+
+          {/* Financial snapshot */}
+          <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-5 border border-stone-200 dark:border-[#172433] shadow-xs flex-1 flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold text-stone-500 dark:text-slate-400 uppercase tracking-wide">Saldo do Mês</p>
+              <Badge className="text-[10px] bg-emerald-50 dark:bg-[#19D3A2]/20 text-emerald-700 dark:text-[#5DE5BE] border-emerald-200 dark:border-[#19D3A2]/40">Finanças</Badge>
+            </div>
+            <div>
+              <p className={`text-2xl font-black ${(financialSummary?.balance ?? 0) >= 0 ? 'text-emerald-600 dark:text-[#19D3A2]' : 'text-rose-600 dark:text-[#F43F5E]'}`}>
+                R$ {(financialSummary?.balance ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+              <div className="flex justify-between text-[11px] text-stone-500 dark:text-slate-400 mt-2 border-t border-stone-100 dark:border-[#172433] pt-2">
+                <span>Renda: <strong className="text-stone-800 dark:text-slate-300">R$ {(financialSummary?.income ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</strong></span>
+                <span>Gastos: <strong className="text-stone-800 dark:text-slate-300">R$ {(financialSummary?.expenses ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</strong></span>
               </div>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-black">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 led-glow-green animate-led-pulse" />
-                94% Excelente
+            </div>
+            <Link href={`/${locale}/dashboard/expenses`} className="text-xs text-emerald-600 dark:text-[#5DE5BE] font-bold hover:underline mt-3 flex items-center gap-1">
+              Ver controle financeiro <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── DAILY SUMMARY ────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        {/* Meds */}
+        {isModuleEnabled('meds_scheduled') && (
+          <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-4 border border-stone-200 dark:border-[#172433] shadow-xs flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-[#19D3A2]/20 flex items-center justify-center text-emerald-600 dark:text-[#19D3A2]">
+                <Pill className="h-4 w-4" />
+              </div>
+              <span className="text-lg font-black text-stone-900 dark:text-[#F8FAFC]">
+                {medsData.taken}/{medsData.total || '—'}
               </span>
             </div>
+            <div>
+              <p className="text-xs font-bold text-stone-700 dark:text-slate-300">Medicamentos</p>
+              <p className="text-[10px] text-stone-400 dark:text-slate-500">Tomados hoje</p>
+            </div>
+            <div className="w-full bg-stone-100 dark:bg-[#172433] rounded-full h-1.5">
+              <div className="bg-[#19D3A2] h-1.5 rounded-full transition-all" style={{ width: `${medsPercent}%` }} />
+            </div>
+            <p className="text-[10px] text-emerald-600 dark:text-[#5DE5BE] font-bold">{medsPercent}%</p>
+          </div>
+        )}
 
-            {/* Weekly Bar Chart */}
-            <div className="pt-4 pb-2">
-              <div className="flex items-end justify-between gap-3 h-40 px-2">
-                {weeklyDays.map((item) => (
-                  <div key={item.day} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
-                    <span className="text-[10px] font-bold text-stone-400">{item.pct}%</span>
-                    <div className="w-full bg-stone-100 dark:bg-stone-800 rounded-xl h-28 flex items-end p-1 overflow-hidden">
-                      <div
-                        className={cn(
-                          'w-full rounded-lg transition-all duration-500',
-                          item.current
-                            ? 'bg-emerald-500 shadow-xs'
-                            : 'bg-emerald-400/80 hover:bg-emerald-500'
-                        )}
-                        style={{ height: `${item.pct}%` }}
-                      />
+        {/* Hydration — read-only on overview */}
+        {isModuleEnabled('routine_hydration') && (
+          <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-4 border border-stone-200 dark:border-[#172433] shadow-xs flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-[#3B82F6]/20 flex items-center justify-center text-blue-600 dark:text-[#3B82F6]">
+                <Droplet className="h-4 w-4 fill-current" />
+              </div>
+              <span className="text-lg font-black text-stone-900 dark:text-[#F8FAFC]">{hydration.cups}/{hydration.goal}</span>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-stone-700 dark:text-slate-300">Copos de água</p>
+              <p className="text-[10px] text-stone-400 dark:text-slate-500">Hoje</p>
+            </div>
+            <div className="w-full bg-stone-100 dark:bg-[#172433] rounded-full h-1.5">
+              <div className="bg-[#3B82F6] h-1.5 rounded-full transition-all" style={{ width: `${hydPercent}%` }} />
+            </div>
+            <p className="text-[10px] text-blue-600 dark:text-[#3B82F6] font-bold">{hydPercent}%</p>
+          </div>
+        )}
+
+        {/* Meals */}
+        {isModuleEnabled('routine_meals') && (
+          <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-4 border border-stone-200 dark:border-[#172433] shadow-xs flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-[#F59E0B]/20 flex items-center justify-center text-amber-600 dark:text-[#F59E0B]">
+                <Utensils className="h-4 w-4" />
+              </div>
+              <span className="text-lg font-black text-stone-900 dark:text-[#F8FAFC]">{meals.done}/{meals.total}</span>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-stone-700 dark:text-slate-300">Refeições</p>
+              <p className="text-[10px] text-stone-400 dark:text-slate-500">Realizadas</p>
+            </div>
+            <div className="w-full bg-stone-100 dark:bg-[#172433] rounded-full h-1.5">
+              <div className="bg-[#F59E0B] h-1.5 rounded-full transition-all" style={{ width: `${mealsPercent}%` }} />
+            </div>
+            <p className="text-[10px] text-amber-600 dark:text-[#F59E0B] font-bold">{mealsPercent}%</p>
+          </div>
+        )}
+
+        {/* Sleep */}
+        <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-4 border border-stone-200 dark:border-[#172433] shadow-xs flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-[#8B5CF6]/20 flex items-center justify-center text-purple-600 dark:text-[#8B5CF6]">
+              <BedDouble className="h-4 w-4" />
+            </div>
+            <span className="text-lg font-black text-stone-900 dark:text-[#F8FAFC]">7h</span>
+          </div>
+          <div>
+            <p className="text-xs font-bold text-stone-700 dark:text-slate-300">Sono</p>
+            <p className="text-[10px] text-stone-400 dark:text-slate-500">Boa qualidade</p>
+          </div>
+          <div className="w-full bg-stone-100 dark:bg-[#172433] rounded-full h-1.5">
+            <div className="bg-[#8B5CF6] h-1.5 rounded-full w-[80%]" />
+          </div>
+          <p className="text-[10px] text-purple-600 dark:text-[#8B5CF6] font-bold">80%</p>
+        </div>
+
+        {/* Steps */}
+        <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-4 border border-stone-200 dark:border-[#172433] shadow-xs flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-[#10B981]/20 flex items-center justify-center text-emerald-600 dark:text-[#10B981]">
+              <Footprints className="h-4 w-4" />
+            </div>
+            <span className="text-lg font-black text-stone-900 dark:text-[#F8FAFC]">3.240</span>
+          </div>
+          <div>
+            <p className="text-xs font-bold text-stone-700 dark:text-slate-300">Passos</p>
+            <p className="text-[10px] text-stone-400 dark:text-slate-500">Hoje</p>
+          </div>
+          <div className="w-full bg-stone-100 dark:bg-[#172433] rounded-full h-1.5">
+            <div className="bg-[#10B981] h-1.5 rounded-full w-[65%]" />
+          </div>
+          <p className="text-[10px] text-emerald-600 dark:text-[#10B981] font-bold">65% da meta</p>
+        </div>
+      </div>
+
+      {/* ─── QUICK ACCESS ─────────────────────────────────────────────────── */}
+      <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-5 border border-stone-200 dark:border-[#172433] shadow-xs">
+        <h2 className="text-sm font-black text-stone-900 dark:text-[#F8FAFC] mb-4">Acesso rápido</h2>
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+          {quickActions.map((action, idx) => {
+            const Icon = action.icon;
+            const content = (
+              <div className="flex flex-col items-center gap-2.5 p-3 rounded-2xl border border-stone-200/80 dark:border-[#172433] hover:border-current bg-stone-50/50 dark:bg-transparent transition-colors cursor-pointer group"
+                style={{ borderColor: `${action.color}30` }}>
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-xs dark:shadow-lg transition-transform group-hover:scale-105"
+                  style={{ background: `${action.color}25`, color: action.color }}>
+                  <Icon className="h-5 w-5" />
+                </div>
+                <span className="text-[11px] font-bold text-center text-stone-700 dark:text-slate-300 leading-tight">{action.label}</span>
+              </div>
+            );
+            if (action.onClick) {
+              return <button key={idx} onClick={action.onClick} className="w-full text-left">{content}</button>;
+            }
+            return <Link key={idx} href={action.href}>{content}</Link>;
+          })}
+        </div>
+      </div>
+
+      {/* ─── BOTTOM SECTION ───────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+        {/* Left 2/3: Mood + Vitals + Activities + Motivational */}
+        <div className="lg:col-span-2 space-y-5">
+
+          {/* Mood */}
+          {isModuleEnabled('wellbeing_mood') && (
+            <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-5 border border-stone-200 dark:border-[#172433] shadow-xs">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-black text-stone-900 dark:text-[#F8FAFC]">Como está hoje?</h2>
+                <Link href={`/${locale}/dashboard/history`} className="text-xs text-emerald-600 dark:text-[#5DE5BE] hover:underline font-bold">+ Registrar</Link>
+              </div>
+              {mood ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 bg-stone-50 dark:bg-[#172433] rounded-2xl p-3 border border-stone-100 dark:border-transparent">
+                    <span className="text-3xl">{mood.emoji}</span>
+                    <div>
+                      <p className="text-sm font-extrabold text-stone-900 dark:text-[#F8FAFC]">
+                        {selectedPerson?.full_name.split(' ')[0]} {mood.text}
+                      </p>
+                      <p className="text-[11px] text-stone-400 dark:text-slate-500">Último registro: hoje às {mood.time}</p>
                     </div>
-                    <span
-                      className={cn(
-                        'text-xs font-bold',
-                        item.current ? 'text-emerald-700 dark:text-emerald-400 underline underline-offset-4' : 'text-stone-500'
-                      )}
-                    >
-                      {item.day}
-                    </span>
+                  </div>
+                  <div className="bg-emerald-50 dark:bg-[#19D3A2]/10 border border-emerald-200 dark:border-[#19D3A2]/30 rounded-2xl px-4 py-3 text-sm text-emerald-800 dark:text-[#5DE5BE] italic font-medium">
+                    {mood.quote}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4 text-stone-400 dark:text-slate-500 text-sm">
+                  <p>Nenhum check-in registrado hoje.</p>
+                  <Link href={`/${locale}/dashboard/history`} className="text-emerald-600 dark:text-[#5DE5BE] text-xs hover:underline font-bold mt-1 block">Registrar agora</Link>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Vitals */}
+          {isModuleEnabled('health_vitals') && (
+            <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-5 border border-stone-200 dark:border-[#172433] shadow-xs">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-black text-stone-900 dark:text-[#F8FAFC]">Sinais vitais <span className="text-stone-400 dark:text-slate-500 font-normal">(últimos registros)</span></h2>
+                <Link href={`/${locale}/dashboard/history`} className="text-xs text-emerald-600 dark:text-[#5DE5BE] hover:underline font-bold">Ver histórico</Link>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: 'Pressão arterial', value: vitals?.bp || '—', sub: 'mmHg', icon: Heart, color: '#F43F5E' },
+                  { label: 'Glicemia', value: vitals?.glucose || '—', sub: 'mg/dL', icon: Gauge, color: '#F59E0B' },
+                  { label: 'Saturação', value: vitals?.saturation || '—', sub: 'SpO₂', icon: Wind, color: '#3B82F6' },
+                  { label: 'Temperatura', value: vitals?.temp || '—', sub: '', icon: Thermometer, color: '#8B5CF6' },
+                ].map((v, i) => (
+                  <div key={i} className="bg-stone-50 dark:bg-[#172433] rounded-2xl p-3 flex flex-col gap-1 border border-stone-100 dark:border-transparent">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-1" style={{ background: `${v.color}20`, color: v.color }}>
+                      <v.icon className="h-4 w-4" />
+                    </div>
+                    <p className="text-base font-black text-stone-900 dark:text-[#F8FAFC]">{v.value}</p>
+                    <p className="text-[10px] text-stone-500 dark:text-slate-400 font-semibold">{v.label}</p>
+                    {v.sub && <p className="text-[10px] text-stone-400 dark:text-slate-600">{v.sub}</p>}
                   </div>
                 ))}
               </div>
             </div>
+          )}
 
-            <div className="mt-4 p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-800/50 border border-stone-100 dark:border-stone-800 flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-              <p className="text-xs text-stone-600 dark:text-stone-300 font-medium">
-                Sem registros de atraso de medicações ou alertas críticos nos últimos 7 dias.
-              </p>
+          {/* Recent Activities */}
+          <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-5 border border-stone-200 dark:border-[#172433] shadow-xs">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-black text-stone-900 dark:text-[#F8FAFC]">Atividades recentes</h2>
+              <Link href={`/${locale}/dashboard/history`} className="text-xs text-emerald-600 dark:text-[#5DE5BE] hover:underline font-bold">Ver todas</Link>
             </div>
+            {recentActivities.length > 0 ? (
+              <div className="space-y-2">
+                {recentActivities.map((act, idx) => {
+                  const { icon: Icon, color } = activityIcon(act.note_type);
+                  const time = format(new Date(act.created_at), 'HH:mm');
+                  return (
+                    <div key={act.id || idx} className="flex items-center gap-3 py-2 border-b border-stone-100 dark:border-[#172433]/60 last:border-0">
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${color}20`, color }}>
+                        <Icon className="h-3.5 w-3.5" />
+                      </div>
+                      <p className="text-xs text-stone-700 dark:text-slate-300 flex-1 line-clamp-1">{act.content}</p>
+                      <span className="text-[10px] text-stone-400 dark:text-slate-500 shrink-0">{time}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-stone-400 dark:text-slate-500 text-center py-4">Nenhuma atividade registrada ainda.</p>
+            )}
           </div>
 
-          <Link
-            href={`/${locale}/dashboard/history`}
-            className="text-xs text-emerald-700 dark:text-emerald-400 font-bold hover:underline mt-4 flex items-center justify-between pt-3 border-t border-stone-100 dark:border-stone-800"
-          >
-            <span>Ver histórico completo</span>
-            <ChevronRight className="h-4 w-4" />
-          </Link>
+          {/* Motivational */}
+          <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-6 border border-stone-200 dark:border-[#172433] shadow-xs flex flex-col items-center justify-center gap-3 text-center min-h-[120px]">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-[#19D3A2]/20 flex items-center justify-center text-2xl">🌱</div>
+            <p className="text-base font-extrabold text-stone-900 dark:text-[#F8FAFC]">Pequenos cuidados,</p>
+            <p className="text-base font-extrabold text-stone-900 dark:text-[#F8FAFC] -mt-2">grandes dias.</p>
+            <Heart className="h-5 w-5 text-[#F43F5E] fill-[#F43F5E]" />
+          </div>
+        </div>
+
+        {/* Right 1/3: Appointments + Messages */}
+        <div className="space-y-5">
+
+          {/* Upcoming Appointments */}
+          {isModuleEnabled('schedule_appointments') && (
+            <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-5 border border-stone-200 dark:border-[#172433] shadow-xs">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-black text-stone-900 dark:text-[#F8FAFC]">Próximos compromissos</h2>
+                <Link href={`/${locale}/dashboard/appointments`} className="text-xs text-emerald-600 dark:text-[#5DE5BE] hover:underline font-bold">Ver todos</Link>
+              </div>
+              {appointments.length > 0 ? (
+                <div className="space-y-3">
+                  {appointments.map((appt, idx) => {
+                    const color = apptColor(idx);
+                    const time = format(new Date(appt.starts_at), 'HH:mm');
+                    return (
+                      <div key={appt.id} className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5" style={{ background: `${color}20`, color }}>
+                          <Clock className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-extrabold text-stone-900 dark:text-[#F8FAFC] truncate">{appt.title}</p>
+                            <span className="text-[10px] font-bold shrink-0" style={{ color }}>{time}</span>
+                          </div>
+                          <p className="text-[10px] text-stone-400 dark:text-slate-500 truncate">{appt.doctor_name || appt.location || 'Consulta'}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-xs text-stone-400 dark:text-slate-500">Nenhum compromisso hoje.</p>
+                  <Link href={`/${locale}/dashboard/appointments`} className="text-xs text-emerald-600 dark:text-[#5DE5BE] hover:underline font-bold mt-1 block">+ Agendar</Link>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Family Messages */}
+          <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-5 border border-stone-200 dark:border-[#172433] shadow-xs flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-black text-stone-900 dark:text-[#F8FAFC]">Mensagens da família</h2>
+              <Link href={`/${locale}/dashboard/family`} className="text-xs text-emerald-600 dark:text-[#5DE5BE] hover:underline font-bold">Ver todas</Link>
+            </div>
+            {familyMessages.length > 0 ? (
+              <div className="space-y-3 mb-4">
+                {familyMessages.map((msg, idx) => (
+                  <div key={msg.id || idx} className="flex items-start gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-stone-100 dark:bg-[#172433] flex items-center justify-center text-xs font-bold text-emerald-700 dark:text-[#5DE5BE] shrink-0">
+                      {(msg.sender_name || 'F').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between gap-1">
+                        <p className="text-xs font-bold text-stone-900 dark:text-[#F8FAFC]">{msg.sender_name || 'Familiar'}</p>
+                        <span className="text-[10px] text-stone-400 dark:text-slate-500 shrink-0">
+                          {format(new Date(msg.created_at), 'HH:mm')}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-stone-600 dark:text-slate-400 line-clamp-2">{msg.content}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-stone-400 dark:text-slate-500 text-center py-3 mb-3">Nenhuma mensagem ainda.</p>
+            )}
+            <Link
+              href={`/${locale}/dashboard/family`}
+              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-2xl bg-blue-50 dark:bg-[#3B82F6]/20 hover:bg-blue-100 dark:hover:bg-[#3B82F6]/30 border border-blue-200 dark:border-[#3B82F6]/30 text-blue-600 dark:text-[#3B82F6] text-xs font-bold transition"
+            >
+              <Send className="h-3.5 w-3.5" /> Enviar mensagem
+            </Link>
+          </div>
         </div>
       </div>
     </div>

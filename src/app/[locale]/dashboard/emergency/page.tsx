@@ -86,28 +86,28 @@ export default function EmergencyPage() {
           <Link href="/dashboard"><ArrowLeft className="h-5 w-5" /></Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-red-700">Emergência</h1>
-          <p className="text-stone-500">Ações rápidas para {selectedPerson.full_name}</p>
+          <h1 className="text-2xl font-bold text-red-600 dark:text-red-400">Emergência</h1>
+          <p className="text-stone-500 dark:text-slate-400">Ações rápidas para {selectedPerson.full_name}</p>
         </div>
       </div>
 
-      <div className="bg-white border-2 border-red-100 rounded-xl p-8 text-center shadow-sm">
+      <div className="bg-white dark:bg-[#101D2B] border-2 border-red-100 dark:border-red-900/30 rounded-3xl p-8 text-center shadow-sm">
         {!triggered ? (
           <div className="space-y-6">
-            <div className="mx-auto w-24 h-24 bg-red-100 rounded-full flex items-center justify-center">
-              <AlertTriangle className="h-12 w-12 text-red-600" />
+            <div className="mx-auto w-24 h-24 bg-red-100 dark:bg-red-950/50 rounded-full flex items-center justify-center">
+              <AlertTriangle className="h-12 w-12 text-red-600 dark:text-red-400" />
             </div>
             
             <div>
-              <h2 className="text-xl font-bold text-stone-900 mb-2">Botão de Emergência</h2>
-              <p className="text-stone-500 max-w-md mx-auto">
+              <h2 className="text-xl font-bold text-stone-900 dark:text-[#F8FAFC] mb-2">Botão de Emergência</h2>
+              <p className="text-stone-500 dark:text-slate-400 max-w-md mx-auto">
                 Isso irá alertar todos os familiares e cuidadores cadastrados para {selectedPerson.full_name}.
               </p>
             </div>
 
             {!confirming ? (
               <Button 
-                className="w-full sm:w-auto h-16 px-12 text-lg bg-red-600 hover:bg-red-700 font-bold text-white shadow-lg shadow-red-200" 
+                className="w-full sm:w-auto h-16 px-12 text-lg bg-red-600 hover:bg-red-700 font-bold text-white shadow-lg shadow-red-200 dark:shadow-none rounded-2xl" 
                 onClick={() => setConfirming(true)}
               >
                 Acionar Emergência
@@ -142,28 +142,28 @@ export default function EmergencyPage() {
             </div>
             
             <div>
-              <h2 className="text-2xl font-bold text-stone-900 mb-2">Alerta Registrado!</h2>
-              <p className="text-stone-600 max-w-md mx-auto">
+              <h2 className="text-2xl font-bold text-stone-900 dark:text-[#F8FAFC] mb-2">Alerta Registrado!</h2>
+              <p className="text-stone-600 dark:text-slate-300 max-w-md mx-auto">
                 O evento de emergência foi salvo no sistema e notificações internas foram geradas para a família.
               </p>
             </div>
 
-            <div className="bg-stone-50 p-6 rounded-lg text-left mt-8">
-              <h3 className="font-semibold text-stone-900 mb-4 flex items-center gap-2">
-                <Phone className="h-5 w-5" /> Contatos Cadastrados
+            <div className="bg-stone-50 dark:bg-[#172433] p-6 rounded-2xl text-left mt-8 border border-stone-100 dark:border-[#1f3147]">
+              <h3 className="font-semibold text-stone-900 dark:text-[#F8FAFC] mb-4 flex items-center gap-2">
+                <Phone className="h-5 w-5 text-emerald-500" /> Contatos Cadastrados
               </h3>
               
               {contacts.length === 0 ? (
-                <p className="text-sm text-stone-500">Nenhum contato de emergência cadastrado para esta pessoa.</p>
+                <p className="text-sm text-stone-500 dark:text-slate-400">Nenhum contato de emergência cadastrado para esta pessoa.</p>
               ) : (
                 <div className="space-y-4">
                   {contacts.map((contact) => (
-                    <div key={contact.id} className="flex justify-between items-center bg-white p-4 border border-stone-200 rounded-md">
+                    <div key={contact.id} className="flex justify-between items-center bg-white dark:bg-[#101D2B] p-4 border border-stone-200 dark:border-[#1f3147] rounded-xl">
                       <div>
-                        <p className="font-bold">{contact.name}</p>
-                        <p className="text-sm text-stone-500">{contact.relationship} {contact.is_primary && '(Principal)'}</p>
+                        <p className="font-bold text-stone-900 dark:text-[#F8FAFC]">{contact.name}</p>
+                        <p className="text-sm text-stone-500 dark:text-slate-400">{contact.relationship} {contact.is_primary && '(Principal)'}</p>
                       </div>
-                      <Button asChild variant="outline" className="text-brand-green border-brand-green">
+                      <Button asChild variant="outline" className="text-emerald-600 dark:text-emerald-400 border-emerald-600 dark:border-emerald-500 rounded-xl">
                         <a href={`tel:${contact.phone}`}>Ligar {contact.phone}</a>
                       </Button>
                     </div>
