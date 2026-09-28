@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckSquare, Plus, Check, Calendar, AlertTriangle, Filter, Trash2, RefreshCw, BellRing } from 'lucide-react';
+import { CheckSquare, Plus, Check, Calendar, AlertTriangle, Filter, Trash2, RefreshCw, BellRing, Pencil, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import RecurrenceSelector, { RecurrenceConfig, recurrenceLabel } from '@/components/ui/RecurrenceSelector';
@@ -42,16 +42,17 @@ export default function TasksPage() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteConfirmTask, setDeleteConfirmTask] = useState<{id: string; title: string} | null>(null);
   const [deleting, setDeleting] = useState(false);
-
 
   const [form, setForm] = useState({
     title: '',
     description: '',
     priority: 'medium',
     due_date: '',
+    due_time: '',
   });
 
   const [recurrence, setRecurrence] = useState<RecurrenceConfig>({ type: 'none' });
@@ -82,7 +83,44 @@ export default function TasksPage() {
     fetchTasks();
   }, [fetchTasks]);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleOpenCreate = () => {
+    setEditingTask(null);
+    setForm({ title: '', description: '', priority: 'medium', due_date: '', due_time: '' });
+    setRecurrence({ type: 'none' });
+    setAlarm('15m');
+    setModalOpen(true);
+  };
+
+  const handleOpenEdit = (task: Task) => {
+    setEditingTask(task);
+    let dDate = '';
+    let dTime = '';
+    if (task.due_date) {
+      const d = new Date(task.due_date);
+      dDate = d.toISOString().slice(0, 10);
+      const hours = String(d.getHours()).padStart(2, '0');
+      const mins = String(d.getMinutes()).padStart(2, '0');
+      if (hours !== '00' || mins !== '00') {
+        dTime = `${hours}:${mins}`;
+      }
+    }
+    const cleanDesc = (task.description || '')
+      .replace(/\[(?:Recorrência|Recurrence|Wiederholung):\s*(.+?)\]/gi, '')
+      .replace(/\[(?:Alarme|Alarm|Wecker):\s*(.+?)\]/gi, '')
+      .trim();
+    setForm({
+      title: task.title,
+      description: cleanDesc,
+      priority: task.priority || 'medium',
+      due_date: dDate,
+      due_time: dTime,
+    });
+    setRecurrence({ type: 'none' });
+    setAlarm('15m');
+    setModalOpen(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPerson || !currentOrganizationId || !user) return;
     setSaving(true);
@@ -103,28 +141,59 @@ export default function TasksPage() {
       ? ` [${tAlarm.badgePrefix}: ${alarmLabels[alarm] || alarm}]`
       : '';
 
-    const { error } = await supabase
-      .from('tasks')
-      .insert({
-        cared_person_id: selectedPerson.id,
-        organization_id: currentOrganizationId,
-        title: form.title,
-        description: (form.description || '') + recurrenceSuffix + alarmSuffix || null,
-        priority: form.priority,
-        due_date: form.due_date ? new Date(form.due_date).toISOString() : null,
-        status: 'pending',
-        created_by: user.id,
-      });
+    let dueIso: string | null = null;
+    if (form.due_date) {
+      if (form.due_time) {
+        dueIso = new Date(`${form.due_date}T${form.due_time}:00`).toISOString();
+      } else {
+        dueIso = new Date(`${form.due_date}T09:00:00`).toISOString();
+      }
+    }
 
-    if (error) {
-      toast({ title: 'Erro ao criar tarefa', description: error.message, variant: 'destructive' });
+    if (editingTask) {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          title: form.title,
+          description: (form.description || '') + recurrenceSuffix + alarmSuffix || null,
+          priority: form.priority,
+          due_date: dueIso,
+        })
+        .eq('id', editingTask.id);
+
+      if (error) {
+        toast({ title: 'Erro ao atualizar tarefa', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Tarefa atualizada!', description: 'As alterações foram salvas.' });
+        setModalOpen(false);
+        setEditingTask(null);
+        setForm({ title: '', description: '', priority: 'medium', due_date: '', due_time: '' });
+        fetchTasks();
+      }
     } else {
-      toast({ title: 'Tarefa criada!', description: 'A tarefa foi adicionada à lista da família.' });
-      setModalOpen(false);
-      setForm({ title: '', description: '', priority: 'medium', due_date: '' });
-      setRecurrence({ type: 'none' });
-      setAlarm('15m');
-      fetchTasks();
+      const { error } = await supabase
+        .from('tasks')
+        .insert({
+          cared_person_id: selectedPerson.id,
+          organization_id: currentOrganizationId,
+          title: form.title,
+          description: (form.description || '') + recurrenceSuffix + alarmSuffix || null,
+          priority: form.priority,
+          due_date: dueIso,
+          status: 'pending',
+          created_by: user.id,
+        });
+
+      if (error) {
+        toast({ title: 'Erro ao criar tarefa', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Tarefa criada!', description: 'A tarefa foi adicionada à lista da família.' });
+        setModalOpen(false);
+        setForm({ title: '', description: '', priority: 'medium', due_date: '', due_time: '' });
+        setRecurrence({ type: 'none' });
+        setAlarm('15m');
+        fetchTasks();
+      }
     }
     setSaving(false);
   };
@@ -208,16 +277,16 @@ export default function TasksPage() {
 
         <Dialog open={modalOpen} onOpenChange={setModalOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 rounded-xl">
+            <Button size="sm" onClick={handleOpenCreate} className="bg-indigo-600 hover:bg-indigo-700 rounded-xl font-bold">
               <Plus className="h-4 w-4 mr-2" /> Nova Tarefa
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[450px]">
-            <form onSubmit={handleCreate}>
+          <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
+            <form onSubmit={handleSave}>
               <DialogHeader>
-                <DialogTitle>Adicionar Tarefa de Cuidado</DialogTitle>
+                <DialogTitle>{editingTask ? 'Editar Tarefa de Cuidado' : 'Adicionar Tarefa de Cuidado'}</DialogTitle>
                 <DialogDescription>
-                  Distribua as tarefas da rotina entre os membros da família.
+                  {editingTask ? 'Atualize as informações e o horário desta tarefa.' : 'Distribua as tarefas da rotina entre os membros da família.'}
                 </DialogDescription>
               </DialogHeader>
 
@@ -243,7 +312,7 @@ export default function TasksPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="priority">Prioridade</Label>
                     <Select 
@@ -262,12 +331,22 @@ export default function TasksPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="due">Data Limite</Label>
+                    <Label htmlFor="due">Data</Label>
                     <Input 
                       id="due" 
                       type="date"
                       value={form.due_date}
                       onChange={(e) => setForm(prev => ({ ...prev, due_date: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="due_time">Horário</Label>
+                    <Input 
+                      id="due_time" 
+                      type="time"
+                      value={form.due_time}
+                      onChange={(e) => setForm(prev => ({ ...prev, due_time: e.target.value }))}
                     />
                   </div>
                 </div>
@@ -302,10 +381,10 @@ export default function TasksPage() {
                 </div>
               </div>
 
-              <DialogFooter>
+              <DialogFooter className="sticky bottom-0 bg-white dark:bg-stone-900 pt-3 pb-2 border-t border-stone-200 dark:border-stone-800 -mx-6 px-6 -mb-6 z-10">
                 <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
-                <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700" disabled={saving}>
-                  {saving ? 'Criando...' : 'Criar Tarefa'}
+                <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 font-bold" disabled={saving}>
+                  {saving ? 'Salvando...' : editingTask ? 'Salvar Alterações' : 'Criar Tarefa'}
                 </Button>
               </DialogFooter>
             </form>
@@ -431,24 +510,45 @@ export default function TasksPage() {
                           </p>
                         )}
 
-                        {task.due_date && (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-stone-400 font-medium">
-                            <Calendar className="h-3 w-3" />
-                            Prazo: {new Date(task.due_date).toLocaleDateString(currentLocale === 'en' ? 'en-US' : currentLocale)}
-                          </span>
-                        )}
+                        {task.due_date && (() => {
+                          const d = new Date(task.due_date);
+                          const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0;
+                          return (
+                            <span className="inline-flex items-center gap-1.5 text-[11px] text-stone-500 dark:text-stone-400 font-medium">
+                              <Calendar className="h-3 w-3 text-stone-400" />
+                              Prazo: {d.toLocaleDateString(currentLocale === 'en' ? 'en-US' : currentLocale)}
+                              {hasTime && (
+                                <span className="inline-flex items-center gap-0.5 font-bold text-stone-700 dark:text-stone-300">
+                                  <Clock className="h-2.5 w-2.5" />
+                                  {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
 
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDeleteConfirmTask({ id: task.id, title: task.title })}
-                      className="text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl h-8 w-8 p-0 shrink-0"
-                      title="Excluir tarefa"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenEdit(task)}
+                        className="text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-xl h-8 w-8 p-0"
+                        title="Editar tarefa"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeleteConfirmTask({ id: task.id, title: task.title })}
+                        className="text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl h-8 w-8 p-0"
+                        title="Excluir tarefa"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 );
               })}

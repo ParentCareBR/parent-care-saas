@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pill, Clock, CheckCircle2, AlertCircle, RefreshCw, BellRing, Trash2 } from 'lucide-react';
+import { Plus, Pill, Clock, CheckCircle2, AlertCircle, RefreshCw, BellRing, Trash2, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { getAlarmTexts } from '@/lib/i18n/care-translations';
 import { useToast } from '@/hooks/use-toast';
@@ -74,26 +76,75 @@ export default function MedicationsPage() {
     }
   };
 
-  useEffect(() => {
-    async function fetchMedications() {
-      if (!selectedPerson) return;
-      
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('medications')
-        .select('*, medication_schedules(id, time_of_day)')
-        .eq('cared_person_id', selectedPerson.id)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-        
-      if (!error && data) {
-        setMedications(data);
-      }
-      setLoading(false);
-    }
+  const fetchMedications = useCallback(async () => {
+    if (!selectedPerson) return;
     
-    fetchMedications();
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('medications')
+      .select('*, medication_schedules(id, time_of_day)')
+      .eq('cared_person_id', selectedPerson.id)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+      
+    if (!error && data) {
+      setMedications(data);
+    }
+    setLoading(false);
   }, [selectedPerson, supabase]);
+
+  useEffect(() => {
+    fetchMedications();
+  }, [fetchMedications]);
+
+  const [editMedOpen, setEditMedOpen] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editMedForm, setEditMedForm] = useState({
+    id: '',
+    name: '',
+    dosage: '',
+    unit: 'mg',
+    instructions: '',
+  });
+
+  const openEditMed = (med: any) => {
+    setEditMedForm({
+      id: med.id,
+      name: med.name || '',
+      dosage: med.dosage || '',
+      unit: med.unit || 'mg',
+      instructions: med.instructions || '',
+    });
+    setEditMedOpen(true);
+  };
+
+  const handleSaveEditMed = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from('medications')
+        .update({
+          name: editMedForm.name,
+          dosage: editMedForm.dosage,
+          unit: editMedForm.unit,
+          instructions: editMedForm.instructions || null,
+        })
+        .eq('id', editMedForm.id);
+
+      if (error) {
+        toast({ title: 'Erro ao atualizar medicamento', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Medicamento atualizado!' });
+        setEditMedOpen(false);
+        fetchMedications();
+      }
+    } catch (err: any) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   if (personLoading) return <div className="p-8 text-center text-stone-500">Carregando...</div>;
 
@@ -191,7 +242,7 @@ export default function MedicationsPage() {
                       );
                     })()}
                   </div>
-                  <div className="flex gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <Button
                       variant="outline"
                       size="sm"
@@ -201,6 +252,15 @@ export default function MedicationsPage() {
                     >
                       <CheckCircle2 className="h-4 w-4 mr-1.5" />
                       {confirmingId === med.id ? 'Registrando...' : 'Confirmar Dose'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openEditMed(med)}
+                      className="text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800 rounded-xl min-h-[38px] px-2.5"
+                      title="Editar medicamento"
+                    >
+                      <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="outline"
@@ -218,6 +278,68 @@ export default function MedicationsPage() {
           ))}
         </div>
       )}
+
+      {/* Edit Medication Dialog */}
+      <Dialog open={editMedOpen} onOpenChange={setEditMedOpen}>
+        <DialogContent className="sm:max-w-[460px] max-h-[90vh] overflow-y-auto">
+          <form onSubmit={handleSaveEditMed}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Pencil className="h-5 w-5 text-emerald-600" />
+                Editar Medicamento
+              </DialogTitle>
+              <DialogDescription>
+                Atualize o nome, dosagem e orientações do medicamento.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="med-name">Nome do Medicamento *</Label>
+                <Input
+                  id="med-name"
+                  required
+                  value={editMedForm.name}
+                  onChange={e => setEditMedForm(p => ({ ...p, name: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="med-dosage">Dosagem</Label>
+                  <Input
+                    id="med-dosage"
+                    value={editMedForm.dosage}
+                    onChange={e => setEditMedForm(p => ({ ...p, dosage: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="med-unit">Unidade</Label>
+                  <Input
+                    id="med-unit"
+                    value={editMedForm.unit}
+                    placeholder="mg, gotas, comprimido"
+                    onChange={e => setEditMedForm(p => ({ ...p, unit: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="med-instructions">Instruções / Horários</Label>
+                <Input
+                  id="med-instructions"
+                  value={editMedForm.instructions}
+                  placeholder="Ex: Tomar após o café da manhã [Horários: 08:00, 20:00]"
+                  onChange={e => setEditMedForm(p => ({ ...p, instructions: e.target.value }))}
+                />
+              </div>
+            </div>
+            <DialogFooter className="sticky bottom-0 bg-white dark:bg-stone-900 pt-3 pb-2 border-t border-stone-200 dark:border-stone-800 -mx-6 px-6 -mb-6 z-10">
+              <Button type="button" variant="ghost" onClick={() => setEditMedOpen(false)}>Cancelar</Button>
+              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 font-bold" disabled={savingEdit}>
+                {savingEdit ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteConfirmMed} onOpenChange={(open) => { if (!open) setDeleteConfirmMed(null); }}>

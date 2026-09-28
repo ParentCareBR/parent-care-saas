@@ -434,7 +434,7 @@ export default function MealsPage() {
 
       {/* Create / Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent className="sm:max-w-[450px] max-h-[90vh] overflow-y-auto">
           <form onSubmit={handleSave}>
             <DialogHeader>
               <DialogTitle>{editMeal && !editMeal.isExample ? 'Editar Refeição' : 'Registrar Refeição'}</DialogTitle>
@@ -539,10 +539,10 @@ export default function MealsPage() {
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="sticky bottom-0 bg-white dark:bg-stone-900 pt-3 pb-2 border-t border-stone-200 dark:border-stone-800 -mx-6 px-6 -mb-6 z-10">
               <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
-              <Button type="submit" className="bg-teal-600 hover:bg-teal-700" disabled={saving}>
-                {saving ? 'Salvando...' : 'Salvar Refeição'}
+              <Button type="submit" className="bg-teal-600 hover:bg-teal-700 font-bold" disabled={saving}>
+                {saving ? 'Salvando...' : editMeal && !editMeal.isExample ? 'Salvar Alterações' : 'Salvar Refeição'}
               </Button>
             </DialogFooter>
           </form>

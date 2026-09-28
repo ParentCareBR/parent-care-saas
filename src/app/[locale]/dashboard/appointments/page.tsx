@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Calendar, Plus, MapPin, User, CheckCircle2, Clock, XCircle,
   RefreshCw, BellRing, ChevronLeft, ChevronRight, Pill, CheckSquare,
-  Stethoscope, Utensils, Activity,
+  Stethoscope, Utensils, Activity, Pencil, Trash2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import RecurrenceSelector, { RecurrenceConfig, recurrenceLabel } from '@/components/ui/RecurrenceSelector';
@@ -120,7 +120,7 @@ export default function AppointmentsPage() {
     title: '', doctor_name: '', specialty: '', location: '', starts_at: '', description: '',
   });
   const [taskForm, setTaskForm] = useState({
-    title: '', description: '', priority: 'medium', due_date: '',
+    title: '', description: '', priority: 'medium', due_date: '', due_time: '',
   });
   const [recurrence, setRecurrence] = useState<RecurrenceConfig>({ type: 'none' });
   const [alarm, setAlarm] = useState<string>('15m');
@@ -238,36 +238,43 @@ export default function AppointmentsPage() {
       });
     });
 
-    // 4. Meals / Alimentação
+    // 4. Meals / Alimentação — Meals page writes to care_notes (not meals table)
     const mealRangeStart = new Date();
-    mealRangeStart.setDate(mealRangeStart.getDate() - 14);
-    const { data: meals } = await supabase
-      .from('meals')
-      .select('id, meal_type, description, notes, consumed_at')
+    mealRangeStart.setDate(mealRangeStart.getDate() - 30);
+    const { data: mealNotes } = await supabase
+      .from('care_notes')
+      .select('id, content, created_at')
       .eq('cared_person_id', selectedPerson.id)
-      .gte('consumed_at', mealRangeStart.toISOString())
-      .order('consumed_at', { ascending: true });
+      .like('content', 'Refeição%')
+      .gte('created_at', mealRangeStart.toISOString())
+      .order('created_at', { ascending: true });
 
     const mealTypeNames: Record<string, string> = {
       breakfast: 'Café da Manhã',
       lunch: 'Almoço',
       snack: 'Lanche',
       dinner: 'Jantar',
+      supper: 'Ceia Noturna',
       other: 'Alimentação',
     };
 
-    (meals || []).forEach((m: any) => {
-      const d = new Date(m.consumed_at);
-      const label = mealTypeNames[m.meal_type] || 'Refeição';
+    (mealNotes || []).forEach((n: any) => {
+      const d = new Date(n.created_at);
+      // Content format: "Refeição (type): name. Apetite: label. notes"
+      const typeMatch = n.content.match(/^Refeição \((.+?)\):/i);
+      const nameMatch = n.content.match(/^Refeição \(.+?\): (.+?)\. Apetite:/i);
+      const mealType = typeMatch ? typeMatch[1] : 'other';
+      const mealName = nameMatch ? nameMatch[1] : n.content.substring(0, 50);
+      const label = mealTypeNames[mealType] || 'Refeição';
       all.push({
-        id: `meal-${m.id}`,
+        id: `meal-${n.id}`,
         type: 'meal',
-        title: label + (m.description ? `: ${m.description}` : ''),
-        subtitle: m.notes || undefined,
+        title: `${label}: ${mealName}`,
+        subtitle: undefined,
         time: format(d, 'HH:mm'),
         date: d,
         status: 'completed',
-        raw: m,
+        raw: n,
       });
     });
 
@@ -365,13 +372,23 @@ export default function AppointmentsPage() {
       morning: tAlarm.morning.replace('⏰ ', ''),
     };
     const alarmSuffix = alarm !== 'none' ? ` [${tAlarm.badgePrefix}: ${alarmLabels[alarm] || alarm}]` : '';
+
+    let dueIso: string | null = null;
+    if (taskForm.due_date) {
+      if (taskForm.due_time) {
+        dueIso = new Date(`${taskForm.due_date}T${taskForm.due_time}:00`).toISOString();
+      } else {
+        dueIso = new Date(`${taskForm.due_date}T09:00:00`).toISOString();
+      }
+    }
+
     const { error } = await supabase.from('tasks').insert({
       cared_person_id: selectedPerson.id,
       organization_id: currentOrganizationId,
       title: taskForm.title,
       description: (taskForm.description || '') + recurrenceSuffix + alarmSuffix || null,
       priority: taskForm.priority,
-      due_date: taskForm.due_date ? new Date(taskForm.due_date).toISOString() : null,
+      due_date: dueIso,
       status: 'pending',
       created_by: user.id,
     });
@@ -380,7 +397,7 @@ export default function AppointmentsPage() {
     } else {
       toast({ title: 'Tarefa criada!', description: 'A tarefa foi adicionada à agenda.' });
       setModalOpen(false);
-      setTaskForm({ title: '', description: '', priority: 'medium', due_date: '' });
+      setTaskForm({ title: '', description: '', priority: 'medium', due_date: '', due_time: '' });
       setRecurrence({ type: 'none' });
       setAlarm('15m');
       fetchEvents();
@@ -393,6 +410,174 @@ export default function AppointmentsPage() {
     await supabase.from('appointments').update({ status }).eq('id', rawId);
     fetchEvents();
     toast({ title: 'Status atualizado' });
+  };
+
+  // ── Delete events from Agenda ─────────────────────────────────
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string; table: string; idField: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteEvent = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true);
+    const { error } = await supabase.from(deleteConfirm.table).delete().eq(deleteConfirm.idField, deleteConfirm.id);
+    setDeleting(false);
+    setDeleteConfirm(null);
+    if (error) {
+      toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Item excluído com sucesso.' });
+      fetchEvents();
+    }
+  };
+
+  // ── Edit event from Agenda ────────────────────────────────────
+  const [editApptOpen, setEditApptOpen] = useState(false);
+  const [editApptForm, setEditApptForm] = useState({
+    id: '', title: '', doctor_name: '', specialty: '', location: '', starts_at: '', description: '',
+  });
+  const [editTaskOpen, setEditTaskOpen] = useState(false);
+  const [editTaskForm, setEditTaskForm] = useState({
+    id: '', title: '', description: '', priority: 'medium', due_date: '', due_time: '',
+  });
+  const [editMealOpen, setEditMealOpen] = useState(false);
+  const [editMealForm, setEditMealForm] = useState({
+    id: '', type: 'lunch', name: '', acceptance: 'full', notes: '',
+  });
+  const [editSaving, setEditSaving] = useState(false);
+
+  const openEditAppt = (ev: AgendaEvent) => {
+    const a = ev.raw;
+    const startsAtLocal = a.starts_at
+      ? new Date(a.starts_at).toISOString().slice(0, 16)
+      : '';
+    setEditApptForm({
+      id: a.id,
+      title: a.title || '',
+      doctor_name: a.doctor_name || '',
+      specialty: a.specialty || '',
+      location: a.location || '',
+      starts_at: startsAtLocal,
+      description: (a.description || '').replace(/\[(?:Recorrência|Alarm[e]?)[^\]]*\]/gi, '').trim(),
+    });
+    setEditApptOpen(true);
+  };
+
+  const handleSaveEditAppt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditSaving(true);
+    const { error } = await supabase.from('appointments').update({
+      title: editApptForm.title,
+      doctor_name: editApptForm.doctor_name || null,
+      specialty: editApptForm.specialty || null,
+      location: editApptForm.location || null,
+      starts_at: new Date(editApptForm.starts_at).toISOString(),
+      description: editApptForm.description || null,
+    }).eq('id', editApptForm.id);
+    setEditSaving(false);
+    if (error) {
+      toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Consulta atualizada!' });
+      setEditApptOpen(false);
+      fetchEvents();
+    }
+  };
+
+  const openEditTask = (ev: AgendaEvent) => {
+    const t = ev.raw;
+    let dDate = '';
+    let dTime = '';
+    if (t.due_date) {
+      const d = new Date(t.due_date);
+      dDate = d.toISOString().slice(0, 10);
+      const hours = String(d.getHours()).padStart(2, '0');
+      const mins = String(d.getMinutes()).padStart(2, '0');
+      if (hours !== '00' || mins !== '00') {
+        dTime = `${hours}:${mins}`;
+      }
+    }
+    setEditTaskForm({
+      id: t.id,
+      title: t.title || '',
+      description: (t.description || '').replace(/\[(?:Recorrência|Alarm[e]?)[^\]]*\]/gi, '').trim(),
+      priority: t.priority || 'medium',
+      due_date: dDate,
+      due_time: dTime,
+    });
+    setEditTaskOpen(true);
+  };
+
+  const handleSaveEditTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditSaving(true);
+    let dueIso: string | null = null;
+    if (editTaskForm.due_date) {
+      if (editTaskForm.due_time) {
+        dueIso = new Date(`${editTaskForm.due_date}T${editTaskForm.due_time}:00`).toISOString();
+      } else {
+        dueIso = new Date(`${editTaskForm.due_date}T09:00:00`).toISOString();
+      }
+    }
+    const { error } = await supabase.from('tasks').update({
+      title: editTaskForm.title,
+      description: editTaskForm.description || null,
+      priority: editTaskForm.priority,
+      due_date: dueIso,
+    }).eq('id', editTaskForm.id);
+    setEditSaving(false);
+    if (error) {
+      toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Tarefa atualizada!' });
+      setEditTaskOpen(false);
+      fetchEvents();
+    }
+  };
+
+  const openEditMeal = (ev: AgendaEvent) => {
+    const raw = ev.raw;
+    const typeMatch = raw.content?.match(/^Refeição \((.+?)\):/i);
+    const nameMatch = raw.content?.match(/^Refeição \(.+?\): (.+?)\. Apetite:/i);
+    const appMatch = raw.content?.match(/Apetite: (.+?)\./i);
+    let notesPart = '';
+    if (raw.content?.includes('. Apetite: ')) {
+      const parts = raw.content.split('. Apetite: ')[1]?.split('. ');
+      if (parts && parts.length > 1) {
+        notesPart = parts.slice(1).join('. ');
+      }
+    }
+
+    let app = 'full';
+    if (appMatch) {
+      if (appMatch[1].includes('metade') || appMatch[1].includes('parcial')) app = 'partial';
+      else if (appMatch[1].includes('Recusou') || appMatch[1].includes('pouco')) app = 'refused';
+    }
+
+    setEditMealForm({
+      id: raw.id,
+      type: typeMatch ? typeMatch[1] : 'lunch',
+      name: nameMatch ? nameMatch[1] : ev.title.replace(/^[^:]+:\s*/, ''),
+      acceptance: app,
+      notes: notesPart,
+    });
+    setEditMealOpen(true);
+  };
+
+  const handleSaveEditMeal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditSaving(true);
+    const appLabel = editMealForm.acceptance === 'full' ? 'Comeu tudo' : editMealForm.acceptance === 'partial' ? 'Comeu metade' : 'Recusou';
+    const content = `Refeição (${editMealForm.type}): ${editMealForm.name}. Apetite: ${appLabel}.${editMealForm.notes ? ` ${editMealForm.notes}` : ''}`;
+
+    const { error } = await supabase.from('care_notes').update({ content }).eq('id', editMealForm.id);
+    setEditSaving(false);
+    if (error) {
+      toast({ title: 'Erro ao atualizar refeição', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Refeição atualizada!' });
+      setEditMealOpen(false);
+      fetchEvents();
+    }
   };
 
   // ── View Filtering ────────────────────────────────────────────
@@ -571,7 +756,7 @@ export default function AppointmentsPage() {
                     <Input placeholder="Detalhes adicionais…" value={taskForm.description}
                       onChange={e => setTaskForm(p => ({ ...p, description: e.target.value }))} />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="space-y-1.5">
                       <Label>Prioridade</Label>
                       <Select value={taskForm.priority} onValueChange={v => setTaskForm(p => ({ ...p, priority: v }))}>
@@ -585,9 +770,14 @@ export default function AppointmentsPage() {
                       </Select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Data e hora</Label>
-                      <Input type="datetime-local" value={taskForm.due_date}
+                      <Label>Data</Label>
+                      <Input type="date" value={taskForm.due_date}
                         onChange={e => setTaskForm(p => ({ ...p, due_date: e.target.value }))} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Horário</Label>
+                      <Input type="time" value={taskForm.due_time}
+                        onChange={e => setTaskForm(p => ({ ...p, due_time: e.target.value }))} />
                     </div>
                   </div>
                   <div className="pt-1 border-t border-stone-100 dark:border-stone-800">
@@ -801,21 +991,86 @@ export default function AppointmentsPage() {
                       </div>
                     </div>
 
-                    {/* Actions — only for appointments */}
-                    {ev.type === 'appointment' && ev.status === 'scheduled' && (
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <Button size="sm" variant="outline"
-                          onClick={() => updateApptStatus(ev.raw.id, 'completed')}
-                          className="h-8 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/30 rounded-lg">
-                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Concluir
-                        </Button>
+                    {/* Actions per event type */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {ev.type === 'appointment' && ev.status === 'scheduled' && (
+                        <>
+                          <Button size="sm" variant="outline"
+                            onClick={() => updateApptStatus(ev.raw.id, 'completed')}
+                            className="h-8 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/30 rounded-lg">
+                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Concluir
+                          </Button>
+                          <Button size="sm" variant="ghost"
+                            onClick={() => openEditAppt(ev)}
+                            title="Editar consulta"
+                            className="h-8 w-8 text-stone-400 hover:text-indigo-600 rounded-lg p-0">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="ghost"
+                            onClick={() => setDeleteConfirm({ id: ev.raw.id, title: ev.title, table: 'appointments', idField: 'id' })}
+                            title="Excluir consulta"
+                            className="h-8 w-8 text-stone-400 hover:text-rose-600 rounded-lg p-0">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
+                      {ev.type === 'appointment' && ev.status !== 'scheduled' && (
+                        <>
+                          <Button size="sm" variant="ghost"
+                            onClick={() => openEditAppt(ev)}
+                            title="Editar consulta"
+                            className="h-8 w-8 text-stone-400 hover:text-indigo-600 rounded-lg p-0">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="ghost"
+                            onClick={() => setDeleteConfirm({ id: ev.raw.id, title: ev.title, table: 'appointments', idField: 'id' })}
+                            title="Excluir consulta"
+                            className="h-8 w-8 text-stone-400 hover:text-rose-600 rounded-lg p-0">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
+                      {ev.type === 'task' && (
+                        <>
+                          <Button size="sm" variant="ghost"
+                            onClick={() => openEditTask(ev)}
+                            title="Editar tarefa"
+                            className="h-8 w-8 text-stone-400 hover:text-indigo-600 rounded-lg p-0">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="ghost"
+                            onClick={() => setDeleteConfirm({ id: ev.raw.id, title: ev.title, table: 'tasks', idField: 'id' })}
+                            title="Excluir tarefa"
+                            className="h-8 w-8 text-stone-400 hover:text-rose-600 rounded-lg p-0">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
+                      {ev.type === 'meal' && (
+                        <>
+                          <Button size="sm" variant="ghost"
+                            onClick={() => openEditMeal(ev)}
+                            title="Editar refeição"
+                            className="h-8 w-8 text-stone-400 hover:text-orange-600 rounded-lg p-0">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="ghost"
+                            onClick={() => setDeleteConfirm({ id: ev.raw.id, title: ev.title, table: 'care_notes', idField: 'id' })}
+                            title="Excluir refeição"
+                            className="h-8 w-8 text-stone-400 hover:text-rose-600 rounded-lg p-0">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
+                      {ev.type === 'routine' && (
                         <Button size="sm" variant="ghost"
-                          onClick={() => updateApptStatus(ev.raw.id, 'canceled')}
+                          onClick={() => setDeleteConfirm({ id: ev.raw.id, title: ev.title, table: 'check_ins', idField: 'id' })}
+                          title="Excluir check-in"
                           className="h-8 w-8 text-stone-400 hover:text-rose-600 rounded-lg p-0">
-                          <XCircle className="h-3.5 w-3.5" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -833,6 +1088,198 @@ export default function AppointmentsPage() {
           )}
         </div>
       )}
+      {/* ── Delete Confirmation Dialog ───────────────────────────── */}
+      <Dialog open={!!deleteConfirm} onOpenChange={(open) => { if (!open) setDeleteConfirm(null); }}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600">
+              <Trash2 className="h-5 w-5" />
+              Confirmar Exclusão
+            </DialogTitle>
+            <DialogDescription>
+              Deseja excluir <strong>&ldquo;{deleteConfirm?.title}&rdquo;</strong>? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)} disabled={deleting} className="rounded-xl">
+              Cancelar
+            </Button>
+            <Button onClick={handleDeleteEvent} disabled={deleting} className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl">
+              <Trash2 className="h-4 w-4 mr-1.5" />
+              {deleting ? 'Excluindo...' : 'Sim, excluir'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Appointment Dialog ──────────────────────────────── */}
+      <Dialog open={editApptOpen} onOpenChange={setEditApptOpen}>
+        <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
+          <form onSubmit={handleSaveEditAppt}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Pencil className="h-5 w-5 text-indigo-600" /> Editar Consulta
+              </DialogTitle>
+              <DialogDescription>Atualize os dados da consulta ou exame.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-3 py-3">
+              <div className="space-y-1.5">
+                <Label>Título *</Label>
+                <Input required value={editApptForm.title}
+                  onChange={e => setEditApptForm(p => ({ ...p, title: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Médico / Especialista</Label>
+                  <Input value={editApptForm.doctor_name}
+                    onChange={e => setEditApptForm(p => ({ ...p, doctor_name: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Especialidade</Label>
+                  <Input value={editApptForm.specialty}
+                    onChange={e => setEditApptForm(p => ({ ...p, specialty: e.target.value }))} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Data e Horário *</Label>
+                <Input type="datetime-local" required value={editApptForm.starts_at}
+                  onChange={e => setEditApptForm(p => ({ ...p, starts_at: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Local</Label>
+                <Input value={editApptForm.location}
+                  onChange={e => setEditApptForm(p => ({ ...p, location: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Observações</Label>
+                <Input value={editApptForm.description}
+                  onChange={e => setEditApptForm(p => ({ ...p, description: e.target.value }))} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setEditApptOpen(false)}>Cancelar</Button>
+              <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700" disabled={editSaving}>
+                {editSaving ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Task Dialog ─────────────────────────────────────── */}
+      <Dialog open={editTaskOpen} onOpenChange={setEditTaskOpen}>
+        <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
+          <form onSubmit={handleSaveEditTask}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Pencil className="h-5 w-5 text-amber-600" /> Editar Tarefa
+              </DialogTitle>
+              <DialogDescription>Atualize os detalhes desta tarefa.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-3 py-3">
+              <div className="space-y-1.5">
+                <Label>Título *</Label>
+                <Input required value={editTaskForm.title}
+                  onChange={e => setEditTaskForm(p => ({ ...p, title: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Descrição</Label>
+                <Input value={editTaskForm.description}
+                  onChange={e => setEditTaskForm(p => ({ ...p, description: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Prioridade</Label>
+                  <Select value={editTaskForm.priority} onValueChange={v => setEditTaskForm(p => ({ ...p, priority: v }))}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Baixa</SelectItem>
+                      <SelectItem value="medium">Média</SelectItem>
+                      <SelectItem value="high">Alta</SelectItem>
+                      <SelectItem value="urgent">Urgente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Data</Label>
+                  <Input type="date" value={editTaskForm.due_date}
+                    onChange={e => setEditTaskForm(p => ({ ...p, due_date: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Horário</Label>
+                  <Input type="time" value={editTaskForm.due_time}
+                    onChange={e => setEditTaskForm(p => ({ ...p, due_time: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setEditTaskOpen(false)}>Cancelar</Button>
+              <Button type="submit" className="bg-amber-600 hover:bg-amber-700 font-bold" disabled={editSaving}>
+                {editSaving ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Meal Dialog ─────────────────────────────────────── */}
+      <Dialog open={editMealOpen} onOpenChange={setEditMealOpen}>
+        <DialogContent className="sm:max-w-[450px] max-h-[90vh] overflow-y-auto">
+          <form onSubmit={handleSaveEditMeal}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Pencil className="h-5 w-5 text-orange-600" /> Editar Refeição
+              </DialogTitle>
+              <DialogDescription>Atualize os alimentos e o apetite da refeição.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-3 py-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Tipo de Refeição</Label>
+                  <Select value={editMealForm.type} onValueChange={v => setEditMealForm(p => ({ ...p, type: v }))}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="breakfast">Café da Manhã</SelectItem>
+                      <SelectItem value="lunch">Almoço</SelectItem>
+                      <SelectItem value="snack">Café da Tarde</SelectItem>
+                      <SelectItem value="dinner">Jantar</SelectItem>
+                      <SelectItem value="supper">Ceia Noturna</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Aceitação / Apetite</Label>
+                  <Select value={editMealForm.acceptance} onValueChange={v => setEditMealForm(p => ({ ...p, acceptance: v }))}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full">Comeu tudo</SelectItem>
+                      <SelectItem value="partial">Comeu metade</SelectItem>
+                      <SelectItem value="refused">Recusou</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Alimentos servidos *</Label>
+                <Input required value={editMealForm.name}
+                  onChange={e => setEditMealForm(p => ({ ...p, name: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Observações nutricionais</Label>
+                <Input value={editMealForm.notes}
+                  placeholder="Ex: Tomou 200ml de suco"
+                  onChange={e => setEditMealForm(p => ({ ...p, notes: e.target.value }))} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setEditMealOpen(false)}>Cancelar</Button>
+              <Button type="submit" className="bg-orange-600 hover:bg-orange-700 font-bold" disabled={editSaving}>
+                {editSaving ? 'Salvando...' : 'Salvar Alterações'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
