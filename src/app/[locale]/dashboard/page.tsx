@@ -40,6 +40,9 @@ export default function DashboardOverviewPage() {
   const [mood, setMood] = useState<{ emoji: string; text: string; quote: string; time: string } | null>(null);
   const [vitals, setVitals] = useState<{ bp: string; glucose: string; saturation: string; temp: string } | null>(null);
   const [financialSummary, setFinancialSummary] = useState<{ balance: number; income: number; expenses: number } | null>(null);
+  const [newNote, setNewNote] = useState('');
+  const [submittingNote, setSubmittingNote] = useState(false);
+  const [reactions, setReactions] = useState<Record<string, number>>({});
 
   const today = new Date();
   const greeting = today.getHours() < 12 ? 'Bom dia' : today.getHours() < 18 ? 'Boa tarde' : 'Boa noite';
@@ -211,6 +214,32 @@ export default function DashboardOverviewPage() {
       amount_ml: 250,
       logged_by: user.id,
     });
+  };
+
+  const handleSendQuickNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNote.trim() || !selectedPerson || !currentOrganizationId || !user) return;
+    setSubmittingNote(true);
+    const content = newNote.trim();
+    const { data: inserted, error } = await supabase.from('care_notes').insert({
+      cared_person_id: selectedPerson.id,
+      organization_id: currentOrganizationId,
+      content: `${userName ? `${userName}: ` : ''}${content}`,
+      note_type: 'family',
+    }).select().single();
+
+    if (!error && inserted) {
+      setRecentActivities(prev => [inserted, ...prev]);
+      setNewNote('');
+    }
+    setSubmittingNote(false);
+  };
+
+  const handleToggleReaction = (id: string) => {
+    setReactions(prev => ({
+      ...prev,
+      [id]: (prev[id] || 0) + 1,
+    }));
   };
 
   const medsPercent = medsData.total > 0 ? Math.round((medsData.taken / medsData.total) * 100) : 0;
@@ -531,24 +560,62 @@ export default function DashboardOverviewPage() {
             </div>
           )}
 
-          {/* Recent Activities */}
-          <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-5 border border-stone-200 dark:border-[#172433] shadow-xs">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-black text-stone-900 dark:text-[#F8FAFC]">Atividades recentes</h2>
-              <Link href={`/${locale}/dashboard/history`} className="text-xs text-emerald-600 dark:text-[#5DE5BE] hover:underline font-bold">Ver todas</Link>
+          {/* Linha do Tempo da Família */}
+          <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-5 border border-stone-200 dark:border-[#172433] shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <h2 className="text-sm font-black text-stone-900 dark:text-[#F8FAFC]">Linha do Tempo da Família</h2>
+              </div>
+              <Link href={`/${locale}/dashboard/history`} className="text-xs text-emerald-600 dark:text-[#5DE5BE] hover:underline font-bold">Ver tudo</Link>
             </div>
+
+            {/* Quick post to family feed */}
+            <form onSubmit={handleSendQuickNote} className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Deixe um recado para a família..."
+                value={newNote}
+                onChange={e => setNewNote(e.target.value)}
+                className="flex-1 bg-stone-50 dark:bg-[#172433] border border-stone-200 dark:border-[#22354a] rounded-xl px-3 py-2 text-xs text-stone-900 dark:text-[#F8FAFC] placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+              <Button
+                type="submit"
+                size="sm"
+                disabled={submittingNote || !newNote.trim()}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs px-3 h-8 shrink-0 font-bold"
+              >
+                {submittingNote ? '...' : <Send className="h-3.5 w-3.5" />}
+              </Button>
+            </form>
+
+            {/* Activities list */}
             {recentActivities.length > 0 ? (
               <div className="space-y-2">
                 {recentActivities.map((act, idx) => {
                   const { icon: Icon, color } = activityIcon(act.note_type);
                   const time = format(new Date(act.created_at), 'HH:mm');
+                  const count = reactions[act.id] || 0;
                   return (
-                    <div key={act.id || idx} className="flex items-center gap-3 py-2 border-b border-stone-100 dark:border-[#172433]/60 last:border-0">
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${color}20`, color }}>
+                    <div
+                      key={act.id || idx}
+                      className="flex items-center gap-3 py-2.5 px-3 rounded-2xl bg-stone-50/60 dark:bg-[#172433]/40 border border-stone-100 dark:border-transparent transition-all hover:bg-stone-50 dark:hover:bg-[#172433]"
+                    >
+                      <div className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 shadow-2xs" style={{ background: `${color}20`, color }}>
                         <Icon className="h-3.5 w-3.5" />
                       </div>
-                      <p className="text-xs text-stone-700 dark:text-slate-300 flex-1 line-clamp-1">{act.content}</p>
-                      <span className="text-[10px] text-stone-400 dark:text-slate-500 shrink-0">{time}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-stone-800 dark:text-slate-200 truncate">{act.content}</p>
+                        <span className="text-[10px] text-stone-400 dark:text-slate-500">{time}</span>
+                      </div>
+                      <button
+                        onClick={() => handleToggleReaction(act.id)}
+                        className="flex items-center gap-1 text-[11px] text-stone-400 hover:text-rose-500 transition-colors px-2 py-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                        title="Enviar carinho"
+                      >
+                        <Heart className={cn('h-3.5 w-3.5', count > 0 ? 'fill-rose-500 text-rose-500' : '')} />
+                        {count > 0 && <span className="font-bold text-rose-500">{count}</span>}
+                      </button>
                     </div>
                   );
                 })}

@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
+import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,7 +21,7 @@ import {
 import {
   Receipt, Plus, Pencil, Trash2, TrendingUp,
   Wallet, Landmark, ChevronLeft, ChevronRight,
-  AlertCircle, CheckCircle2, DollarSign, Calendar
+  AlertCircle, CheckCircle2, DollarSign, Calendar, Shield
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -79,9 +81,24 @@ export default function ExpensesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editExpense, setEditExpense] = useState<Expense | null>(null);
   const [saving, setSaving] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   // Month filtering state (e.g. "2026-09")
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
+
+  useEffect(() => {
+    if (!user || !currentOrganizationId) return;
+    const supabase = createClient();
+    (supabase as any)
+      .from('organization_members')
+      .select('role')
+      .eq('organization_id', currentOrganizationId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }: any) => {
+        if (data?.role) setUserRole(data.role);
+      });
+  }, [user, currentOrganizationId]);
 
   // Financial Profile & Summary state
   const [profile, setProfile] = useState<FinancialProfile>({
@@ -361,6 +378,23 @@ export default function ExpensesPage() {
       year: 'numeric',
     });
   })();
+
+  if (userRole === 'caregiver') {
+    return (
+      <div className="max-w-md mx-auto py-24 text-center space-y-4">
+        <div className="w-16 h-16 rounded-3xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 flex items-center justify-center mx-auto shadow-sm">
+          <Shield className="h-8 w-8" />
+        </div>
+        <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100">Área Financeira Reservada</h2>
+        <p className="text-sm text-stone-600 dark:text-stone-400 max-w-sm mx-auto leading-relaxed">
+          Você está conectado como <strong>Cuidador Profissional</strong>. Os registros financeiros e recibos são confidenciais e restritos aos administradores da família.
+        </p>
+        <Button asChild variant="outline" className="rounded-xl mt-2">
+          <Link href={`/${currentLocale}/dashboard`}>Voltar ao Início</Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">

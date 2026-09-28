@@ -284,9 +284,9 @@ export default function FamilyPage() {
                         <SelectValue placeholder="Selecione o papel" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="collaborator">Familiar Colaborador (Visualiza e cumpre tarefas)</SelectItem>
-                        <SelectItem value="caregiver">Cuidador Profissional (Registra medicamentos e rotina)</SelectItem>
-                        <SelectItem value="admin">Administrador (Pode gerenciar membros e configurações)</SelectItem>
+                        <SelectItem value="caregiver">Cuidador Profissional (Focado na rotina e remédios • Sem acesso financeiro)</SelectItem>
+                        <SelectItem value="collaborator">Familiar (Acesso à rotina, tarefas e histórico)</SelectItem>
+                        <SelectItem value="admin">Administrador da Família (Acesso total, gestão e plano)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

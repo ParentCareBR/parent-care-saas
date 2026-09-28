@@ -36,6 +36,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from 'next-intl';
+import { QuickActionFAB } from '@/components/shared/QuickActionFAB';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -117,16 +118,31 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     setLoadingCheckoutSeats(null);
   };
 
-  const navigation = [
-    { name: tNav('overview'), href: `/${locale}/dashboard`, exact: true, icon: LayoutDashboard },
-    { name: tNav('reports'), href: `/${locale}/dashboard/reports`, icon: BarChart3 },
-    { name: tNav('medications'), href: `/${locale}/dashboard/medications`, icon: Pill },
-    { name: tNav('meals'), href: `/${locale}/dashboard/meals`, icon: Utensils },
-    { name: tNav('appointments'), href: `/${locale}/dashboard/appointments`, icon: Calendar },
-    { name: tNav('tasks'), href: `/${locale}/dashboard/tasks`, icon: CheckSquare },
-    { name: tNav('expenses'), href: `/${locale}/dashboard/expenses`, icon: Receipt },
-    { name: tNav('history'), href: `/${locale}/dashboard/history`, icon: FileText },
-    { name: tNav('plans'), href: `/${locale}/dashboard/settings/subscription`, icon: Sparkles },
+  const navHubs = [
+    {
+      title: 'Rotina & Cuidado',
+      items: [
+        { name: tNav('overview'), href: `/${locale}/dashboard`, exact: true, icon: LayoutDashboard },
+        { name: tNav('medications'), href: `/${locale}/dashboard/medications`, icon: Pill },
+        { name: tNav('meals'), href: `/${locale}/dashboard/meals`, icon: Utensils },
+        { name: tNav('history'), href: `/${locale}/dashboard/history`, icon: FileText },
+      ],
+    },
+    {
+      title: 'Agenda & Compromissos',
+      items: [
+        { name: tNav('appointments'), href: `/${locale}/dashboard/appointments`, icon: Calendar },
+        { name: tNav('tasks'), href: `/${locale}/dashboard/tasks`, icon: CheckSquare },
+      ],
+    },
+    {
+      title: 'Gestão da Família',
+      items: [
+        { name: tNav('family'), href: `/${locale}/dashboard/family`, icon: Users },
+        { name: tNav('expenses'), href: `/${locale}/dashboard/expenses`, icon: Receipt },
+        { name: tNav('reports'), href: `/${locale}/dashboard/reports`, icon: BarChart3 },
+      ],
+    },
   ];
 
   return (
@@ -182,54 +198,56 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           )}
         </div>
 
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navigation.map((item) => {
-            const isActive = item.exact 
-              ? pathname === item.href 
-              : pathname === item.href || pathname.startsWith(`${item.href}/`);
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  "flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all group",
-                  isActive 
-                    ? "bg-emerald-50 dark:bg-[#19D3A2]/10 text-emerald-700 dark:text-[#F8FAFC] font-bold border-l-4 border-emerald-600 dark:border-[#19D3A2] shadow-xs dark:shadow-[inset_0_0_12px_rgba(25,211,162,0.15)]" 
-                    : "text-stone-600 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-[#101D2B] hover:text-stone-900 dark:hover:text-[#F8FAFC]"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon className={cn("h-4 w-4 transition-colors", isActive ? "text-emerald-600 dark:text-[#19D3A2]" : "text-stone-400 dark:text-slate-400 group-hover:text-stone-700 dark:group-hover:text-slate-200")} />
-                  <span>{item.name}</span>
-                </div>
-                {isActive ? (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-[#19D3A2] shadow-[0_0_5px_#19D3A2] animate-pulse" />
-                ) : (
-                  <span className="w-1.5 h-1.5 rounded-full bg-stone-300 dark:bg-[#172433] opacity-0 group-hover:opacity-100 transition-opacity" />
-                )}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 p-3 space-y-4 overflow-y-auto">
+          {navHubs.map((hub, hi) => (
+            <div key={hi} className="space-y-1">
+              <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-slate-500">
+                {hub.title}
+              </p>
+              {hub.items.map((item) => {
+                const isActive = item.exact 
+                  ? pathname === item.href 
+                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group",
+                      isActive 
+                        ? "bg-emerald-50 dark:bg-[#19D3A2]/10 text-emerald-700 dark:text-[#F8FAFC] font-bold border-l-4 border-emerald-600 dark:border-[#19D3A2] shadow-xs" 
+                        : "text-stone-600 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-[#101D2B] hover:text-stone-900 dark:hover:text-[#F8FAFC]"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Icon className={cn("h-4 w-4 transition-colors", isActive ? "text-emerald-600 dark:text-[#19D3A2]" : "text-stone-400 dark:text-slate-400 group-hover:text-stone-700 dark:group-hover:text-slate-200")} />
+                      <span>{item.name}</span>
+                    </div>
+                    {isActive && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-[#19D3A2] shadow-[0_0_5px_#19D3A2] animate-pulse" />
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         <div className="p-3 border-t border-stone-200 dark:border-[#172433] space-y-1">
           <Link
-            href={`/${locale}/dashboard/family`}
+            href={`/${locale}/dashboard/settings/subscription`}
             className={cn(
               "flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all group",
-              pathname.includes('/dashboard/family')
+              pathname.includes('/settings/subscription')
                 ? "bg-emerald-50 dark:bg-[#19D3A2]/10 text-emerald-700 dark:text-[#F8FAFC] font-bold border-l-4 border-emerald-600 dark:border-[#19D3A2]"
                 : "text-stone-600 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-[#101D2B] hover:text-stone-900 dark:hover:text-[#F8FAFC]"
             )}
           >
-            <div className="flex items-center gap-3">
-              <Users className="h-4 w-4" />
-              <span>{tNav('family')}</span>
+            <div className="flex items-center gap-2.5">
+              <Sparkles className="h-4 w-4 text-amber-500" />
+              <span>{tNav('plans')}</span>
             </div>
-            {pathname.includes('/dashboard/family') && (
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-[#19D3A2] shadow-[0_0_5px_#19D3A2]" />
-            )}
           </Link>
           <Link
             href={`/${locale}/dashboard/settings/monitoring`}
@@ -240,13 +258,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 : "text-stone-600 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-[#101D2B] hover:text-stone-900 dark:hover:text-[#F8FAFC]"
             )}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               <Sliders className="h-4 w-4" />
               <span>{tNav('monitoring')}</span>
             </div>
-            {pathname.includes('/dashboard/settings/monitoring') && (
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-[#19D3A2] shadow-[0_0_5px_#19D3A2]" />
-            )}
           </Link>
           <Link
             href={`/${locale}/dashboard/settings`}
@@ -257,17 +272,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 : "text-stone-600 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-[#101D2B] hover:text-stone-900 dark:hover:text-[#F8FAFC]"
             )}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               <Settings className="h-4 w-4" />
               <span>{tNav('settings')}</span>
             </div>
-            {pathname === `/${locale}/dashboard/settings` && (
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-[#19D3A2] shadow-[0_0_5px_#19D3A2]" />
-            )}
           </Link>
           <button
             onClick={signOut}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-[#F43F5E] hover:bg-[#F43F5E]/10 transition-colors"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-[#F43F5E] hover:bg-[#F43F5E]/10 transition-colors"
           >
             <LogOut className="h-4 w-4" />
             <span>{tNav('logout')}</span>
@@ -311,56 +323,63 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <CaredPersonSelector />
             </div>
 
-            <nav className="flex-1 space-y-1 overflow-y-auto pt-2">
-              {navigation.map((item) => {
-                const isActive = item.exact 
-                  ? pathname === item.href 
-                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={cn(
-                      "flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-colors",
-                      isActive 
-                        ? "bg-emerald-50 dark:bg-[#19D3A2]/20 text-emerald-700 dark:text-[#F8FAFC] font-bold border-l-4 border-emerald-600 dark:border-[#19D3A2]" 
-                        : "text-stone-600 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-[#101D2B]"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon className="h-5 w-5 text-emerald-600 dark:text-[#19D3A2]" />
-                      <span>{item.name}</span>
-                    </div>
-                    {isActive && <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-[#19D3A2] shadow-[0_0_5px_#19D3A2]" />}
-                  </Link>
-                );
-              })}
+            <nav className="flex-1 space-y-4 overflow-y-auto pt-2">
+              {navHubs.map((hub, hi) => (
+                <div key={hi} className="space-y-1">
+                  <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-stone-400 dark:text-slate-500">
+                    {hub.title}
+                  </p>
+                  {hub.items.map((item) => {
+                    const isActive = item.exact 
+                      ? pathname === item.href 
+                      : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={cn(
+                          "flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors",
+                          isActive 
+                            ? "bg-emerald-50 dark:bg-[#19D3A2]/20 text-emerald-700 dark:text-[#F8FAFC] font-bold border-l-4 border-emerald-600 dark:border-[#19D3A2]" 
+                            : "text-stone-600 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-[#101D2B]"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon className="h-4 w-4 text-emerald-600 dark:text-[#19D3A2]" />
+                          <span>{item.name}</span>
+                        </div>
+                        {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-[#19D3A2] shadow-[0_0_5px_#19D3A2]" />}
+                      </Link>
+                    );
+                  })}
+                </div>
+              ))}
 
-              <div className="pt-3 border-t border-stone-200 dark:border-[#172433] space-y-1">
+              <div className="pt-2 border-t border-stone-200 dark:border-[#172433] space-y-1">
                 <Link
-                  href={`/${locale}/dashboard/family`}
+                  href={`/${locale}/dashboard/settings/subscription`}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-stone-600 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-[#101D2B]"
+                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-stone-600 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-[#101D2B]"
                 >
-                  <Users className="h-5 w-5" />
-                  {tNav('family')}
+                  <Sparkles className="h-4 w-4 text-amber-500" />
+                  {tNav('plans')}
                 </Link>
                 <Link
                   href={`/${locale}/dashboard/settings/monitoring`}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-stone-600 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-[#101D2B]"
+                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-stone-600 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-[#101D2B]"
                 >
-                  <Sliders className="h-5 w-5" />
+                  <Sliders className="h-4 w-4" />
                   {tNav('monitoring')}
                 </Link>
                 <Link
                   href={`/${locale}/dashboard/settings`}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-stone-600 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-[#101D2B]"
+                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-stone-600 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-[#101D2B]"
                 >
-                  <Settings className="h-5 w-5" />
+                  <Settings className="h-4 w-4" />
                   {tNav('settings')}
                 </Link>
               </div>
@@ -533,6 +552,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <span className="text-[10px] font-semibold text-stone-500 dark:text-slate-400">Menu</span>
           </button>
         </nav>
+
+        {/* Global Floating Action Button */}
+        <QuickActionFAB />
 
       </main>
     </div>

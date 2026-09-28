@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Heart, Activity, CheckCircle2, Shield, Calendar, Users, Smartphone, CreditCard, ChevronRight, PlayCircle } from 'lucide-react';
 import Image from 'next/image';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
+import { InteractiveElderSimulator } from '@/components/landing/InteractiveElderSimulator';
 
 export default function Home({ params: { locale } }: { params: { locale: string } }) {
   setRequestLocale(locale);
@@ -210,6 +211,65 @@ export default function Home({ params: { locale } }: { params: { locale: string 
                 ))}
               </ul>
             </div>
+          </div>
+
+          {/* Interactive Senior Screen Live Simulator */}
+          <div className="mt-20">
+            <InteractiveElderSimulator locale={locale} />
+          </div>
+        </div>
+      </section>
+
+      {/* Security & LGPD Section */}
+      <section className="py-16 bg-white border-y border-stone-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-gradient-to-r from-[#08162A] to-[#10233d] text-white rounded-3xl p-8 sm:p-12 shadow-2xl relative overflow-hidden">
+            <div className="max-w-3xl relative z-10 space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30">
+                <Shield className="h-4 w-4" />
+                Segurança de Dados Médicos & LGPD
+              </div>
+              <h3 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
+                Seus dados de saúde protegidos com padrão hospitalar
+              </h3>
+              <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+                Tratamos dados de saúde como dados pessoais sensíveis (Art. 11 da LGPD). Toda a comunicação entre o aplicativo da família e a tela do idoso é protegida por criptografia de ponta a ponta (SSL/TLS 256-bit). Seus dados nunca serão compartilhados ou usados para anúncios.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-white/10 text-xs font-semibold">
+                <div className="flex items-center gap-2 text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4" /> Criptografia 256-bit
+                </div>
+                <div className="flex items-center gap-2 text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4" /> Conformidade com LGPD
+                </div>
+                <div className="flex items-center gap-2 text-emerald-300">
+                  <CheckCircle2 className="h-4 w-4" /> Backup Diário Automático
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 30-Day Guarantee Section */}
+      <section className="py-20 bg-emerald-50/60 border-b border-emerald-100">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
+          <div className="w-16 h-16 rounded-3xl bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-emerald-600/30">
+            <Heart className="h-8 w-8 fill-white" />
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">
+            Teste por 30 dias grátis, com risco zero para você
+          </h2>
+          <p className="text-gray-600 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
+            Cadastre-se hoje e tenha acesso completo a todos os recursos. Nenhuma cobrança será realizada nos primeiros 30 dias. Se por qualquer motivo achar que o Parent Care não transformou a rotina da sua família, cancele com 1 clique direto no painel, sem telefonemas nem perguntas.
+          </p>
+          <div className="pt-2">
+            <Link
+              href={`/${locale}/auth/signup`}
+              className="inline-flex items-center gap-2 bg-emerald-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20"
+            >
+              Começar Meu Teste Grátis de 30 Dias <ChevronRight className="h-5 w-5" />
+            </Link>
           </div>
         </div>
       </section>
