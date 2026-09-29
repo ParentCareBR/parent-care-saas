@@ -30,6 +30,7 @@ interface MealRecord {
   recurrence?: string;
   alarm?: string;
   isExample?: boolean;
+  sourceTable?: 'care_notes' | 'meals';
 }
 
 // The single editable example that appears when no real data exists
@@ -78,63 +79,117 @@ export default function MealsPage() {
     }
     setLoading(true);
 
-    // Fetch from care_notes where content starts with "Refeição"
-    const { data, error } = await supabase
-      .from('care_notes')
-      .select('*')
-      .eq('cared_person_id', selectedPerson.id)
-      .like('content', 'Refeição%')
-      .order('created_at', { ascending: false })
-      .limit(50);
+    // Fetch from care_notes and meals table
+    const [notesRes, mealsRes] = await Promise.all([
+      supabase
+        .from('care_notes')
+        .select('*')
+        .eq('cared_person_id', selectedPerson.id)
+        .ilike('content', '%refei%')
+        .order('created_at', { ascending: false })
+        .limit(50),
+      supabase
+        .from('meals')
+        .select('*')
+        .eq('cared_person_id', selectedPerson.id)
+        .order('consumed_at', { ascending: false })
+        .limit(50),
+    ]);
 
-    if (error) {
-      console.error('Erro ao buscar refeições:', error);
-    }
+    const data = notesRes.data || [];
+    const directMeals = mealsRes.data || [];
+    const seenMealKeys = new Set<string>();
+    const parsed: MealRecord[] = [];
 
-    if (data && data.length > 0) {
-      // Parse the stored content back into MealRecord shape
-      const parsed: MealRecord[] = data.map((n: any) => {
-        // Content format: "Refeição (type): name. Apetite: label. notes"
-        const match = n.content.match(/^Refeição \((.+?)\): (.+?)\. Apetite: (.+?)(?:\. (.*))?$/);
-        const typeMap: Record<string, string> = {
-          breakfast: 'breakfast', lunch: 'lunch', snack: 'snack', dinner: 'dinner', supper: 'supper',
-        };
-        const accMap: Record<string, 'full' | 'partial' | 'refused'> = {
-          'Comeu tudo': 'full', 'Comeu metade': 'partial', 'Recusou': 'refused',
-        };
+    const typeMap: Record<string, string> = {
+      breakfast: 'breakfast', lunch: 'lunch', snack: 'snack', dinner: 'dinner', supper: 'supper',
+    };
+    const accMap: Record<string, 'full' | 'partial' | 'refused'> = {
+      'Comeu tudo': 'full', 'Comeu metade': 'partial', 'Recusou': 'refused',
+    };
 
-        let rawNotes = match && match[4] ? match[4] : undefined;
-        let recurrenceText: string | undefined;
-        let alarmText: string | undefined;
-        if (rawNotes) {
-          const recMatch = rawNotes.match(/\[(?:Recorrência|Recurrence|Wiederholung):\s*(.+?)\]/i);
-          if (recMatch) {
-            recurrenceText = recMatch[1];
-            rawNotes = rawNotes.replace(/\[(?:Recorrência|Recurrence|Wiederholung):\s*(.+?)\]/gi, '').trim();
-          }
-          const alarmMatch = rawNotes.match(/\[(?:Alarme|Alarm|Wecker):\s*(.+?)\]/i);
-          if (alarmMatch) {
-            alarmText = alarmMatch[1];
-            rawNotes = rawNotes.replace(/\[(?:Alarme|Alarm|Wecker):\s*(.+?)\]/gi, '').trim();
-          }
-          if (!rawNotes) rawNotes = undefined;
+    data.forEach((n: any) => {
+      const typeMatch = n.content.match(/Refei.+?\((.+?)\)/i);
+      const nameMatch = n.content.match(/Refei.+?\(.+?\)(?:\s*(?:às|as)?\s*\d{2}:\d{2})?:\s*([^.]+)/i);
+      const appMatch = n.content.match(/Apetite:\s*([^.]+)/i);
+
+      let rawNotes = '';
+      if (n.content?.includes('. Apetite: ')) {
+        const parts = n.content.split('. Apetite: ')[1]?.split('. ');
+        if (parts && parts.length > 1) {
+          rawNotes = parts.slice(1).join('. ');
         }
+      }
 
-        return {
-          id: n.id,
-          type: match ? (typeMap[match[1]] || match[1]) : 'lunch',
-          name: match ? match[2] : n.content,
-          time: new Date(n.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-          acceptance: match ? (accMap[match[3]] || 'full') : 'full',
-          notes: rawNotes,
-          recurrence: recurrenceText,
-          alarm: alarmText,
-          date: n.created_at,
-        };
+      let recurrenceText: string | undefined;
+      let alarmText: string | undefined;
+      if (rawNotes) {
+        const recMatch = rawNotes.match(/\[(?:Recorrência|Recurrence|Wiederholung):\s*(.+?)\]/i);
+        if (recMatch) {
+          recurrenceText = recMatch[1];
+          rawNotes = rawNotes.replace(/\[(?:Recorrência|Recurrence|Wiederholung):\s*(.+?)\]/gi, '').trim();
+        }
+        const alarmMatch = rawNotes.match(/\[(?:Alarme|Alarm|Wecker):\s*(.+?)\]/i);
+        if (alarmMatch) {
+          alarmText = alarmMatch[1];
+          rawNotes = rawNotes.replace(/\[(?:Alarme|Alarm|Wecker):\s*(.+?)\]/gi, '').trim();
+        }
+      }
+
+      const mealType = typeMatch ? (typeMap[typeMatch[1]] || typeMatch[1]) : 'lunch';
+      const mealName = nameMatch ? nameMatch[1].trim() : n.content;
+      const appText = appMatch ? appMatch[1].trim() : 'Comeu tudo';
+      const acceptance = accMap[appText] || 'full';
+
+      const explicitTimeMatch = n.content.match(/\b(\d{2}:\d{2})\b/);
+      const timeStr = explicitTimeMatch ? explicitTimeMatch[1] : new Date(n.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+      const d = new Date(n.created_at);
+      const key = `${format(d, 'yyyy-MM-dd')}-${mealType}-${mealName.toLowerCase().slice(0, 10)}`;
+      seenMealKeys.add(key);
+
+      parsed.push({
+        id: n.id,
+        type: mealType,
+        name: mealName,
+        time: timeStr,
+        acceptance,
+        notes: rawNotes || undefined,
+        recurrence: recurrenceText,
+        alarm: alarmText,
+        date: n.created_at,
+        sourceTable: 'care_notes',
       });
+    });
+
+    directMeals.forEach((m: any) => {
+      const d = new Date(m.consumed_at || m.created_at);
+      const mealType = m.meal_type === 'other' ? 'supper' : (m.meal_type || 'lunch');
+      const mealName = m.description || 'Refeição';
+      const key = `${format(d, 'yyyy-MM-dd')}-${mealType}-${mealName.toLowerCase().slice(0, 10)}`;
+      if (!seenMealKeys.has(key)) {
+        seenMealKeys.add(key);
+
+        let app: 'full' | 'partial' | 'refused' = 'full';
+        if (m.notes?.includes('metade') || m.notes?.includes('parcial')) app = 'partial';
+        else if (m.notes?.includes('Recusou') || m.notes?.includes('pouco')) app = 'refused';
+
+        parsed.push({
+          id: m.id,
+          type: mealType,
+          name: mealName,
+          time: format(d, 'HH:mm'),
+          acceptance: app,
+          notes: (m.notes || '').replace(/Apetite:\s*[^·]+/gi, '').replace(/^[·\s]+|[·\s]+$/g, '') || undefined,
+          date: m.consumed_at || m.created_at,
+          sourceTable: 'meals',
+        });
+      }
+    });
+
+    if (parsed.length > 0) {
       setMeals(parsed);
     } else {
-      // No real data — show single example entry
       setMeals([EXAMPLE_MEAL]);
     }
 
@@ -198,17 +253,16 @@ export default function MealsPage() {
     }. ${form.notes || ''}${recurrenceSuffix}${alarmSuffix}`).trim().replace(/\.$/, '');
 
     if (editMeal && !editMeal.isExample) {
-      // Update existing note
-      const { error } = await supabase
-        .from('care_notes')
-        .update({ content })
-        .eq('id', editMeal.id);
-
-      if (error) {
-        toast({ title: 'Erro ao atualizar', description: error.message, variant: 'destructive' });
-        setSaving(false);
-        return;
-      }
+      // Update existing note or meal
+      const appLabel = form.acceptance === 'full' ? 'Comeu tudo' : form.acceptance === 'partial' ? 'Comeu metade' : 'Recusou';
+      await Promise.allSettled([
+        supabase.from('care_notes').update({ content }).eq('id', editMeal.id),
+        supabase.from('meals').update({
+          meal_type: form.type === 'supper' ? 'other' : form.type,
+          description: form.name,
+          notes: (form.notes || '') + (form.notes ? ' · ' : '') + `Apetite: ${appLabel}`,
+        }).eq('id', editMeal.id),
+      ]);
       toast({ title: 'Refeição atualizada!' });
     } else {
       // Create new (or replacing example)
@@ -259,9 +313,14 @@ export default function MealsPage() {
       setMeals([]);
       return;
     }
-    const { error } = await supabase.from('care_notes').delete().eq('id', meal.id);
-    if (error) {
-      toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' });
+    const [noteDel, mealDel] = await Promise.allSettled([
+      supabase.from('care_notes').delete().eq('id', meal.id),
+      supabase.from('meals').delete().eq('id', meal.id),
+    ]);
+    const noteErr = noteDel.status === 'fulfilled' ? noteDel.value.error : null;
+    const mealErr = mealDel.status === 'fulfilled' ? mealDel.value.error : null;
+    if (noteErr && mealErr) {
+      toast({ title: 'Erro ao excluir', description: noteErr.message || mealErr.message, variant: 'destructive' });
     } else {
       toast({ title: 'Refeição removida.' });
       fetchMeals();

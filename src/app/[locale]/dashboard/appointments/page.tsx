@@ -458,6 +458,14 @@ export default function AppointmentsPage() {
     if (!deleteConfirm) return;
     setDeleting(true);
     const { error } = await supabase.from(deleteConfirm.table).delete().eq(deleteConfirm.idField, deleteConfirm.id);
+    if (deleteConfirm.table === 'care_notes' || deleteConfirm.table === 'meals') {
+      try {
+        const otherTable = deleteConfirm.table === 'care_notes' ? 'meals' : 'care_notes';
+        await supabase.from(otherTable).delete().eq(deleteConfirm.idField, deleteConfirm.id);
+      } catch (e) {
+        // ignore
+      }
+    }
     setDeleting(false);
     setDeleteConfirm(null);
     if (error) {
@@ -479,7 +487,7 @@ export default function AppointmentsPage() {
   });
   const [editMealOpen, setEditMealOpen] = useState(false);
   const [editMealForm, setEditMealForm] = useState({
-    id: '', type: 'lunch', name: '', acceptance: 'full', notes: '',
+    id: '', table: 'care_notes', type: 'lunch', name: '', acceptance: 'full', notes: '',
   });
   const [editSaving, setEditSaving] = useState(false);
 
@@ -574,30 +582,45 @@ export default function AppointmentsPage() {
 
   const openEditMeal = (ev: AgendaEvent) => {
     const raw = ev.raw;
-    const typeMatch = raw.content?.match(/^Refeição \((.+?)\):/i);
-    const nameMatch = raw.content?.match(/^Refeição \(.+?\): (.+?)\. Apetite:/i);
-    const appMatch = raw.content?.match(/Apetite: (.+?)\./i);
-    let notesPart = '';
-    if (raw.content?.includes('. Apetite: ')) {
-      const parts = raw.content.split('. Apetite: ')[1]?.split('. ');
-      if (parts && parts.length > 1) {
-        notesPart = parts.slice(1).join('. ');
+    if (raw.content) {
+      const typeMatch = raw.content.match(/Refei.+?\((.+?)\)/i);
+      const nameMatch = raw.content.match(/Refei.+?\(.+?\)(?:\s*(?:às|as)?\s*\d{2}:\d{2})?:\s*([^.]+)/i);
+      const appMatch = raw.content.match(/Apetite:\s*([^.]+)/i);
+      let notesPart = '';
+      if (raw.content.includes('. Apetite: ')) {
+        const parts = raw.content.split('. Apetite: ')[1]?.split('. ');
+        if (parts && parts.length > 1) {
+          notesPart = parts.slice(1).join('. ');
+        }
       }
-    }
 
-    let app = 'full';
-    if (appMatch) {
-      if (appMatch[1].includes('metade') || appMatch[1].includes('parcial')) app = 'partial';
-      else if (appMatch[1].includes('Recusou') || appMatch[1].includes('pouco')) app = 'refused';
-    }
+      let app = 'full';
+      if (appMatch) {
+        if (appMatch[1].includes('metade') || appMatch[1].includes('parcial')) app = 'partial';
+        else if (appMatch[1].includes('Recusou') || appMatch[1].includes('pouco')) app = 'refused';
+      }
 
-    setEditMealForm({
-      id: raw.id,
-      type: typeMatch ? typeMatch[1] : 'lunch',
-      name: nameMatch ? nameMatch[1] : ev.title.replace(/^[^:]+:\s*/, ''),
-      acceptance: app,
-      notes: notesPart,
-    });
+      setEditMealForm({
+        id: raw.id,
+        table: 'care_notes',
+        type: typeMatch ? typeMatch[1] : 'lunch',
+        name: nameMatch ? nameMatch[1].trim() : ev.title.replace(/^[^:]+:\s*/, ''),
+        acceptance: app,
+        notes: notesPart,
+      });
+    } else {
+      let app = 'full';
+      if (raw.notes?.includes('metade') || raw.notes?.includes('parcial')) app = 'partial';
+      else if (raw.notes?.includes('Recusou') || raw.notes?.includes('pouco')) app = 'refused';
+      setEditMealForm({
+        id: raw.id,
+        table: 'meals',
+        type: raw.meal_type === 'other' ? 'supper' : (raw.meal_type || 'lunch'),
+        name: raw.description || ev.title.replace(/^[^:]+:\s*/, ''),
+        acceptance: app,
+        notes: (raw.notes || '').replace(/Apetite:\s*[^·]+/gi, '').replace(/^[·\s]+|[·\s]+$/g, ''),
+      });
+    }
     setEditMealOpen(true);
   };
 
@@ -607,15 +630,19 @@ export default function AppointmentsPage() {
     const appLabel = editMealForm.acceptance === 'full' ? 'Comeu tudo' : editMealForm.acceptance === 'partial' ? 'Comeu metade' : 'Recusou';
     const content = `Refeição (${editMealForm.type}): ${editMealForm.name}. Apetite: ${appLabel}.${editMealForm.notes ? ` ${editMealForm.notes}` : ''}`;
 
-    const { error } = await supabase.from('care_notes').update({ content }).eq('id', editMealForm.id);
+    await Promise.allSettled([
+      supabase.from('care_notes').update({ content }).eq('id', editMealForm.id),
+      supabase.from('meals').update({
+        meal_type: editMealForm.type === 'supper' ? 'other' : editMealForm.type,
+        description: editMealForm.name,
+        notes: (editMealForm.notes ? `${editMealForm.notes} · ` : '') + `Apetite: ${appLabel}`,
+      }).eq('id', editMealForm.id),
+    ]);
+
     setEditSaving(false);
-    if (error) {
-      toast({ title: 'Erro ao atualizar refeição', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Refeição atualizada!' });
-      setEditMealOpen(false);
-      fetchEvents();
-    }
+    toast({ title: 'Refeição atualizada!' });
+    setEditMealOpen(false);
+    fetchEvents();
   };
 
   // ── View Filtering ────────────────────────────────────────────
@@ -1096,7 +1123,7 @@ export default function AppointmentsPage() {
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
                           <Button size="sm" variant="ghost"
-                            onClick={() => setDeleteConfirm({ id: ev.raw.id, title: ev.title, table: 'care_notes', idField: 'id' })}
+                            onClick={() => setDeleteConfirm({ id: ev.raw.id, title: ev.title, table: ev.raw?.content ? 'care_notes' : 'meals', idField: 'id' })}
                             title="Excluir refeição"
                             className="h-8 w-8 text-stone-400 hover:text-rose-600 rounded-lg p-0">
                             <Trash2 className="h-3.5 w-3.5" />

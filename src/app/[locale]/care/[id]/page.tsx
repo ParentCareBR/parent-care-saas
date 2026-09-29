@@ -176,17 +176,39 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     });
 
     const mealFrom = new Date(); mealFrom.setDate(mealFrom.getDate() - 7);
-    const { data: notes } = await (supabase as any)
-      .from('care_notes').select('id,content,created_at').eq('cared_person_id', personId)
-      .like('content', 'Refei%').gte('created_at', mealFrom.toISOString())
-      .order('created_at', { ascending: false }).limit(50);
-    const emojiMap: Record<string, string> = { breakfast: '🥣', lunch: '🥗', snack: '🍎', dinner: '🍲', supper: '🥛' };
+    const [ { data: notes }, { data: directMeals } ] = await Promise.all([
+      (supabase as any)
+        .from('care_notes').select('id,content,created_at').eq('cared_person_id', personId)
+        .ilike('content', '%refei%').gte('created_at', mealFrom.toISOString())
+        .order('created_at', { ascending: false }).limit(50),
+      (supabase as any)
+        .from('meals').select('id,meal_type,description,notes,consumed_at,created_at').eq('cared_person_id', personId)
+        .gte('created_at', mealFrom.toISOString())
+        .order('created_at', { ascending: false }).limit(50),
+    ]);
+    const emojiMap: Record<string, string> = { breakfast: '🥣', lunch: '🥗', snack: '🍎', dinner: '🍲', supper: '🥛', other: '🍽️' };
+    const seenCareMeals = new Set<string>();
     (notes || []).forEach((n: any) => {
       const d = new Date(n.created_at);
-      const match = n.content.match(/^Refei.+?\((.+?)\): (.+?)\. Apetite:/);
-      const mealType = match ? match[1] : 'meal';
-      const mealName = match ? match[2] : n.content.substring(0, 40);
-      allEvents.push({ id: 'meal-' + n.id, title: (emojiMap[mealType] || '🍽️') + ' ' + mealName, time: format(d, 'HH:mm'), date: d, type: 'meal', color: 'orange' });
+      const typeMatch = n.content.match(/Refei.+?\((.+?)\)/i);
+      const nameMatch = n.content.match(/Refei.+?\(.+?\)(?:\s*(?:às|as)?\s*\d{2}:\d{2})?:\s*([^.]+)/i);
+      const mealType = typeMatch ? typeMatch[1] : 'other';
+      const mealName = nameMatch ? nameMatch[1].trim() : n.content.substring(0, 40);
+      const explicitTimeMatch = n.content.match(/\b(\d{2}:\d{2})\b/);
+      const timeStr = explicitTimeMatch ? explicitTimeMatch[1] : format(d, 'HH:mm');
+      const key = `${format(d, 'yyyy-MM-dd')}-${mealType}-${mealName.toLowerCase().slice(0, 10)}`;
+      seenCareMeals.add(key);
+      allEvents.push({ id: 'meal-' + n.id, title: (emojiMap[mealType] || '🍽️') + ' ' + mealName, time: timeStr, date: d, type: 'meal', color: 'orange' });
+    });
+    (directMeals || []).forEach((m: any) => {
+      const d = new Date(m.consumed_at || m.created_at);
+      const mealType = m.meal_type || 'other';
+      const mealName = m.description || 'Refeição';
+      const key = `${format(d, 'yyyy-MM-dd')}-${mealType}-${mealName.toLowerCase().slice(0, 10)}`;
+      if (!seenCareMeals.has(key)) {
+        seenCareMeals.add(key);
+        allEvents.push({ id: 'meal-direct-' + m.id, title: (emojiMap[mealType] || '🍽️') + ' ' + mealName, time: format(d, 'HH:mm'), date: d, type: 'meal', color: 'orange' });
+      }
     });
 
     const { data: tasks } = await (supabase as any)
