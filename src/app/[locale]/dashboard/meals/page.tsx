@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import RecurrenceSelector, { RecurrenceConfig, recurrenceLabel } from '@/components/ui/RecurrenceSelector';
 import { getAlarmTexts } from '@/lib/i18n/care-translations';
+import { format } from 'date-fns';
 
 interface MealRecord {
   id: string;
@@ -187,7 +188,12 @@ export default function MealsPage() {
       ? ` [${tAlarm.badgePrefix}: ${alarmLabels[alarm] || alarm}]`
       : '';
 
-    const content = (`Refeição (${form.type}): ${form.name}. Apetite: ${
+    const timeStr = form.time || format(new Date(), 'HH:mm');
+    const [h, m] = timeStr.split(':').map(Number);
+    const mealDate = new Date();
+    mealDate.setHours(isNaN(h) ? 12 : h, isNaN(m) ? 0 : m, 0, 0);
+
+    const content = (`Refeição (${form.type}) às ${timeStr}: ${form.name}. Apetite: ${
       form.acceptance === 'full' ? 'Comeu tudo' : form.acceptance === 'partial' ? 'Comeu metade' : 'Recusou'
     }. ${form.notes || ''}${recurrenceSuffix}${alarmSuffix}`).trim().replace(/\.$/, '');
 
@@ -215,15 +221,31 @@ export default function MealsPage() {
         organization_id: currentOrganizationId,
         author_id: user.id,
         content,
+        created_at: mealDate.toISOString(),
         type: 'general',
       });
+
+      // Dual write to meals table for complete synchronization
+      try {
+        await supabase.from('meals').insert({
+          cared_person_id: selectedPerson.id,
+          organization_id: currentOrganizationId,
+          meal_type: form.type === 'supper' ? 'other' : form.type,
+          description: form.name,
+          consumed_at: mealDate.toISOString(),
+          notes: (form.notes || '') + (form.notes ? ' · ' : '') + `Apetite: ${form.acceptance === 'full' ? 'Comeu tudo' : form.acceptance === 'partial' ? 'Comeu metade' : 'Recusou'}`,
+          logged_by: user.id,
+        });
+      } catch (err) {
+        console.warn('Could not insert to meals table:', err);
+      }
 
       if (error) {
         toast({ title: 'Erro ao registrar', description: error.message, variant: 'destructive' });
         setSaving(false);
         return;
       }
-      toast({ title: 'Refeição registrada!', description: 'O registro nutricional foi salvo.' });
+      toast({ title: 'Refeição registrada!', description: 'O registro nutricional foi salvo e adicionado à agenda.' });
     }
 
     setModalOpen(false);

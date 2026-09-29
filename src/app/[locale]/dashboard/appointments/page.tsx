@@ -120,7 +120,7 @@ export default function AppointmentsPage() {
     title: '', doctor_name: '', specialty: '', location: '', starts_at: '', description: '',
   });
   const [taskForm, setTaskForm] = useState({
-    title: '', description: '', priority: 'medium', due_date: '', due_time: '',
+    title: '', description: '', priority: 'medium', due_date: new Date().toISOString().slice(0, 10), due_time: '09:00',
   });
   const [recurrence, setRecurrence] = useState<RecurrenceConfig>({ type: 'none' });
   const [alarm, setAlarm] = useState<string>('15m');
@@ -238,16 +238,25 @@ export default function AppointmentsPage() {
       });
     });
 
-    // 4. Meals / Alimentação — Meals page writes to care_notes (not meals table)
+    // 4. Meals / Alimentação — Dual support for care_notes and meals table
     const mealRangeStart = new Date();
-    mealRangeStart.setDate(mealRangeStart.getDate() - 30);
-    const { data: mealNotes } = await supabase
-      .from('care_notes')
-      .select('id, content, created_at')
-      .eq('cared_person_id', selectedPerson.id)
-      .like('content', 'Refeição%')
-      .gte('created_at', mealRangeStart.toISOString())
-      .order('created_at', { ascending: true });
+    mealRangeStart.setDate(mealRangeStart.getDate() - 60);
+
+    const [{ data: mealNotes }, { data: directMeals }] = await Promise.all([
+      supabase
+        .from('care_notes')
+        .select('id, content, created_at')
+        .eq('cared_person_id', selectedPerson.id)
+        .ilike('content', '%refei%')
+        .gte('created_at', mealRangeStart.toISOString())
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('meals')
+        .select('id, meal_type, description, notes, consumed_at, created_at')
+        .eq('cared_person_id', selectedPerson.id)
+        .gte('created_at', mealRangeStart.toISOString())
+        .order('created_at', { ascending: true }),
+    ]);
 
     const mealTypeNames: Record<string, string> = {
       breakfast: 'Café da Manhã',
@@ -258,24 +267,53 @@ export default function AppointmentsPage() {
       other: 'Alimentação',
     };
 
+    const seenMeals = new Set<string>();
+
     (mealNotes || []).forEach((n: any) => {
       const d = new Date(n.created_at);
-      // Content format: "Refeição (type): name. Apetite: label. notes"
-      const typeMatch = n.content.match(/^Refeição \((.+?)\):/i);
-      const nameMatch = n.content.match(/^Refeição \(.+?\): (.+?)\. Apetite:/i);
+      // Content format: "Refeição (type) [time]: name. Apetite: label. notes"
+      const typeMatch = n.content.match(/Refei.+?\((.+?)\)/i);
+      const nameMatch = n.content.match(/Refei.+?\(.+?\)(?:\s*(?:às|as)?\s*\d{2}:\d{2})?:\s*([^.]+)/i);
       const mealType = typeMatch ? typeMatch[1] : 'other';
-      const mealName = nameMatch ? nameMatch[1] : n.content.substring(0, 50);
+      const mealName = nameMatch ? nameMatch[1].trim() : n.content.substring(0, 50);
       const label = mealTypeNames[mealType] || 'Refeição';
+      const key = `${format(d, 'yyyy-MM-dd')}-${mealType}-${mealName.toLowerCase().slice(0, 10)}`;
+      seenMeals.add(key);
+
+      // Check if content has an explicit hour (e.g. às 12:30 or [12:30])
+      const explicitTimeMatch = n.content.match(/\b(\d{2}:\d{2})\b/);
+      const timeStr = explicitTimeMatch ? explicitTimeMatch[1] : format(d, 'HH:mm');
+
       all.push({
         id: `meal-${n.id}`,
         type: 'meal',
         title: `${label}: ${mealName}`,
         subtitle: undefined,
-        time: format(d, 'HH:mm'),
+        time: timeStr,
         date: d,
         status: 'completed',
         raw: n,
       });
+    });
+
+    (directMeals || []).forEach((m: any) => {
+      const d = new Date(m.consumed_at || m.created_at);
+      const label = mealTypeNames[m.meal_type] || 'Refeição';
+      const desc = m.description || '';
+      const key = `${format(d, 'yyyy-MM-dd')}-${m.meal_type}-${desc.toLowerCase().slice(0, 10)}`;
+      if (!seenMeals.has(key)) {
+        seenMeals.add(key);
+        all.push({
+          id: `meal-direct-${m.id}`,
+          type: 'meal',
+          title: label + (desc ? `: ${desc}` : ''),
+          subtitle: m.notes || undefined,
+          time: format(d, 'HH:mm'),
+          date: d,
+          status: 'completed',
+          raw: m,
+        });
+      }
     });
 
     // 5. Routine & Check-ins
@@ -397,7 +435,7 @@ export default function AppointmentsPage() {
     } else {
       toast({ title: 'Tarefa criada!', description: 'A tarefa foi adicionada à agenda.' });
       setModalOpen(false);
-      setTaskForm({ title: '', description: '', priority: 'medium', due_date: '', due_time: '' });
+      setTaskForm({ title: '', description: '', priority: 'medium', due_date: new Date().toISOString().slice(0, 10), due_time: '09:00' });
       setRecurrence({ type: 'none' });
       setAlarm('15m');
       fetchEvents();
@@ -770,13 +808,16 @@ export default function AppointmentsPage() {
                       </Select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Data</Label>
-                      <Input type="date" value={taskForm.due_date}
+                      <Label className="font-bold">Data Limite *</Label>
+                      <Input type="date" required value={taskForm.due_date}
                         onChange={e => setTaskForm(p => ({ ...p, due_date: e.target.value }))} />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Horário</Label>
-                      <Input type="time" value={taskForm.due_time}
+                      <Label className="flex items-center gap-1 font-bold text-amber-700 dark:text-amber-400">
+                        <Clock className="h-3.5 w-3.5 text-amber-600" />
+                        Horário de Realização *
+                      </Label>
+                      <Input type="time" required value={taskForm.due_time}
                         onChange={e => setTaskForm(p => ({ ...p, due_time: e.target.value }))} />
                     </div>
                   </div>

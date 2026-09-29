@@ -51,8 +51,8 @@ export default function TasksPage() {
     title: '',
     description: '',
     priority: 'medium',
-    due_date: '',
-    due_time: '',
+    due_date: new Date().toISOString().slice(0, 10),
+    due_time: '09:00',
   });
 
   const [recurrence, setRecurrence] = useState<RecurrenceConfig>({ type: 'none' });
@@ -85,7 +85,13 @@ export default function TasksPage() {
 
   const handleOpenCreate = () => {
     setEditingTask(null);
-    setForm({ title: '', description: '', priority: 'medium', due_date: '', due_time: '' });
+    setForm({
+      title: '',
+      description: '',
+      priority: 'medium',
+      due_date: new Date().toISOString().slice(0, 10),
+      due_time: '09:00',
+    });
     setRecurrence({ type: 'none' });
     setAlarm('15m');
     setModalOpen(true);
@@ -331,22 +337,29 @@ export default function TasksPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="due">Data</Label>
+                    <Label htmlFor="due" className="font-bold">Data Limite *</Label>
                     <Input 
                       id="due" 
                       type="date"
+                      required
                       value={form.due_date}
                       onChange={(e) => setForm(prev => ({ ...prev, due_date: e.target.value }))}
+                      className="h-10"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="due_time">Horário</Label>
+                    <Label htmlFor="due_time" className="flex items-center gap-1.5 font-bold text-indigo-700 dark:text-indigo-400">
+                      <Clock className="h-4 w-4 text-indigo-600" />
+                      Horário de Realização *
+                    </Label>
                     <Input 
                       id="due_time" 
                       type="time"
+                      required
                       value={form.due_time}
                       onChange={(e) => setForm(prev => ({ ...prev, due_time: e.target.value }))}
+                      className="h-10 font-medium"
                     />
                   </div>
                 </div>
