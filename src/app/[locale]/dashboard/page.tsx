@@ -20,6 +20,33 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+function playEmergencySiren() {
+  if (typeof window === 'undefined') return;
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    const tones = [880, 587.33, 880, 587.33];
+    tones.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.value = freq;
+      const t = ctx.currentTime + idx * 0.22;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.25, t + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.22);
+    });
+  } catch (e) {
+    console.warn('Audio error:', e);
+  }
+}
+
 export default function DashboardOverviewPage() {
   const params = useParams();
   const locale = (params?.locale as string) || 'pt-BR';
@@ -29,6 +56,10 @@ export default function DashboardOverviewPage() {
   const supabase = createClient() as any;
 
   const [userName, setUserName] = useState('');
+  const [activeEmergency, setActiveEmergency] = useState<{ id: string; created_at: string; description: string; severity: string } | null>(null);
+  const [activeHelpRequest, setActiveHelpRequest] = useState<{ id: string; created_at: string; message: string } | null>(null);
+  const [primaryContactPhone, setPrimaryContactPhone] = useState<string>('');
+  const [resolvingAlert, setResolvingAlert] = useState(false);
   const [medsData, setMedsData] = useState<{ taken: number; total: number; list: any[] }>({ taken: 0, total: 0, list: [] });
   const [hydration, setHydration] = useState<{ cups: number; goal: number }>({ cups: 0, goal: 8 });
   const [meals, setMeals] = useState<{ done: number; total: number }>({ done: 0, total: 4 });
@@ -201,9 +232,82 @@ export default function DashboardOverviewPage() {
       const totalExp = monthExp.reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
       setFinancialSummary({ balance: income - totalExp, income, expenses: totalExp });
     } catch { /* silent */ }
+
+    // Active Emergency & Help Alerts
+    try {
+      const [ { data: openEm }, { data: openHr }, { data: contacts } ] = await Promise.all([
+        supabase
+          .from('emergency_events')
+          .select('id, created_at, description, severity')
+          .eq('cared_person_id', selectedPerson.id)
+          .is('resolved_at', null)
+          .order('created_at', { ascending: false })
+          .limit(1),
+        supabase
+          .from('help_requests')
+          .select('id, created_at, message')
+          .eq('cared_person_id', selectedPerson.id)
+          .eq('status', 'open')
+          .order('created_at', { ascending: false })
+          .limit(1),
+        supabase
+          .from('emergency_contacts')
+          .select('phone')
+          .eq('cared_person_id', selectedPerson.id)
+          .order('is_primary', { ascending: false })
+          .limit(1),
+      ]);
+
+      if (openEm && openEm.length > 0) {
+        setActiveEmergency(openEm[0]);
+      } else {
+        setActiveEmergency(null);
+      }
+
+      if (openHr && openHr.length > 0) {
+        setActiveHelpRequest(openHr[0]);
+      } else {
+        setActiveHelpRequest(null);
+      }
+
+      if (contacts && contacts[0]?.phone) {
+        setPrimaryContactPhone(contacts[0].phone);
+      }
+    } catch (e) {
+      console.error('Error fetching alerts:', e);
+    }
   }, [selectedPerson, currentOrganizationId, isModuleEnabled, supabase]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(() => {
+      fetchData();
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (activeEmergency) {
+      playEmergencySiren();
+    }
+  }, [activeEmergency?.id]);
+
+  const handleResolveAlert = async (alertType: 'emergency' | 'help', id: string) => {
+    setResolvingAlert(true);
+    try {
+      await fetch('/api/care/alert', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alert_type: alertType, id }),
+      });
+      if (alertType === 'emergency') setActiveEmergency(null);
+      else setActiveHelpRequest(null);
+      await fetchData();
+    } catch (err) {
+      console.error('Error resolving alert:', err);
+    }
+    setResolvingAlert(false);
+  };
 
   const handleAddWater = async () => {
     if (!selectedPerson || !currentOrganizationId || !user) return;
@@ -273,6 +377,83 @@ export default function DashboardOverviewPage() {
 
   return (
     <div className="space-y-5 pb-12 text-stone-900 dark:text-[#F8FAFC]">
+
+      {/* ─── ALERTAS ATIVOS DE EMERGÊNCIA & CONTATO ─── */}
+      {activeEmergency && (
+        <div className="bg-red-600 text-white rounded-3xl p-5 sm:p-6 shadow-2xl border-4 border-red-400 animate-pulse flex flex-col md:flex-row items-center justify-between gap-5">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-white text-red-600 flex items-center justify-center font-black text-3xl animate-bounce shrink-0 shadow-lg">
+              🚨
+            </div>
+            <div>
+              <span className="bg-white/20 text-white px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider">
+                Alerta Crítico em Aberto
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black mt-1 leading-tight">
+                {selectedPerson?.full_name} acionou EMERGÊNCIA / SOS!
+              </h2>
+              <p className="text-sm text-red-100 mt-1 font-medium">
+                Horário do chamado: {format(new Date(activeEmergency.created_at), "HH:mm 'de' dd/MM")} · {activeEmergency.description}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
+            {primaryContactPhone && (
+              <a
+                href={`tel:${primaryContactPhone}`}
+                className="flex-1 md:flex-initial bg-white hover:bg-red-50 text-red-700 font-black px-6 py-3.5 rounded-2xl shadow-md flex items-center justify-center gap-2 text-base transition-all active:scale-95"
+              >
+                <Phone className="h-5 w-5" /> Ligar Agora
+              </a>
+            )}
+            <Button
+              disabled={resolvingAlert}
+              onClick={() => handleResolveAlert('emergency', activeEmergency.id)}
+              className="flex-1 md:flex-initial bg-red-800 hover:bg-red-900 text-white font-black px-6 py-3.5 rounded-2xl h-auto text-base border border-red-400 active:scale-95 shadow-md"
+            >
+              <Check className="h-5 w-5" /> {resolvingAlert ? 'Salvando...' : 'Marcar como Atendido'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {activeHelpRequest && !activeEmergency && (
+        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white rounded-3xl p-5 sm:p-6 shadow-xl border-3 border-amber-300 flex flex-col md:flex-row items-center justify-between gap-5">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-white/20 text-white flex items-center justify-center text-3xl shrink-0">
+              📞
+            </div>
+            <div>
+              <span className="bg-black/15 text-amber-100 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider">
+                Pedido de Contato da Rotina
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black mt-1 leading-tight">
+                {selectedPerson?.full_name} pediu ajuda / quer conversar
+              </h2>
+              <p className="text-sm text-amber-100 mt-1 font-medium">
+                Horário do chamado: {format(new Date(activeHelpRequest.created_at), "HH:mm 'de' dd/MM")} · {activeHelpRequest.message}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
+            {primaryContactPhone && (
+              <a
+                href={`tel:${primaryContactPhone}`}
+                className="flex-1 md:flex-initial bg-white hover:bg-amber-50 text-amber-800 font-black px-6 py-3.5 rounded-2xl shadow-md flex items-center justify-center gap-2 text-base transition-all active:scale-95"
+              >
+                <Phone className="h-5 w-5" /> Ligar para Ele(a)
+              </a>
+            )}
+            <Button
+              disabled={resolvingAlert}
+              onClick={() => handleResolveAlert('help', activeHelpRequest.id)}
+              className="flex-1 md:flex-initial bg-amber-800 hover:bg-amber-900 text-white font-black px-6 py-3.5 rounded-2xl h-auto text-base active:scale-95 shadow-md"
+            >
+              <Check className="h-5 w-5" /> {resolvingAlert ? 'Salvando...' : 'Marcar como Atendido'}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ─── HERO ─────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

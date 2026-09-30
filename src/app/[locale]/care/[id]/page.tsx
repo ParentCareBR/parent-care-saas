@@ -8,7 +8,7 @@ import {
   Heart, AlertCircle, Pill, Coffee, Droplet, CheckCircle2,
   Calendar, BellRing, RotateCcw, Sun, Moon, Activity as ActivityIcon,
   Clock, Volume2, ChevronLeft, ChevronRight,
-  Wallet, Plus, Landmark, DollarSign, PhoneCall,
+  Wallet, Plus, Landmark, DollarSign, PhoneCall, Phone,
   Sparkles, Check, CheckSquare, MessageSquareHeart,
   VolumeX, ShieldCheck, HeartHandshake, Smile,
 } from 'lucide-react';
@@ -198,6 +198,8 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
   const [seniorPensionInput, setSeniorPensionInput] = useState('');
   const [savingExpense, setSavingExpense] = useState(false);
   const [savingPension, setSavingPension] = useState(false);
+  const [sosModalOpen, setSosModalOpen] = useState(false);
+  const [sendingSos, setSendingSos] = useState(false);
 
   // Clock tick
   useEffect(() => {
@@ -260,6 +262,34 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     }
     setAlarmModalOpen(false);
   }, []);
+
+  // Senior SOS Emergency Trigger
+  const handleConfirmSos = async () => {
+    setSendingSos(true);
+    unlockAudioContext();
+    playAlarmChime();
+    triggerVibration();
+
+    try {
+      await fetch('/api/care/alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cared_person_id: params.id,
+          type: 'emergency',
+          message: `Emergência acionada pela tela do idoso (${personInfo.name})`,
+        }),
+      });
+    } catch (e) {
+      console.error('Error sending SOS alert:', e);
+    }
+
+    setSendingSos(false);
+    setSosModalOpen(false);
+    setSuccessMsg('🚨 ALERTA DE EMERGÊNCIA ENVIADO! Toda a família e cuidadores foram alertados.');
+    speakReminder(`Alerta de emergência enviado, ${personInfo.name}! Sua família foi avisada agora mesmo e já está ciente.`, params.locale);
+    setTimeout(() => setSuccessMsg(''), 10000);
+  };
 
   // Fetch Finances
   const fetchFinances = useCallback(async (personId: string) => {
@@ -650,14 +680,14 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
       .neq('user_id', personInfo.userId);
 
     if (members && members.length > 0) {
-      await supabase.from('notifications').insert(
+      await (supabase as any).from('notifications').insert(
         members.map((m: any) => ({
           user_id: m.user_id,
           organization_id: personInfo.organizationId,
           type: type === 'emergency' ? 'alert' : 'info',
           title: `Aviso de ${personInfo.name}`,
-          message,
-          link_url: `/${params.locale}/dashboard`,
+          body: message,
+          data: { cared_person_id: params.id, type, link_url: `/${params.locale}/dashboard` },
         }))
       );
     }
@@ -739,14 +769,14 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
       .neq('user_id', personInfo.userId);
 
     if (members && members.length > 0) {
-      await supabase.from('notifications').insert(
+      await (supabase as any).from('notifications').insert(
         members.map((m: any) => ({
           user_id: m.user_id,
           organization_id: personInfo.organizationId,
           type: 'info',
           title: `Carinho de ${personInfo.name}`,
-          message: `${personInfo.name} respondeu ao recado: "${noteText.substring(0, 50)}...": ${replyText}`,
-          link_url: `/${params.locale}/dashboard`,
+          body: `${personInfo.name} respondeu ao recado: "${noteText.substring(0, 50)}...": ${replyText}`,
+          data: { cared_person_id: params.id, reply: replyText, link_url: `/${params.locale}/dashboard` },
         }))
       );
     }
@@ -763,31 +793,18 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     speakReminder(`Avisamos seus filhos, ${personInfo.name}! Logo alguém vai te dar uma ligadinha para conversar.`, params.locale);
     setSuccessMsg('📞 Pedido de conversa enviado para a família!');
 
-    await supabase.from('help_requests').insert({
-      cared_person_id: params.id,
-      organization_id: personInfo.organizationId,
-      requested_by: personInfo.userId,
-      message: `${personInfo.name} pediu para a família ligar para bater um papo hoje.`,
-      status: 'open',
-    });
-
-    const { data: members } = await supabase
-      .from('organization_members')
-      .select('user_id')
-      .eq('organization_id', personInfo.organizationId)
-      .neq('user_id', personInfo.userId);
-
-    if (members && members.length > 0) {
-      await supabase.from('notifications').insert(
-        members.map((m: any) => ({
-          user_id: m.user_id,
-          organization_id: personInfo.organizationId,
-          type: 'info',
-          title: `📞 ${personInfo.name} quer conversar!`,
-          message: `${personInfo.name} tocou em "Quero Conversar". Dê uma ligadinha para ele(a) assim que puder!`,
-          link_url: `/${params.locale}/dashboard`,
-        }))
-      );
+    try {
+      await fetch('/api/care/alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cared_person_id: params.id,
+          type: 'help',
+          message: `${personInfo.name} tocou em "Quero Conversar" e solicitou que a família entre em contato.`,
+        }),
+      });
+    } catch (e) {
+      console.error('Error sending help alert:', e);
     }
 
     setTimeout(() => setSuccessMsg(''), 6000);
@@ -1466,16 +1483,8 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
         <div className='fixed bottom-0 left-0 right-0 p-4 sm:p-5 bg-gradient-to-t from-white dark:from-stone-950 via-white/95 dark:via-stone-950/95 to-transparent z-30'>
           <div className='max-w-4xl mx-auto'>
             <button
-              disabled={loading}
-              onClick={() => {
-                if (window.confirm('ALERTA DE EMERGÊNCIA! Deseja enviar um aviso urgente com som para toda a família agora?')) {
-                  handleAction('emergency', 'EMERGÊNCIA! Preciso de socorro imediato', 'emergency_events', {
-                    reported_by: personInfo.userId,
-                    description: 'Emergência acionada pela tela do idoso',
-                    severity: 'critical',
-                  });
-                }
-              }}
+              disabled={loading || sendingSos}
+              onClick={() => setSosModalOpen(true)}
               className='w-full bg-red-600 hover:bg-red-700 active:bg-red-800 text-white p-4 sm:p-5 rounded-3xl flex items-center justify-center gap-4 shadow-xl transition-all active:scale-95 border-b-4 border-red-800'
             >
               <div className='w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 flex items-center justify-center animate-ping shrink-0'>
@@ -1483,6 +1492,58 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               </div>
               <span className='text-xl sm:text-3xl font-black tracking-wider uppercase'>EMERGÊNCIA / SOS</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL DE CONFIRMAÇÃO DE EMERGÊNCIA / SOS ── */}
+      {sosModalOpen && (
+        <div className='fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200'>
+          <div className='bg-white dark:bg-stone-900 border-4 border-red-500 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-200'>
+            <div className='mx-auto w-24 h-24 rounded-3xl bg-red-100 dark:bg-red-950/60 border-2 border-red-300 flex items-center justify-center'>
+              <AlertCircle className='h-14 w-14 text-red-600 dark:text-red-400 animate-bounce' />
+            </div>
+
+            <div>
+              <span className='inline-block px-3 py-1 bg-red-100 dark:bg-red-950/50 text-red-800 dark:text-red-300 font-extrabold text-sm rounded-full tracking-wider uppercase mb-2'>
+                Aviso de Emergência
+              </span>
+              <h2 className='text-2xl sm:text-3xl font-black text-stone-900 dark:text-stone-100 leading-tight'>
+                Deseja avisar a família agora?
+              </h2>
+              <p className='text-base text-stone-600 dark:text-stone-300 mt-2 font-medium'>
+                Ao tocar em confirmar, um alarme sonoro de socorro e aviso urgente serão enviados imediatamente para todos os seus cuidadores.
+              </p>
+            </div>
+
+            <div className='space-y-3 pt-2'>
+              <Button
+                type='button'
+                disabled={sendingSos}
+                onClick={handleConfirmSos}
+                className='w-full h-18 text-xl sm:text-2xl font-black bg-red-600 hover:bg-red-700 text-white rounded-2xl shadow-xl active:scale-95 transition-transform'
+              >
+                {sendingSos ? 'Enviando Alerta...' : '🚨 SIM! AVISAR MINHA FAMÍLIA AGORA'}
+              </Button>
+
+              {personInfo.primaryPhone && (
+                <a
+                  href={`tel:${personInfo.primaryPhone}`}
+                  className='w-full h-14 text-lg font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl flex items-center justify-center gap-2 shadow-md active:scale-95'
+                >
+                  <Phone className='h-5 w-5' /> Ligar Diretamente para a Família
+                </a>
+              )}
+
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => setSosModalOpen(false)}
+                className='w-full h-14 text-base font-bold text-stone-600 border-2 border-stone-300 hover:bg-stone-100 rounded-2xl'
+              >
+                Cancelar / Toquei Sem Querer
+              </Button>
+            </div>
           </div>
         </div>
       )}

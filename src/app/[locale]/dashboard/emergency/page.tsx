@@ -61,10 +61,10 @@ export default function EmergencyPage() {
           organization_id: currentOrganizationId,
           type: 'alert',
           title: `EMERGÊNCIA: ${selectedPerson.full_name}`,
-          message: 'Um alerta de emergência foi acionado.',
-          link_url: `/dashboard/emergency`
+          body: 'Um alerta de emergência foi acionado.',
+          data: { link_url: '/dashboard/emergency' }
        }));
-       await supabase.from('notifications').insert(notifications);
+       await (supabase as any).from('notifications').insert(notifications);
     }
 
     setLoading(false);
