@@ -221,10 +221,13 @@ export default function DashboardOverviewPage() {
     if (!newNote.trim() || !selectedPerson || !currentOrganizationId || !user) return;
     setSubmittingNote(true);
     const content = newNote.trim();
+    const sender = userName || user.email?.split('@')[0] || 'Família';
     const { data: inserted, error } = await supabase.from('care_notes').insert({
       cared_person_id: selectedPerson.id,
       organization_id: currentOrganizationId,
-      content: `${userName ? `${userName}: ` : ''}${content}`,
+      author_id: user.id,
+      content: `${sender}: ${content}`,
+      type: 'general',
       note_type: 'family',
     }).select().single();
 
@@ -574,7 +577,7 @@ export default function DashboardOverviewPage() {
             <form onSubmit={handleSendQuickNote} className="flex gap-2">
               <input
                 type="text"
-                placeholder="Deixe um recado para a família..."
+                placeholder={selectedPerson ? `Deixe um recado com carinho para ${selectedPerson.full_name.split(' ')[0]}...` : "Deixe um recado para a família..."}
                 value={newNote}
                 onChange={e => setNewNote(e.target.value)}
                 className="flex-1 bg-stone-50 dark:bg-[#172433] border border-stone-200 dark:border-[#22354a] rounded-xl px-3 py-2 text-xs text-stone-900 dark:text-[#F8FAFC] placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
@@ -596,16 +599,24 @@ export default function DashboardOverviewPage() {
                   const { icon: Icon, color } = activityIcon(act.note_type);
                   const time = format(new Date(act.created_at), 'HH:mm');
                   const count = reactions[act.id] || 0;
+                  const isElderReply = act.content?.includes('[Resposta de') || act.content?.includes('❤️');
                   return (
                     <div
                       key={act.id || idx}
-                      className="flex items-center gap-3 py-2.5 px-3 rounded-2xl bg-stone-50/60 dark:bg-[#172433]/40 border border-stone-100 dark:border-transparent transition-all hover:bg-stone-50 dark:hover:bg-[#172433]"
+                      className={cn(
+                        'flex items-center gap-3 py-2.5 px-3 rounded-2xl border transition-all',
+                        isElderReply
+                          ? 'bg-rose-50/70 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 shadow-2xs'
+                          : 'bg-stone-50/60 dark:bg-[#172433]/40 border-stone-100 dark:border-transparent hover:bg-stone-50 dark:hover:bg-[#172433]'
+                      )}
                     >
-                      <div className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 shadow-2xs" style={{ background: `${color}20`, color }}>
-                        <Icon className="h-3.5 w-3.5" />
+                      <div className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 shadow-2xs" style={{ background: isElderReply ? '#f43f5e20' : `${color}20`, color: isElderReply ? '#f43f5e' : color }}>
+                        {isElderReply ? <Heart className="h-3.5 w-3.5 fill-rose-500 text-rose-500" /> : <Icon className="h-3.5 w-3.5" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-stone-800 dark:text-slate-200 truncate">{act.content}</p>
+                        <p className={cn("text-xs truncate", isElderReply ? "font-bold text-rose-900 dark:text-rose-200" : "font-medium text-stone-800 dark:text-slate-200")}>
+                          {act.content}
+                        </p>
                         <span className="text-[10px] text-stone-400 dark:text-slate-500">{time}</span>
                       </div>
                       <button
