@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Settings, User, Lock, Bell, CreditCard, Sun, Moon } from 'lucide-react';
+import { Settings, User, Lock, Bell, CreditCard, Sun, Moon, Send, MessageCircle } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -44,6 +44,8 @@ export default function SettingsPage() {
     emergencyAlerts: true,
     dailySummary: false,
   });
+  const [testPhone, setTestPhone] = useState('');
+  const [sendingTestWa, setSendingTestWa] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -110,6 +112,35 @@ export default function SettingsPage() {
       setPasswordForm({ newPassword: '', confirmPassword: '' });
     }
     setSavingPassword(false);
+  };
+
+  const handleSendTestWhatsApp = async () => {
+    if (!testPhone) {
+      toast({ title: 'Informe um número', description: 'Digite o número do WhatsApp com DDD.', variant: 'destructive' });
+      return;
+    }
+    setSendingTestWa(true);
+    try {
+      const res = await fetch('/api/whatsapp/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: testPhone }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast({
+          title: data.simulated ? 'Simulação de WhatsApp Registrada!' : 'WhatsApp Enviado!',
+          description: data.simulated 
+            ? 'Mensagem formatada com sucesso! Para envio real por chip, adicione as chaves da Evolution API nas variáveis de ambiente.'
+            : `Mensagem carinhosa de teste entregue no WhatsApp ${testPhone}!`,
+        });
+      } else {
+        toast({ title: 'Falha no disparo', description: data.error || 'Não foi possível enviar.', variant: 'destructive' });
+      }
+    } catch (e: any) {
+      toast({ title: 'Erro de conexão', description: e.message, variant: 'destructive' });
+    }
+    setSendingTestWa(false);
   };
 
   return (
@@ -281,6 +312,58 @@ export default function SettingsPage() {
                   checked={notifications.dailySummary} 
                   onCheckedChange={(c) => setNotifications(prev => ({ ...prev, dailySummary: c }))} 
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* WhatsApp Integration Card */}
+          <Card className="rounded-2xl border-emerald-200 dark:border-emerald-800/60 bg-gradient-to-br from-emerald-50/50 via-white to-white dark:from-stone-900 dark:to-stone-900 shadow-sm mt-4">
+            <CardHeader>
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                  <MessageCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg text-stone-900 dark:text-stone-100">Disparo Automático no WhatsApp</CardTitle>
+                  <CardDescription className="text-stone-500 dark:text-stone-400">
+                    Lembretes da agenda e remédios chegam diretamente no WhatsApp do idoso e alertas na família.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-300 space-y-1">
+                <p className="font-bold">✨ 100% Gratuito e Sem Confirmação do Idoso</p>
+                <p className="text-stone-600 dark:text-stone-400">
+                  As mensagens são enviadas diretamente para o WhatsApp pessoal de quem você cadastrar nos Contatos de Emergência ou Perfil, sem necessidade de bots externos ou autorização do idoso.
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <Label htmlFor="testWaPhone" className="text-sm font-semibold text-stone-800 dark:text-stone-200 mb-1.5 block">
+                  Testar Disparo no seu WhatsApp
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="testWaPhone"
+                    placeholder="Ex: (11) 98765-4321"
+                    value={testPhone}
+                    onChange={(e) => setTestPhone(e.target.value)}
+                    className="rounded-xl h-11"
+                  />
+                  <Button
+                    type="button"
+                    disabled={sendingTestWa}
+                    onClick={handleSendTestWhatsApp}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-11 px-5 shrink-0 font-bold gap-2"
+                  >
+                    <Send className="h-4 w-4" />
+                    {sendingTestWa ? 'Enviando...' : 'Enviar Teste'}
+                  </Button>
+                </div>
+                <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-1.5">
+                  Envia uma mensagem de boas-vindas com o modelo oficial de lembrete carinhoso do Parent Care.
+                </p>
               </div>
             </CardContent>
           </Card>

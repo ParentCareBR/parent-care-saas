@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { sendWhatsAppBroadcast } from '@/lib/whatsapp/service';
+import { WhatsAppTemplates } from '@/lib/whatsapp/message-templates';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,6 +109,33 @@ export async function POST(req: NextRequest) {
       }));
 
       await db.from('notifications').insert(notifRows);
+    }
+
+    // 4. Disparar WhatsApp para os contatos de emergência cadastrados
+    try {
+      const { data: contacts } = await db
+        .from('emergency_contacts')
+        .select('phone')
+        .eq('cared_person_id', person.id);
+
+      const phones = (contacts || []).map((c: any) => c.phone).filter(Boolean);
+      if (phones.length > 0) {
+        const timeNow = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+        const waText = type === 'emergency'
+          ? WhatsAppTemplates.emergencyAlert({
+              elderName,
+              time: timeNow,
+              description: message || undefined,
+            })
+          : WhatsAppTemplates.helpAlert({
+              elderName,
+              time: timeNow,
+            });
+
+        await sendWhatsAppBroadcast(phones, waText);
+      }
+    } catch (waErr) {
+      console.warn('[WhatsApp Alert Error]', waErr);
     }
 
     return NextResponse.json({
