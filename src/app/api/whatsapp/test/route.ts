@@ -28,11 +28,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: result.success,
-      simulated: result.simulated,
+      provider: result.provider,
       messageId: result.messageId,
       sentTo: phone,
-      message: result.success ? 'Mensagem de teste enviada com sucesso!' : result.error,
-    });
+      message: result.success ? `Mensagem entregue com sucesso via ${result.provider}!` : result.error,
+      error: result.error,
+    }, { status: result.success ? 200 : 400 });
   } catch (err: any) {
     console.error('Error in WhatsApp test:', err);
     return NextResponse.json({ error: err.message || 'Erro ao enviar teste.' }, { status: 500 });

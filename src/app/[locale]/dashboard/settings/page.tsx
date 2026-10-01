@@ -129,13 +129,15 @@ export default function SettingsPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         toast({
-          title: data.simulated ? 'Simulação de WhatsApp Registrada!' : 'WhatsApp Enviado!',
-          description: data.simulated 
-            ? 'Mensagem formatada com sucesso! Para envio real por chip, adicione as chaves da Evolution API nas variáveis de ambiente.'
-            : `Mensagem carinhosa de teste entregue no WhatsApp ${testPhone}!`,
+          title: '✅ WhatsApp Enviado com Sucesso!',
+          description: `Mensagem entregue no WhatsApp ${testPhone} via provedor ${data.provider || 'conectado'}.`,
         });
       } else {
-        toast({ title: 'Falha no disparo', description: data.error || 'Não foi possível enviar.', variant: 'destructive' });
+        toast({
+          title: '⚠️ WhatsApp Não Conectado',
+          description: data.error || 'Configure as credenciais do WhatsApp no servidor para envio real.',
+          variant: 'destructive',
+        });
       }
     } catch (e: any) {
       toast({ title: 'Erro de conexão', description: e.message, variant: 'destructive' });
