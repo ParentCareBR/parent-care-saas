@@ -109,38 +109,46 @@ async function processWhatsAppMessage(fromPhone: string, text: string, msgType: 
       cleanPhone.startsWith('55') ? cleanPhone.slice(2) : '55' + cleanPhone,
     ];
 
-    for (const phone of phoneVariants) {
-      const { data } = await db
-        .from('cared_people')
-        .select('id, full_name, organization_id')
-        .or(`whatsapp_phone.eq.${phone},phone.eq.${phone}`)
-        .maybeSingle();
-      if (data) {
-        person = data;
-        orgId = data.organization_id;
-        break;
-      }
-    }
-
-    // Fallback: check emergency contacts to find the associated cared person
-    if (!person) {
+    try {
       for (const phone of phoneVariants) {
-        const { data: contact } = await db
-          .from('emergency_contacts')
-          .select('cared_person_id, cared_people(id, full_name, organization_id)')
-          .eq('phone', phone)
+        const { data } = await (db as any)
+          .from('cared_people')
+          .select('id, full_name, organization_id')
+          .or(`whatsapp_phone.eq.${phone},phone.eq.${phone}`)
           .maybeSingle();
-
-        if (contact && (contact as any).cared_people) {
-          person = (contact as any).cared_people;
-          orgId = person.organization_id;
+        if (data) {
+          person = data;
+          orgId = data.organization_id;
           break;
         }
       }
+    } catch {}
+
+    // Fallback: check emergency contacts to find the associated cared person
+    if (!person) {
+      try {
+        for (const phone of phoneVariants) {
+          const { data: contact } = await (db as any)
+            .from('emergency_contacts')
+            .select('cared_person_id, cared_people(id, full_name, organization_id)')
+            .eq('phone', phone)
+            .maybeSingle();
+
+          if (contact && (contact as any).cared_people) {
+            person = (contact as any).cared_people;
+            orgId = person.organization_id;
+            break;
+          }
+        }
+      } catch {}
     }
 
     if (!person) {
-      console.log('[WhatsApp AI] Unknown phone, ignoring:', fromPhone);
+      console.log('[WhatsApp AI] Unknown phone, sending friendly greeting:', fromPhone);
+      await sendWhatsAppMessage(
+        fromPhone,
+        `Olá! Sou o assistente de cuidados do Parent Care ❤️.\n\nRecebi sua mensagem! Para que eu possa te ajudar com consultas, remédios e rotina diária, seu número precisa estar cadastrado no painel do Parent Care (no Perfil da Pessoa Cuidada ou nos Contatos da Família).\n\nAssim que você cadastrar seu número com DDD lá no painel, já poderemos conversar por texto ou áudio! 😊`
+      );
       return;
     }
 
