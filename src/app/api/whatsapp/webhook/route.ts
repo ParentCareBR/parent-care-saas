@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendWhatsAppMessage } from '@/lib/whatsapp/service';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -71,7 +71,7 @@ async function handleMetaWebhook(body: any) {
         if (msgType === 'text') {
           textContent = msg.text?.body || '';
         } else if (msgType === 'audio') {
-          textContent = '[Mensagem de áudio recebida]';
+          textContent = '[Mensagem de Ã¡udio recebida]';
         } else {
           continue; // ignore other types
         }
@@ -97,7 +97,7 @@ async function handleEvolutionWebhook(body: any) {
   } else if (msg?.message?.extendedTextMessage?.text) {
     textContent = msg.message.extendedTextMessage.text;
   } else if (msg?.message?.audioMessage) {
-    textContent = '[Mensagem de áudio recebida]';
+    textContent = '[Mensagem de Ã¡udio recebida]';
   }
 
   if (textContent && fromPhone) {
@@ -155,10 +155,63 @@ async function processWhatsAppMessage(fromPhone: string, text: string, msgType: 
     }
 
     if (!person) {
-      console.log('[WhatsApp AI] Unknown phone, sending friendly greeting:', fromPhone);
+      console.log('[WhatsApp AI] Unknown phone, checking for pending link:', fromPhone);
+      
+      // Check if there's a pending link request for this phone
+      // When elder clicks wa.me link with pre-filled text "PC-LINK-[token]", we auto-link
+      const linkTokenMatch = text.match(/PC-LINK-([A-Z0-9]{8,})/i);
+      
+      if (linkTokenMatch) {
+        const linkToken = linkTokenMatch[1].toUpperCase();
+        try {
+          const { data: linkReq } = await (db as any)
+            .from('whatsapp_link_requests')
+            .select('cared_person_id, cared_people(id, full_name, organization_id)')
+            .eq('token', linkToken)
+            .eq('status', 'pending')
+            .gt('expires_at', new Date().toISOString())
+            .maybeSingle();
+          
+          if (linkReq && linkReq.cared_people) {
+            // Auto-link: save the phone to cared_people
+            const cp: any = linkReq.cared_people;
+            await (db as any)
+              .from('cared_people')
+              .update({ whatsapp_phone: cleanPhone })
+              .eq('id', cp.id);
+            
+            // Mark link as used
+            await (db as any)
+              .from('whatsapp_link_requests')
+              .update({ status: 'used', linked_at: new Date().toISOString(), linked_phone: cleanPhone })
+              .eq('token', linkToken);
+            
+            const name = cp.full_name.split(' ')[0];
+            await sendWhatsAppMessage(
+              fromPhone,
+              `Ola, ${name}! Seu WhatsApp foi vinculado com sucesso ao Parent Care!\n\n` +
+              `A partir de agora posso te ajudar com:\n` +
+              `- Confirmar que tomou o remedio\n` +
+              `- Ver e criar consultas\n` +
+              `- Registrar que bebeu agua\n` +
+              `- Registrar refeicoes\n` +
+              `- Ver tarefas do dia\n` +
+              `- Pedir ajuda para a familia\n\n` +
+              `Pode mandar mensagem de texto a qualquer hora! O que voce precisa hoje?`
+            );
+            return;
+          }
+        } catch (e) {
+          console.error('[WhatsApp AI] Error processing link token:', e);
+        }
+      }
+      
+      // No link found - send friendly instruction
       await sendWhatsAppMessage(
         fromPhone,
-        `Olá! Sou o assistente de cuidados do Parent Care ❤️.\n\nRecebi sua mensagem! Para que eu possa te ajudar com consultas, remédios e rotina diária, seu número precisa estar cadastrado no painel do Parent Care (no Perfil da Pessoa Cuidada ou nos Contatos da Família).\n\nAssim que você cadastrar seu número com DDD lá no painel, já poderemos conversar por texto ou áudio! 😊`
+        `Ola! Sou o assistente de cuidados do Parent Care.\n\n` +
+        `Recebi sua mensagem, mas ainda nao reconheco seu numero.\n\n` +
+        `Peca ao seu cuidador para acessar o painel do Parent Care, ir em Configuracoes e tocar em Gerar Link de Vinculacao. E so um toque!`
       );
       return;
     }
@@ -177,16 +230,16 @@ async function processWhatsAppMessage(fromPhone: string, text: string, msgType: 
     if (!aiEnabled) {
       await sendWhatsAppMessage(
         fromPhone,
-        `Olá, ${elderName}! O assistente de conversas está temporariamente desativado pelo seu cuidador.`
+        `OlÃ¡, ${elderName}! O assistente de conversas estÃ¡ temporariamente desativado pelo seu cuidador.`
       );
       return;
     }
 
     // Handle audio message acknowledgement
-    if (msgType === 'audio' || text === '[Mensagem de áudio recebida]') {
+    if (msgType === 'audio' || text === '[Mensagem de Ã¡udio recebida]') {
       await sendWhatsAppMessage(
         fromPhone,
-        `Olá, ${elderName}! 🎤 Recebi sua mensagem de voz! No momento ainda não consigo ouvir áudios automaticamente. Por favor, escreva sua mensagem em texto e terei enorme prazer em ajudar! 😊`
+        `OlÃ¡, ${elderName}! ðŸŽ¤ Recebi sua mensagem de voz! No momento ainda nÃ£o consigo ouvir Ã¡udios automaticamente. Por favor, escreva sua mensagem em texto e terei enorme prazer em ajudar! ðŸ˜Š`
       );
       return;
     }
@@ -228,14 +281,14 @@ async function processWhatsAppMessage(fromPhone: string, text: string, msgType: 
 
     const contextStr = `
 PESSOA CUIDADA: ${person.full_name} (ID: ${person.id})
-ORGANIZAÇÃO: ${orgId}
-HORÁRIO ATUAL: ${now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+ORGANIZAÃ‡ÃƒO: ${orgId}
+HORÃRIO ATUAL: ${now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
 
-CONSULTAS PRÓXIMAS:
-${appointments.length === 0 ? 'Nenhuma consulta agendada' : appointments.map((a: any) => `- ${a.title} em ${new Date(a.starts_at).toLocaleString('pt-BR')} com ${a.doctor_name || 'médico'}`).join('\n')}
+CONSULTAS PRÃ“XIMAS:
+${appointments.length === 0 ? 'Nenhuma consulta agendada' : appointments.map((a: any) => `- ${a.title} em ${new Date(a.starts_at).toLocaleString('pt-BR')} com ${a.doctor_name || 'mÃ©dico'}`).join('\n')}
 
 MEDICAMENTOS ATIVOS:
-${medications.length === 0 ? 'Nenhum' : medications.map((m: any) => `- ${m.name} ${m.dosage}${m.unit} nos horários: ${(m.medication_schedules || []).map((s: any) => s.time_of_day).join(', ') || 'a definir'}`).join('\n')}
+${medications.length === 0 ? 'Nenhum' : medications.map((m: any) => `- ${m.name} ${m.dosage}${m.unit} nos horÃ¡rios: ${(m.medication_schedules || []).map((s: any) => s.time_of_day).join(', ') || 'a definir'}`).join('\n')}
 
 TAREFAS PENDENTES:
 ${tasks.length === 0 ? 'Nenhuma' : tasks.map((t: any) => `- ${t.title}`).join('\n')}
@@ -245,7 +298,7 @@ ${tasks.length === 0 ? 'Nenhuma' : tasks.map((t: any) => `- ${t.title}`).join('\
       console.warn('[WhatsApp AI] Missing GEMINI_API_KEY, responding with polite fallback');
       await sendWhatsAppMessage(
         fromPhone,
-        `Olá, ${elderName}! Recebi sua mensagem: "${text}". Nossa equipe de suporte está configurando as chaves de inteligência artificial. Logo poderei responder todas as suas dúvidas!`
+        `OlÃ¡, ${elderName}! Recebi sua mensagem: "${text}". Nossa equipe de suporte estÃ¡ configurando as chaves de inteligÃªncia artificial. Logo poderei responder todas as suas dÃºvidas!`
       );
       return;
     }
@@ -254,31 +307,31 @@ ${tasks.length === 0 ? 'Nenhuma' : tasks.map((t: any) => `- ${t.title}`).join('\
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
-    const systemPrompt = `Você é um assistente de cuidados de saúde atencioso, carinhoso e paciente para idosos do aplicativo Parent Care.
-Você está conversando via WhatsApp com ${elderName}.
+    const systemPrompt = `VocÃª Ã© um assistente de cuidados de saÃºde atencioso, carinhoso e paciente para idosos do aplicativo Parent Care.
+VocÃª estÃ¡ conversando via WhatsApp com ${elderName}.
 
 Contexto atual do sistema:
 ${contextStr}
 
-Sua missão:
-1. Responder em português brasileiro simples, afetuoso e acolhedor (use emojis amigáveis).
-2. Responder perguntas sobre consultas, remédios, tarefas e rotina diária.
-3. Se o idoso quiser CRIAR algo (consulta, tarefa, remédio), extraia os dados e retorne a respectiva ação.
-4. Se o idoso quiser CONFIRMAR uma ação (tomei remédio, bebi água, estou bem, preciso de ligação), registre a ação.
-5. Sempre confirme gentilmente o que foi feito ou responda a dúvida com clareza.
+Sua missÃ£o:
+1. Responder em portuguÃªs brasileiro simples, afetuoso e acolhedor (use emojis amigÃ¡veis).
+2. Responder perguntas sobre consultas, remÃ©dios, tarefas e rotina diÃ¡ria.
+3. Se o idoso quiser CRIAR algo (consulta, tarefa, remÃ©dio), extraia os dados e retorne a respectiva aÃ§Ã£o.
+4. Se o idoso quiser CONFIRMAR uma aÃ§Ã£o (tomei remÃ©dio, bebi Ã¡gua, estou bem, preciso de ligaÃ§Ã£o), registre a aÃ§Ã£o.
+5. Sempre confirme gentilmente o que foi feito ou responda a dÃºvida com clareza.
 
-FORMATO DE RESPOSTA OBRIGATÓRIO:
-Retorne SEMPRE um JSON válido (sem comentários) no seguinte formato:
+FORMATO DE RESPOSTA OBRIGATÃ“RIO:
+Retorne SEMPRE um JSON vÃ¡lido (sem comentÃ¡rios) no seguinte formato:
 {
   "reply": "texto da resposta carinhosa para o idoso",
   "action": null | {
     "type": "create_appointment" | "create_task" | "create_medication" | "confirm_medication" | "confirm_water" | "mood_checkin" | "request_call",
-    "data": { ...campos necessários }
+    "data": { ...campos necessÃ¡rios }
   }
 }
 
 Exemplo para criar consulta:
-{ "reply": "Ótimo! Agendei sua consulta com o cardiologista na sexta às 14h. Já deixei anotado aqui para você! 😊", "action": { "type": "create_appointment", "data": { "title": "Consulta Cardiologista", "starts_at": "2025-10-15T14:00:00", "doctor_name": "Cardiologista" } } }
+{ "reply": "Ã“timo! Agendei sua consulta com o cardiologista na sexta Ã s 14h. JÃ¡ deixei anotado aqui para vocÃª! ðŸ˜Š", "action": { "type": "create_appointment", "data": { "title": "Consulta Cardiologista", "starts_at": "2025-10-15T14:00:00", "doctor_name": "Cardiologista" } } }
 
 Mensagem do idoso: "${text}"`;
 
@@ -313,7 +366,7 @@ Mensagem do idoso: "${text}"`;
         cared_person_id: person.id,
         organization_id: orgId,
         author_id: null,
-        content: `[WhatsApp AI] ${elderName} enviou: "${text.substring(0, 100)}" → Resposta: "${replyText.substring(0, 100)}"`,
+        content: `[WhatsApp AI] ${elderName} enviou: "${text.substring(0, 100)}" â†’ Resposta: "${replyText.substring(0, 100)}"`,
         type: 'general',
       });
     } catch {}
@@ -323,7 +376,7 @@ Mensagem do idoso: "${text}"`;
     try {
       await sendWhatsAppMessage(
         fromPhone,
-        'Desculpe, tive um probleminha técnico no momento. Tente me mandar uma mensagem novamente em alguns instantes! 😊'
+        'Desculpe, tive um probleminha tÃ©cnico no momento. Tente me mandar uma mensagem novamente em alguns instantes! ðŸ˜Š'
       );
     } catch {}
   }
@@ -338,7 +391,7 @@ async function executeWhatsAppAction(action: any, person: any, orgId: string, db
         await db.from('appointments').insert({
           organization_id: orgId,
           cared_person_id: person.id,
-          title: data?.title || 'Consulta Médica',
+          title: data?.title || 'Consulta MÃ©dica',
           starts_at: data?.starts_at || new Date(Date.now() + 86400000).toISOString(),
           doctor_name: data?.doctor_name || null,
           status: 'scheduled',
@@ -399,7 +452,7 @@ async function executeWhatsAppAction(action: any, person: any, orgId: string, db
           organization_id: orgId,
           cared_person_id: person.id,
           requested_by: null,
-          message: `${person.full_name.split(' ')[0]} pediu para a família ligar via WhatsApp.`,
+          message: `${person.full_name.split(' ')[0]} pediu para a famÃ­lia ligar via WhatsApp.`,
           status: 'open',
         });
         break;

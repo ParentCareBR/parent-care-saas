@@ -62,6 +62,10 @@ export default function CaredPersonProfilePage() {
   const [whatsappPhone, setWhatsappPhone] = useState('');
   const [whatsappAiEnabled, setWhatsappAiEnabled] = useState(true);
   const [savingWhatsApp, setSavingWhatsApp] = useState(false);
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const [waLink, setWaLink] = useState('');
+  const [waLinkExpiry, setWaLinkExpiry] = useState('');
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const fetchProfile = async () => {
     try {
@@ -119,6 +123,35 @@ export default function CaredPersonProfilePage() {
   useEffect(() => {
     if (id) fetchProfile();
   }, [id]);
+
+  const handleGenerateLink = async () => {
+    try {
+      setGeneratingLink(true);
+      setWaLink('');
+      const res = await fetch('/api/whatsapp/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caredPersonId: id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao gerar link');
+      setWaLink(data.waLink);
+      const expiry = new Date(data.expiresAt);
+      setWaLinkExpiry(expiry.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }));
+      toast({ title: 'Link gerado!', description: `Compartilhe com ${data.personName}. Expira em 24h.` });
+    } catch (err: any) {
+      toast({ title: 'Erro ao gerar link', description: err.message, variant: 'destructive' });
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    if (!waLink) return;
+    await navigator.clipboard.writeText(waLink).catch(() => {});
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 3000);
+  };
 
   const calculateAge = (birthDateString?: string | null): string => {
     if (!birthDateString) return '';
@@ -764,6 +797,119 @@ export default function CaredPersonProfilePage() {
                   </div>
                 </div>
               </form>
+            </CardContent>
+          </Card>
+
+          {/* ── CARD: VINCULAR WHATSAPP DO IDOSO (Magic Link) ── */}
+          <Card className="border-emerald-200 dark:border-emerald-900 shadow-sm bg-emerald-50/30 dark:bg-emerald-950/10">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-[#25D366]/15 text-[#128C7E]">
+                  <MessageSquare className="h-5 w-5" />
+                </div>
+                <div>
+                  <CardTitle className="text-base font-bold">Vincular WhatsApp do Idoso</CardTitle>
+                  <CardDescription className="text-xs">
+                    Gere um link de 1 toque e compartilhe com {displayName}. Ao clicar, o WhatsApp abre e o número é vinculado automaticamente — sem digitar nada.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs">
+              {profile.whatsapp_phone ? (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-emerald-800 dark:text-emerald-300">WhatsApp já vinculado!</p>
+                    <p className="text-emerald-700 dark:text-emerald-400 font-mono">{profile.whatsapp_phone}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateLink}
+                    disabled={generatingLink}
+                    className="text-xs border-emerald-400 text-emerald-800 hover:bg-emerald-100 shrink-0"
+                  >
+                    Novo Link
+                  </Button>
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
+                  <p className="text-amber-800 dark:text-amber-300 font-semibold mb-2">
+                    ⚠️ Nenhum WhatsApp vinculado ainda.
+                  </p>
+                  <p className="text-stone-500 text-[11px]">
+                    Gere um link e compartilhe com {displayName} pelo seu próprio WhatsApp, SMS ou mostrando a tela.
+                  </p>
+                </div>
+              )}
+
+              <Button
+                type="button"
+                onClick={handleGenerateLink}
+                disabled={generatingLink}
+                className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold gap-2 text-xs"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                {generatingLink ? 'Gerando...' : '🔗 Gerar Link de Vinculação (1 Toque)'}
+              </Button>
+
+              {waLink && (
+                <div className="space-y-2 pt-1">
+                  <div className="p-3 rounded-xl border-2 border-[#25D366]/40 bg-white dark:bg-stone-900 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-bold text-stone-800 dark:text-stone-200 text-[11px]">
+                        Link gerado! Compartilhe com {displayName}:
+                      </p>
+                      <span className="text-[10px] text-stone-400 shrink-0">Expira: {waLinkExpiry}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        readOnly
+                        value={waLink}
+                        className="flex-1 text-[11px] font-mono p-2 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-300 truncate"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCopyLink}
+                        className="shrink-0 text-xs border-stone-300 gap-1"
+                      >
+                        {linkCopied ? '✓ Copiado!' : 'Copiar'}
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <a
+                        href={waLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-[#25D366] text-white text-xs font-bold hover:bg-[#20bd5a] transition"
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        Testar Link
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (navigator.share) {
+                            navigator.share({ title: 'Parent Care - Assistente WhatsApp', text: `Ola! Clique para vincular seu WhatsApp ao Parent Care: ${waLink}`, url: waLink });
+                          } else {
+                            handleCopyLink();
+                          }
+                        }}
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border-2 border-[#25D366]/40 text-[#128C7E] dark:text-emerald-400 text-xs font-bold hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition"
+                      >
+                        📤 Compartilhar
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-stone-400 text-center">
+                      Quando {displayName} tocar no link, o WhatsApp abrirá e o número será vinculado automaticamente.
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

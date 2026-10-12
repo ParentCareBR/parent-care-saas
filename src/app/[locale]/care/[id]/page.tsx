@@ -183,6 +183,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     nextMedication: null as string | null,
     medicationId: null as string | null,
     primaryPhone: '' as string,
+    platformWhatsAppNumber: '15556657789', // default Meta test number
   });
 
   const [lastAction, setLastAction] = useState<{ id: string; type: string; table: string } | null>(null);
@@ -475,6 +476,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
           medicationId: medId,
           nextAppointment: apptRes?.data?.title || null,
           primaryPhone: pPhone,
+          platformWhatsAppNumber: orgSettings.whatsapp_platform_number || '15556657789',
         });
 
         // Process Agenda Events
@@ -1309,22 +1311,42 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                 </span>
               </button>
 
-              {/* Quero Conversar */}
-              <button
-                onClick={handleRequestCall}
-                className='bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-300 dark:border-amber-800 p-4 rounded-3xl flex flex-col items-center text-center gap-1.5 transition active:scale-95 shadow-xs'
+              {/* Falar com Assistente WhatsApp */}
+              <a
+                href={`https://wa.me/${personInfo.platformWhatsAppNumber}?text=${encodeURIComponent('Oi, sou ' + personInfo.name + '! Quero falar com o assistente.')}`}
+                target='_blank'
+                rel='noopener noreferrer'
+                onClick={() => { triggerHaptic(40); speakReminder(`Abrindo WhatsApp para conversar com o assistente, ${personInfo.name}.`, params.locale); }}
+                className='bg-[#e8fbe8] dark:bg-emerald-950/40 border-2 border-[#25D366] dark:border-emerald-700 p-4 rounded-3xl flex flex-col items-center text-center gap-1.5 transition active:scale-95 shadow-xs'
               >
-                <div className='w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/60 flex items-center justify-center text-2xl'>
-                  📞
+                <div className='w-12 h-12 rounded-2xl bg-[#d4f8d4] dark:bg-emerald-900/60 flex items-center justify-center text-2xl'>
+                  💬
                 </div>
                 <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                  Quero Conversar
+                  WhatsApp
                 </span>
-                <span className='text-xs font-bold text-amber-700 dark:text-amber-300'>
-                  Avisar seus filhos
+                <span className='text-xs font-bold text-emerald-700 dark:text-emerald-400'>
+                  Falar com assistente
                 </span>
-              </button>
+              </a>
             </div>
+
+            {/* 1.2b BOTÃO QUERO CONVERSAR COM A FAMÍLIA */}
+            <button
+              onClick={handleRequestCall}
+              className='w-full bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-300 dark:border-amber-800 py-3.5 px-4 rounded-2xl flex items-center justify-between gap-3 transition active:scale-95 shadow-xs'
+            >
+              <div className='flex items-center gap-3'>
+                <div className='w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-900/60 flex items-center justify-center text-xl shrink-0'>
+                  📞
+                </div>
+                <div className='text-left'>
+                  <span className='block text-sm font-black text-stone-900 dark:text-stone-100'>Quero Conversar com a Família</span>
+                  <span className='block text-xs font-bold text-amber-700 dark:text-amber-300'>Avisar seus filhos para ligar</span>
+                </div>
+              </div>
+              <ChevronRight className='h-4 w-4 text-stone-400 shrink-0' />
+            </button>
 
             {/* Link para ver rotina completa */}
             <button
