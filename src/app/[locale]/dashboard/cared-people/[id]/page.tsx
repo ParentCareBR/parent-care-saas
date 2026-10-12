@@ -39,7 +39,8 @@ import {
   Sliders,
   ShieldCheck,
   Bot,
-  MessageSquare
+  MessageSquare,
+  Send
 } from 'lucide-react';
 import type { CaredPersonFullProfile } from '@/types/cared-person';
 
@@ -62,6 +63,7 @@ export default function CaredPersonProfilePage() {
   const [whatsappPhone, setWhatsappPhone] = useState('');
   const [whatsappAiEnabled, setWhatsappAiEnabled] = useState(true);
   const [savingWhatsApp, setSavingWhatsApp] = useState(false);
+  const [sendingTestWhatsApp, setSendingTestWhatsApp] = useState(false);
   const [generatingLink, setGeneratingLink] = useState(false);
   const [waLink, setWaLink] = useState('');
   const [waLinkExpiry, setWaLinkExpiry] = useState('');
@@ -117,6 +119,50 @@ export default function CaredPersonProfilePage() {
       });
     } finally {
       setSavingWhatsApp(false);
+    }
+  };
+
+  const handleSendTestWhatsApp = async () => {
+    if (!whatsappPhone) {
+      toast({
+        title: 'Número obrigatório',
+        description: 'Digite o número do WhatsApp com DDD antes de enviar.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setSendingTestWhatsApp(true);
+      // Auto-save changes first
+      await handleSaveWhatsAppConfig();
+
+      const res = await fetch('/api/whatsapp/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: whatsappPhone,
+          elder_name: displayName,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao enviar mensagem de teste.');
+      }
+
+      toast({
+        title: 'Mensagem enviada com sucesso! 🚀',
+        description: `Enviamos uma mensagem de teste para o WhatsApp de ${displayName} (${whatsappPhone}). Verifique o celular!`,
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Falha no envio',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingTestWhatsApp(false);
     }
   };
 
@@ -785,14 +831,45 @@ export default function CaredPersonProfilePage() {
                     </p>
                   </div>
 
-                  <div className="flex justify-end pt-2">
+                  <div className="flex items-center justify-between gap-2 pt-3 border-t border-stone-200/60 dark:border-stone-800 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Button
+                        type="button"
+                        onClick={handleSendTestWhatsApp}
+                        disabled={sendingTestWhatsApp || !whatsappPhone}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 h-9 font-bold shadow-md active:scale-95 transition-all"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        {sendingTestWhatsApp ? 'Enviando Mensagem...' : 'Enviar Mensagem de Teste'}
+                      </Button>
+
+                      {whatsappPhone && (
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-9 gap-1.5 border-[#25D366] text-[#128C7E] dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                        >
+                          <a
+                            href={`https://wa.me/${whatsappPhone.replace(/\D/g, '').startsWith('55') ? whatsappPhone.replace(/\D/g, '') : '55' + whatsappPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${displayName}! Aqui é o Parent Care ❤️`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <MessageSquare className="h-3.5 w-3.5" />
+                            Abrir no WhatsApp
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+
                     <Button
                       type="submit"
                       disabled={savingWhatsApp}
-                      className="bg-brand-green hover:bg-brand-green/90 text-white text-xs gap-1.5 h-8"
+                      variant="outline"
+                      className="text-xs gap-1.5 h-9 border-stone-300 hover:bg-stone-100 dark:border-stone-700"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
-                      {savingWhatsApp ? 'Salvando...' : 'Salvar Configurações de WhatsApp'}
+                      {savingWhatsApp ? 'Salvando...' : 'Salvar Configurações'}
                     </Button>
                   </div>
                 </div>
