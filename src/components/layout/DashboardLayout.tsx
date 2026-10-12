@@ -57,9 +57,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const locale = segments[0] || 'pt-BR';
 
   useEffect(() => {
-    if (!currentOrganizationId) return;
     let isMounted = true;
-    fetch(`/api/billing/entitlements?organizationId=` + currentOrganizationId)
+    const url = currentOrganizationId
+      ? `/api/billing/entitlements?organizationId=${currentOrganizationId}`
+      : `/api/billing/entitlements`;
+
+    fetch(url)
       .then((res) => res.json())
       .then((data) => {
         if (isMounted && data.entitlements) {

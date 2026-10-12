@@ -104,24 +104,34 @@ export async function getOrganizationEntitlements(
   }
 
   // 3. Count active members in the organization
-  const { count: activeMembersCount } = await supabase
-    .from('organization_members')
-    .select('id', { count: 'exact', head: true })
-    .eq('organization_id', organizationId)
-    .eq('status', 'active');
+  let activeMembers = 1;
+  try {
+    const { count } = await supabase
+      .from('organization_members')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', organizationId)
+      .eq('status', 'active');
+    if (typeof count === 'number' && count > 0) activeMembers = count;
+  } catch {
+    // ignore
+  }
 
   // 4. Count pending invitations that have reserved_seat = true
-  const { count: reservedInvitesCount } = await supabase
-    .from('organization_invitations')
-    .select('id', { count: 'exact', head: true })
-    .eq('organization_id', organizationId)
-    .eq('status', 'pending')
-    .eq('reserved_seat', true);
+  let reservedInvites = 0;
+  try {
+    const { count } = await supabase
+      .from('organization_invitations')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', organizationId)
+      .eq('status', 'pending')
+      .eq('reserved_seat', true);
+    if (typeof count === 'number') reservedInvites = count;
+  } catch {
+    // ignore
+  }
 
   const seatLimit = entitlement?.seat_limit ?? 1;
   const caredPeopleLimit = entitlement?.cared_people_limit ?? 2;
-  const activeMembers = activeMembersCount ?? 1; // At least owner
-  const reservedInvites = reservedInvitesCount ?? 0;
   const totalUsedSeats = activeMembers + reservedInvites;
   const availableSeats = Math.max(0, seatLimit - totalUsedSeats);
 
@@ -131,7 +141,7 @@ export async function getOrganizationEntitlements(
   let daysRemaining = 30;
   let isTrialExpired = false;
   let isPaywallBlocked = false;
-  const isTrial = rawStatus === 'trial';
+  const isTrial = rawStatus === 'trial' || rawStatus === 'trialing' || !rawStatus;
 
   if (rawStatus === 'active') {
     isTrialExpired = false;
@@ -145,7 +155,7 @@ export async function getOrganizationEntitlements(
     isPaywallBlocked = isTrialExpired;
     // Calculate days remaining dynamically:
     daysRemaining = isTrialExpired ? 0 : Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-  } else if (rawStatus === 'canceled' || rawStatus === 'past_due') {
+  } else if (rawStatus === 'canceled' || rawStatus === 'past_due' || rawStatus === 'trial_expired') {
     isTrialExpired = true;
     isPaywallBlocked = true;
     daysRemaining = 0;
@@ -189,18 +199,22 @@ export async function assertCanInviteMember(organizationId: string): Promise<voi
  * in organization_entitlements table.
  */
 export async function syncOrganizationEntitlementCounts(organizationId: string): Promise<void> {
-  const supabase = createAdminClient();
-  const info = await getOrganizationEntitlements(organizationId);
+  try {
+    const supabase = createAdminClient();
+    const info = await getOrganizationEntitlements(organizationId);
 
-  await supabase
-    .from('organization_entitlements')
-    .upsert({
-      organization_id: organizationId,
-      seat_limit: info.seatLimit,
-      cared_people_limit: info.caredPeopleLimit,
-      active_members_count: info.activeMembersCount,
-      reserved_invites_count: info.reservedInvitesCount,
-      subscription_status: info.subscriptionStatus,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'organization_id' });
+    await supabase
+      .from('organization_entitlements')
+      .upsert({
+        organization_id: organizationId,
+        seat_limit: info.seatLimit,
+        cared_people_limit: info.caredPeopleLimit,
+        active_members_count: info.activeMembersCount,
+        reserved_invites_count: info.reservedInvitesCount,
+        subscription_status: info.subscriptionStatus,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'organization_id' });
+  } catch {
+    // ignore
+  }
 }

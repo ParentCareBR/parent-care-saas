@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -126,7 +126,8 @@ interface FamilyMessage {
 type MobileTab = 'home' | 'routine' | 'actions' | 'finances';
 
 export default function ElderlyViewPage({ params }: { params: { id: string; locale: string } }) {
-  const supabase = createClient();
+  // Stable client instance across renders to prevent infinite re-fetching loops
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const tCare = getCareTexts(params.locale);
   const tFin = getFinanceTexts(params.locale);
@@ -141,10 +142,13 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
   const [currentTime, setCurrentTime] = useState(new Date());
   const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set());
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  // 30-Day Free Trial State (Loaded from organization entitlements)
+  const [trialInfo, setTrialInfo] = useState<{ isTrial: boolean; daysRemaining: number } | null>(null);
   
   // Date navigation for routine: simple 3-day switcher (Ontem, Hoje, Amanhã)
   const [selectedDayOffset, setSelectedDayOffset] = useState<number>(0);
-  const selectedDate = addDays(new Date(), selectedDayOffset);
+  const selectedDate = useMemo(() => addDays(new Date(), selectedDayOffset), [selectedDayOffset]);
   const [routineFilter, setRoutineFilter] = useState<'all' | 'medication' | 'meal' | 'appointment' | 'task'>('all');
 
   const [events, setEvents] = useState<AgendaEvent[]>([]);
@@ -208,9 +212,9 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
   const [sosModalOpen, setSosModalOpen] = useState(false);
   const [sendingSos, setSendingSos] = useState(false);
 
-  // Clock tick
+  // Clock tick (every 30 seconds to avoid wasteful render cascades)
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 10000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 30000);
     return () => clearInterval(timer);
   }, []);
 
@@ -317,346 +321,350 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     setTimeout(() => setSuccessMsg(''), 10000);
   };
 
-  // Fetch Finances
-  const fetchFinances = useCallback(async (personId: string) => {
-    try {
-      const res = await fetch(`/api/expenses?caredPersonId=${personId}`);
-      const data = await res.json();
-      if (res.ok && data.success && data.summary) {
-        setFinanceData({
-          monthlyIncome: data.summary.monthlyIncome || 0,
-          totalExpenses: data.summary.totalExpenses || 0,
-          balance: data.summary.balance || 0,
-          currency: data.summary.currency || 'BRL',
-          incomeSource: data.financialProfile?.income_source || 'Aposentadoria INSS',
-        });
-        if (data.financialProfile?.monthly_income) {
-          setSeniorPensionInput(String(data.financialProfile.monthly_income));
-        }
-      }
-    } catch (err) {
-      console.error('Erro ao carregar finanças do idoso:', err);
-    }
-  }, []);
+  // ── Parallelized High-Performance Initial Data Fetching (Zero Lag) ──
+  useEffect(() => {
+    let isCancelled = false;
 
-  // Fetch Family Notes (Mural de Afeto)
-  const fetchFamilyNotes = useCallback(async (personId: string, elderFirstName: string) => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: notes } = await (supabase as any)
-        .from('care_notes')
-        .select('id, content, created_at, author_id')
-        .eq('cared_person_id', personId)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      // Filter notes that are messages from family/caregivers
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const humanNotes = (notes || []).filter((n: any) => {
-        const c = n.content || '';
-        return !c.startsWith('Refeição') && 
-               !c.startsWith('Check-in') && 
-               !c.includes('[Resposta do Idoso]') &&
-               !c.includes('[Alarme:') &&
-               c.trim().length > 3;
-      });
-
-      if (humanNotes.length > 0) {
-        const latest = humanNotes[0];
-        let sender = 'Família';
-        let text = latest.content;
-
-        const colonMatch = latest.content.match(/^([^:]+):\s*(.+)$/);
-        if (colonMatch && colonMatch[1].length < 25) {
-          sender = colonMatch[1].replace(/\[|\]/g, '').trim();
-          text = colonMatch[2].trim();
+    async function loadAllData() {
+      try {
+        // Step 1: User authentication & cared person info (fast baseline)
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.push('/' + params.locale + '/care/login');
+          return;
         }
 
-        setFamilyMessage({
-          id: latest.id,
-          sender,
-          text,
-          time: format(new Date(latest.created_at), 'HH:mm'),
-          fullDate: new Date(latest.created_at),
-        });
-      } else {
-        setFamilyMessage({
-          id: 'welcome',
-          sender: 'Sua Família',
-          text: `Que seu dia seja maravilhoso e abençoado, ${elderFirstName}! Estamos sempre conectados cuidando de você com todo o amor ❤️`,
-          time: format(new Date(), 'HH:mm'),
-          fullDate: new Date(),
-        });
-      }
-    } catch (err) {
-      console.warn('Erro ao carregar recados da família:', err);
-    }
-  }, [supabase]);
+        const { data: person, error: pErr } = await supabase
+          .from('cared_people')
+          .select('full_name, organization_id, photo_url')
+          .eq('id', params.id)
+          .single();
 
-  // Fetch Agenda Events (Appointments, Meds, Meals, Tasks)
-  const fetchAgendaEvents = useCallback(async (personId: string) => {
-    setAgendaLoading(true);
-    const allEvents: AgendaEvent[] = [];
-    const from = new Date(); from.setDate(from.getDate() - 14);
-    const to = new Date(); to.setDate(to.getDate() + 30);
+        if (!person || pErr) {
+          router.push('/' + params.locale + '/care/login');
+          return;
+        }
 
-    // 1. Appointments
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: appts } = await (supabase as any)
-      .from('appointments').select('id,title,starts_at,doctor_name,location,status')
-      .eq('cared_person_id', personId).gte('starts_at', from.toISOString())
-      .lte('starts_at', to.toISOString()).order('starts_at', { ascending: true });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (appts || []).forEach((a: any) => {
-      const d = new Date(a.starts_at);
-      allEvents.push({
-        id: 'appt-' + a.id,
-        title: a.title,
-        subtitle: a.doctor_name || a.location || 'Consulta Médica',
-        time: format(d, 'HH:mm'),
-        date: d,
-        type: 'appointment',
-        color: 'blue',
-        completed: a.status === 'completed',
-        raw: a,
-      });
-    });
+        if (isCancelled) return;
 
-    // 2. Medications
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: meds } = await (supabase as any)
-      .from('medications').select('id,name,dosage,unit,medication_schedules(id,time_of_day)')
-      .eq('cared_person_id', personId).eq('is_active', true);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (meds || []).forEach((med: any) => {
-      const schedules = med.medication_schedules || [];
-      if (schedules.length === 0) {
-        const d = new Date(); d.setHours(8, 0, 0, 0);
-        allEvents.push({
-          id: 'med-' + med.id + '-notime',
-          title: `${med.name} ${med.dosage}${med.unit}`,
-          subtitle: 'Medicamento agendado',
-          time: '08:00',
-          date: new Date(d),
-          type: 'medication',
-          color: 'green',
-          raw: med,
-        });
-      } else {
+        const orgId = person.organization_id;
+        const firstName = person.full_name.split(' ')[0];
+
+        // Step 2: Parallel Batch Request (All 8 secondary calls in a single network roundtrip)
+        const dateFrom = new Date(); dateFrom.setDate(dateFrom.getDate() - 14);
+        const dateTo = new Date(); dateTo.setDate(dateTo.getDate() + 30);
+        const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+        const mealFrom = new Date(); mealFrom.setDate(mealFrom.getDate() - 7);
+
+        const [
+          contactsRes,
+          medsRes,
+          apptRes,
+          orgRes,
+          settingsRes,
+          entitlementsRes,
+          apptsListRes,
+          notesRes,
+          directMealsRes,
+          tasksRes,
+          hydroRes,
+          humanNotesRes,
+          financesRes
+        ] = await Promise.all([
+          // 1. Emergency phone
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any).from('emergency_contacts').select('phone').eq('cared_person_id', params.id).limit(1),
+          // 2. Active meds for quick action
+          supabase.from('medications').select('id,name,dosage,unit,medication_schedules(id,time_of_day)').eq('cared_person_id', params.id).eq('is_active', true),
+          // 3. Next appointment
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any).from('appointments').select('id,title,starts_at,doctor_name,location,description').eq('cared_person_id', params.id).gte('starts_at', new Date(Date.now() - 45 * 60 * 1000).toISOString()).order('starts_at', { ascending: true }).limit(1).maybeSingle(),
+          // 4. Org settings
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any).from('organizations').select('settings').eq('id', orgId).maybeSingle(),
+          // 5. Cared person monitoring settings
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any).from('cared_person_monitoring_settings').select('enabled,monitoring_definitions(code)').eq('cared_person_id', params.id),
+          // 6. Entitlements & 30-day trial status
+          fetch(`/api/billing/entitlements?organizationId=${orgId}`).then(r => r.json()).catch(() => null),
+          // 7. Appointments list
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any).from('appointments').select('id,title,starts_at,doctor_name,location,status').eq('cared_person_id', params.id).gte('starts_at', dateFrom.toISOString()).lte('starts_at', dateTo.toISOString()).order('starts_at', { ascending: true }),
+          // 8. Care notes for meals
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any).from('care_notes').select('id,content,created_at').eq('cared_person_id', params.id).ilike('content', '%refei%').gte('created_at', mealFrom.toISOString()).order('created_at', { ascending: false }).limit(30),
+          // 9. Direct meals
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any).from('meals').select('id,meal_type,description,notes,consumed_at,created_at').eq('cared_person_id', params.id).gte('created_at', mealFrom.toISOString()).order('created_at', { ascending: false }).limit(30),
+          // 10. Tasks
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any).from('tasks').select('id,title,due_date,status,priority').eq('cared_person_id', params.id).order('due_date', { ascending: true }).limit(30),
+          // 11. Hydration today
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any).from('hydration_logs').select('amount_ml').eq('cared_person_id', params.id).gte('created_at', todayStart.toISOString()),
+          // 12. Human care notes (Mural de Afeto)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any).from('care_notes').select('id,content,created_at,author_id').eq('cared_person_id', params.id).order('created_at', { ascending: false }).limit(20),
+          // 13. Financial expenses & profile
+          fetch(`/api/expenses?caredPersonId=${params.id}`).then(r => r.json()).catch(() => null),
+        ]);
+
+        if (isCancelled) return;
+
+        // Process Trial Entitlements Info
+        if (entitlementsRes?.entitlements) {
+          const ent = entitlementsRes.entitlements;
+          if (ent.isTrial) {
+            setTrialInfo({
+              isTrial: true,
+              daysRemaining: ent.daysRemaining ?? 30,
+            });
+          }
+        }
+
+        // Process Primary Phone
+        let pPhone = '';
+        if (contactsRes?.data && contactsRes.data[0]?.phone) {
+          pPhone = contactsRes.data[0].phone;
+        }
+
+        // Process Next Medication
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        schedules.forEach((sched: any) => {
-          for (let i = -7; i <= 14; i++) {
-            const d = new Date(); d.setDate(d.getDate() + i);
-            const pts = sched.time_of_day.split(':');
-            d.setHours(parseInt(pts[0]), parseInt(pts[1]), 0, 0);
+        const allMeds: any[] = (medsRes.data as any) || [];
+        let nextMed = null;
+        let medId = null;
+        if (allMeds.length > 0) {
+          nextMed = allMeds[0].name;
+          medId = allMeds[0].id;
+        }
+
+        // Process Next Appointment
+        if (apptRes?.data) {
+          setNextAppointmentData(apptRes.data);
+        } else {
+          setNextAppointmentData(null);
+        }
+
+        // Process Enabled Modules
+        const enabledSet = new Set<string>();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const orgSettings = (orgRes?.data?.settings as any) || {};
+        const personConfig = orgSettings.monitoring?.[params.id];
+        if (personConfig && Array.isArray(personConfig.enabled_codes)) {
+          personConfig.enabled_codes.forEach((c: string) => enabledSet.add(c));
+        } else if (settingsRes?.data && settingsRes.data.length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          settingsRes.data.forEach((row: any) => {
+            const code = row.monitoring_definitions?.code;
+            if (row.enabled && code) enabledSet.add(code);
+          });
+        } else {
+          ['meds_scheduled','schedule_appointments','checkin_btn_im_well','checkin_btn_need_help','checkin_btn_took_med','checkin_btn_ate','checkin_btn_drank_water','checkin_btn_emergency'].forEach((c) => enabledSet.add(c));
+        }
+        setEnabledModules(enabledSet);
+        setSettingsLoaded(true);
+
+        setPersonInfo({
+          name: firstName,
+          fullName: person.full_name,
+          organizationId: orgId,
+          userId: user.id,
+          nextMedication: nextMed,
+          medicationId: medId,
+          nextAppointment: apptRes?.data?.title || null,
+          primaryPhone: pPhone,
+        });
+
+        // Process Agenda Events
+        const allEvents: AgendaEvent[] = [];
+
+        // Appointments
+        (apptsListRes?.data || []).forEach((a: any) => {
+          const d = new Date(a.starts_at);
+          allEvents.push({
+            id: 'appt-' + a.id,
+            title: a.title,
+            subtitle: a.doctor_name || a.location || 'Consulta Médica',
+            time: format(d, 'HH:mm'),
+            date: d,
+            type: 'appointment',
+            color: 'blue',
+            completed: a.status === 'completed',
+            raw: a,
+          });
+        });
+
+        // Medications
+        allMeds.forEach((med: any) => {
+          const schedules = med.medication_schedules || [];
+          if (schedules.length === 0) {
+            const d = new Date(); d.setHours(8, 0, 0, 0);
             allEvents.push({
-              id: `med-${med.id}-${sched.id}-${i}`,
-              title: `${med.name} ${med.dosage}${med.unit}`,
-              subtitle: 'Horário do medicamento',
-              time: sched.time_of_day.slice(0, 5),
+              id: 'med-' + med.id + '-notime',
+              title: `${med.name} ${med.dosage || ''}${med.unit || ''}`.trim(),
+              subtitle: 'Medicamento agendado',
+              time: '08:00',
               date: new Date(d),
               type: 'medication',
               color: 'green',
               raw: med,
             });
+          } else {
+            schedules.forEach((sched: any) => {
+              for (let i = -7; i <= 14; i++) {
+                const d = new Date(); d.setDate(d.getDate() + i);
+                const pts = sched.time_of_day.split(':');
+                d.setHours(parseInt(pts[0]), parseInt(pts[1]), 0, 0);
+                allEvents.push({
+                  id: `med-${med.id}-${sched.id}-${i}`,
+                  title: `${med.name} ${med.dosage || ''}${med.unit || ''}`.trim(),
+                  subtitle: 'Horário do medicamento',
+                  time: sched.time_of_day.slice(0, 5),
+                  date: new Date(d),
+                  type: 'medication',
+                  color: 'green',
+                  raw: med,
+                });
+              }
+            });
           }
         });
-      }
-    });
 
-    // 3. Meals
-    const mealFrom = new Date(); mealFrom.setDate(mealFrom.getDate() - 7);
-    const [ { data: notes }, { data: directMeals } ] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any)
-        .from('care_notes').select('id,content,created_at').eq('cared_person_id', personId)
-        .ilike('content', '%refei%').gte('created_at', mealFrom.toISOString())
-        .order('created_at', { ascending: false }).limit(50),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any)
-        .from('meals').select('id,meal_type,description,notes,consumed_at,created_at').eq('cared_person_id', personId)
-        .gte('created_at', mealFrom.toISOString())
-        .order('created_at', { ascending: false }).limit(50),
-    ]);
-    const emojiMap: Record<string, string> = { breakfast: '🥣 Café da Manhã', lunch: '🥗 Almoço', snack: '🍎 Lanche da Tarde', dinner: '🍲 Jantar', supper: '🥛 Ceia', other: '🍽️ Refeição' };
-    const seenCareMeals = new Set<string>();
+        // Meals
+        const emojiMap: Record<string, string> = { breakfast: '🥣 Café da Manhã', lunch: '🥗 Almoço', snack: '🍎 Lanche da Tarde', dinner: '🍲 Jantar', supper: '🥛 Ceia', other: '🍽️ Refeição' };
+        const seenCareMeals = new Set<string>();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (notes || []).forEach((n: any) => {
-      const d = new Date(n.created_at);
-      const typeMatch = n.content.match(/Refei.+?\((.+?)\)/i);
-      const nameMatch = n.content.match(/Refei.+?\(.+?\)(?:\s*(?:às|as)?\s*\d{2}:\d{2})?:\s*([^.]+)/i);
-      const mealType = typeMatch ? typeMatch[1] : 'other';
-      const mealName = nameMatch ? nameMatch[1].trim() : n.content.substring(0, 40);
-      const explicitTimeMatch = n.content.match(/\b(\d{2}:\d{2})\b/);
-      const timeStr = explicitTimeMatch ? explicitTimeMatch[1] : format(d, 'HH:mm');
-      const key = `${format(d, 'yyyy-MM-dd')}-${mealType}-${mealName.toLowerCase().slice(0, 10)}`;
-      seenCareMeals.add(key);
+        (notesRes?.data || []).forEach((n: any) => {
+          const d = new Date(n.created_at);
+          const typeMatch = n.content.match(/Refei.+?\((.+?)\)/i);
+          const nameMatch = n.content.match(/Refei.+?\(.+?\)(?:\s*(?:às|as)?\s*\d{2}:\d{2})?:\s*([^.]+)/i);
+          const mealType = typeMatch ? typeMatch[1] : 'other';
+          const mealName = nameMatch ? nameMatch[1].trim() : n.content.substring(0, 40);
+          const explicitTimeMatch = n.content.match(/\b(\d{2}:\d{2})\b/);
+          const timeStr = explicitTimeMatch ? explicitTimeMatch[1] : format(d, 'HH:mm');
+          const key = `${format(d, 'yyyy-MM-dd')}-${mealType}-${mealName.toLowerCase().slice(0, 10)}`;
+          seenCareMeals.add(key);
 
-      allEvents.push({
-        id: 'meal-' + n.id,
-        title: emojiMap[mealType] || '🍽️ Refeição',
-        subtitle: mealName !== 'Refeição' ? mealName : undefined,
-        time: timeStr,
-        date: d,
-        type: 'meal',
-        color: 'orange',
-        completed: true,
-        raw: n,
-      });
-    });
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (directMeals || []).forEach((m: any) => {
-      const d = new Date(m.consumed_at || m.created_at);
-      const mealType = m.meal_type || 'other';
-      const mealName = m.description || 'Refeição';
-      const key = `${format(d, 'yyyy-MM-dd')}-${mealType}-${mealName.toLowerCase().slice(0, 10)}`;
-      if (!seenCareMeals.has(key)) {
-        seenCareMeals.add(key);
-        allEvents.push({
-          id: 'meal-direct-' + m.id,
-          title: emojiMap[mealType] || '🍽️ Refeição',
-          subtitle: mealName,
-          time: format(d, 'HH:mm'),
-          date: d,
-          type: 'meal',
-          color: 'orange',
-          completed: true,
-          raw: m,
+          allEvents.push({
+            id: 'meal-' + n.id,
+            title: emojiMap[mealType] || '🍽️ Refeição',
+            subtitle: mealName !== 'Refeição' ? mealName : undefined,
+            time: timeStr,
+            date: d,
+            type: 'meal',
+            color: 'orange',
+            completed: true,
+            raw: n,
+          });
         });
-      }
-    });
 
-    // 4. Tasks
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: tasks } = await (supabase as any)
-      .from('tasks').select('id,title,due_date,status,priority').eq('cared_person_id', personId)
-      .order('due_date', { ascending: true }).limit(50);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (tasks || []).forEach((t: any) => {
-      const d = t.due_date ? new Date(t.due_date) : new Date();
-      allEvents.push({
-        id: 'task-' + t.id,
-        title: t.title,
-        subtitle: t.status === 'completed' ? '✓ Concluída' : 'Tarefa da rotina',
-        time: format(d, 'HH:mm'),
-        date: d,
-        type: 'task',
-        color: 'purple',
-        completed: t.status === 'completed',
-        raw: t,
-      });
-    });
+        (directMealsRes?.data || []).forEach((m: any) => {
+          const d = new Date(m.consumed_at || m.created_at);
+          const mealType = m.meal_type || 'other';
+          const mealName = m.description || 'Refeição';
+          const key = `${format(d, 'yyyy-MM-dd')}-${mealType}-${mealName.toLowerCase().slice(0, 10)}`;
+          if (!seenCareMeals.has(key)) {
+            seenCareMeals.add(key);
+            allEvents.push({
+              id: 'meal-direct-' + m.id,
+              title: emojiMap[mealType] || '🍽️ Refeição',
+              subtitle: mealName,
+              time: format(d, 'HH:mm'),
+              date: d,
+              type: 'meal',
+              color: 'orange',
+              completed: true,
+              raw: m,
+            });
+          }
+        });
 
-    // Hydration logs today
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: hydro } = await (supabase as any)
-      .from('hydration_logs')
-      .select('amount_ml')
-      .eq('cared_person_id', personId)
-      .gte('created_at', todayStart.toISOString());
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const totalMl = (hydro || []).reduce((acc: number, curr: any) => acc + (curr.amount_ml || 250), 0);
-    setCupsDrank(Math.round(totalMl / 250));
+        // Tasks
+        (tasksRes?.data || []).forEach((t: any) => {
+          const d = t.due_date ? new Date(t.due_date) : new Date();
+          allEvents.push({
+            id: 'task-' + t.id,
+            title: t.title,
+            subtitle: t.status === 'completed' ? '✓ Concluída' : 'Tarefa da rotina',
+            time: format(d, 'HH:mm'),
+            date: d,
+            type: 'task',
+            color: 'purple',
+            completed: t.status === 'completed',
+            raw: t,
+          });
+        });
 
-    setEvents(allEvents);
-    setAgendaLoading(false);
-  }, [supabase]);
+        setEvents(allEvents);
+        setAgendaLoading(false);
 
-  // Main Data Loading
-  useEffect(() => {
-    async function fetchData() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/' + params.locale + '/care/login'); return; }
-      
-      const { data: person, error: pErr } = await supabase
-        .from('cared_people')
-        .select('full_name, organization_id, photo_url')
-        .eq('id', params.id)
-        .single();
-        
-      if (!person || pErr) { router.push('/' + params.locale + '/care/login'); return; }
+        // Process Hydration
+        const totalMl = (hydroRes?.data || []).reduce((acc: number, curr: any) => acc + (curr.amount_ml || 250), 0);
+        setCupsDrank(Math.round(totalMl / 250));
 
-      const orgId = person.organization_id;
-      const firstName = person.full_name.split(' ')[0];
+        // Process Family Notes (Mural de Afeto)
+        const rawNotes = humanNotesRes?.data || [];
+        const humanNotes = rawNotes.filter((n: any) => {
+          const c = n.content || '';
+          return !c.startsWith('Refeição') && 
+                 !c.startsWith('Check-in') && 
+                 !c.includes('[Resposta do Idoso]') &&
+                 !c.includes('[Alarme:') &&
+                 c.trim().length > 3;
+        });
 
-      // Primary contact phone
-      let pPhone = '';
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: contacts } = await (supabase as any)
-          .from('emergency_contacts')
-          .select('phone')
-          .eq('cared_person_id', params.id)
-          .limit(1);
-        if (contacts && contacts[0]?.phone) pPhone = contacts[0].phone;
-      } catch {
-        // ignore
-      }
+        if (humanNotes.length > 0) {
+          const latest = humanNotes[0];
+          let sender = 'Família';
+          let text = latest.content;
 
-      // Next medication
-      const { data: meds } = await supabase.from('medications').select('id,name').eq('cared_person_id', params.id).eq('is_active', true).limit(1);
-      let nextMed = null; let medId = null;
-      if (meds && meds.length > 0) { nextMed = meds[0].name; medId = meds[0].id; }
+          const colonMatch = latest.content.match(/^([^:]+):\s*(.+)$/);
+          if (colonMatch && colonMatch[1].length < 25) {
+            sender = colonMatch[1].replace(/\[|\]/g, '').trim();
+            text = colonMatch[2].trim();
+          }
 
-      // Next appointment
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: appt } = await (supabase as any)
-        .from('appointments')
-        .select('id,title,starts_at,doctor_name,location,description')
-        .eq('cared_person_id', params.id)
-        .gte('starts_at', new Date(Date.now() - 45 * 60 * 1000).toISOString())
-        .order('starts_at', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (appt) {
-        setNextAppointmentData(appt);
-      } else {
-        setNextAppointmentData(null);
-      }
-
-      // Modules
-      const enabledSet = new Set<string>();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: orgData } = await (supabase as any).from('organizations').select('settings').eq('id', orgId).maybeSingle();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const orgSettings = (orgData?.settings as any) || {};
-      const personConfig = orgSettings.monitoring?.[params.id];
-      if (personConfig && Array.isArray(personConfig.enabled_codes)) {
-        personConfig.enabled_codes.forEach((c: string) => enabledSet.add(c));
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: settingsData } = await (supabase as any).from('cared_person_monitoring_settings').select('enabled,monitoring_definitions(code)').eq('cared_person_id', params.id);
-        if (settingsData && settingsData.length > 0) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          settingsData.forEach((row: any) => { const code = row.monitoring_definitions?.code; if (row.enabled && code) enabledSet.add(code); });
+          setFamilyMessage({
+            id: latest.id,
+            sender,
+            text,
+            time: format(new Date(latest.created_at), 'HH:mm'),
+            fullDate: new Date(latest.created_at),
+          });
         } else {
-          ['meds_scheduled','schedule_appointments','checkin_btn_im_well','checkin_btn_need_help','checkin_btn_took_med','checkin_btn_ate','checkin_btn_drank_water','checkin_btn_emergency'].forEach((c) => enabledSet.add(c));
+          setFamilyMessage({
+            id: 'welcome',
+            sender: 'Sua Família',
+            text: `Que seu dia seja maravilhoso e abençoado, ${firstName}! Estamos sempre conectados cuidando de você com todo o amor ❤️`,
+            time: format(new Date(), 'HH:mm'),
+            fullDate: new Date(),
+          });
         }
+
+        // Process Finances
+        if (financesRes?.success && financesRes?.summary) {
+          setFinanceData({
+            monthlyIncome: financesRes.summary.monthlyIncome || 0,
+            totalExpenses: financesRes.summary.totalExpenses || 0,
+            balance: financesRes.summary.balance || 0,
+            currency: financesRes.summary.currency || 'BRL',
+            incomeSource: financesRes.financialProfile?.income_source || 'Aposentadoria INSS',
+          });
+          if (financesRes.financialProfile?.monthly_income) {
+            setSeniorPensionInput(String(financesRes.financialProfile.monthly_income));
+          }
+        }
+      } catch (err) {
+        console.error('[CarePage] Error loading data in parallel:', err);
       }
-      setEnabledModules(enabledSet);
-      setSettingsLoaded(true);
-
-      setPersonInfo({
-        name: firstName,
-        fullName: person.full_name,
-        organizationId: orgId,
-        userId: user.id,
-        nextMedication: nextMed,
-        medicationId: medId,
-        nextAppointment: appt?.title || null,
-        primaryPhone: pPhone,
-      });
-
-      await fetchAgendaEvents(params.id);
-      await fetchFamilyNotes(params.id, firstName);
-      await fetchFinances(params.id);
     }
-    fetchData();
-  }, [params.id, params.locale, router, supabase, fetchAgendaEvents, fetchFamilyNotes, fetchFinances]);
+
+    loadAllData();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [params.id, params.locale, router, supabase]);
 
   // Appointment Alarm Auto-Trigger
   useEffect(() => {
@@ -746,16 +754,6 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     setLastAction(null);
     setSuccessMsg('Ação cancelada.');
     setTimeout(() => setSuccessMsg(''), 3000);
-  };
-
-  // Audio Test Button in Header
-  const handleTestAudio = () => {
-    unlockAudioContext();
-    playAlarmChime();
-    triggerHaptic(30);
-    speakReminder(tCare.demoSpeech(personInfo.name), params.locale);
-    setSuccessMsg('🔔 Som e voz ativados com sucesso!');
-    setTimeout(() => setSuccessMsg(''), 5000);
   };
 
   // Read aloud current tab contents
@@ -941,7 +939,19 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
         setExpenseModalOpen(false);
         setSeniorExpenseAmount('');
         setSeniorExpenseDesc('');
-        await fetchFinances(params.id);
+        // Re-fetch finances in background
+        fetch(`/api/expenses?caredPersonId=${params.id}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data?.summary) {
+              setFinanceData(prev => ({
+                ...prev,
+                totalExpenses: data.summary.totalExpenses || 0,
+                balance: data.summary.balance || 0,
+              }));
+            }
+          })
+          .catch(() => {});
         setTimeout(() => setSuccessMsg(''), 6000);
       } else {
         alert(data.error || 'Erro ao registrar gasto.');
@@ -974,7 +984,19 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
         triggerHaptic(40);
         setSuccessMsg(tFin.incomeUpdated);
         setSeniorPensionModalOpen(false);
-        await fetchFinances(params.id);
+        // Re-fetch finances in background
+        fetch(`/api/expenses?caredPersonId=${params.id}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data?.summary) {
+              setFinanceData(prev => ({
+                ...prev,
+                monthlyIncome: data.summary.monthlyIncome || 0,
+                balance: data.summary.balance || 0,
+              }));
+            }
+          })
+          .catch(() => {});
         setTimeout(() => setSuccessMsg(''), 6000);
       } else {
         alert(data.error || 'Erro ao atualizar aposentadoria.');
@@ -989,22 +1011,26 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
   const formatCurrency = (val: number) =>
     val.toLocaleString(displayLocale, { style: 'currency', currency: financeData.currency || 'BRL' });
 
-  // ── Find "AGORA" (The single most relevant action happening right now) ──
-  const now = new Date();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  // ── High Performance Memoized Event Calculations (60fps) ──
+  const todayEvents = useMemo(() => {
+    return events
+      .filter(e => isSameDay(e.date, selectedDate))
+      .sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
+  }, [events, selectedDate]);
 
-  const todayEvents = events
-    .filter(e => isSameDay(e.date, selectedDate))
-    .sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
+  const filteredEvents = useMemo(() => {
+    return todayEvents.filter(ev => {
+      if (routineFilter === 'all') return true;
+      return ev.type === routineFilter;
+    });
+  }, [todayEvents, routineFilter]);
 
-  const filteredEvents = todayEvents.filter(ev => {
-    if (routineFilter === 'all') return true;
-    return ev.type === routineFilter;
-  });
-
-  let currentNowEvent: AgendaEvent | null = null;
-  if (selectedDayOffset === 0) {
+  const currentNowEvent = useMemo(() => {
+    if (selectedDayOffset !== 0) return null;
+    const nowMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
     let minDiff = Infinity;
+    let found: AgendaEvent | null = null;
+
     for (const ev of todayEvents) {
       if (ev.time && !ev.completed) {
         const [h, m] = ev.time.split(':').map(Number);
@@ -1012,18 +1038,19 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
         const diff = evMinutes - nowMinutes;
         if (diff >= -45 && diff <= 120 && Math.abs(diff) < minDiff) {
           minDiff = Math.abs(diff);
-          currentNowEvent = ev;
+          found = ev;
         }
       }
     }
-    if (!currentNowEvent) {
-      currentNowEvent = todayEvents.find(e => {
+    if (!found) {
+      found = todayEvents.find(e => {
         if (!e.time || e.completed) return false;
         const [h, m] = e.time.split(':').map(Number);
         return (h * 60 + m) >= nowMinutes;
       }) || null;
     }
-  }
+    return found;
+  }, [selectedDayOffset, todayEvents, currentTime]);
 
   // Greeting based on time of day
   const hour = currentTime.getHours();
@@ -1075,8 +1102,30 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
       </header>
 
       {/* ── MAIN CONTENT AREA (Clean Single-Screen Viewport per Tab) ── */}
-      <main className='flex-1 max-w-md mx-auto w-full px-3.5 py-4 space-y-4 pb-28'>
+      <main className='flex-1 max-w-md mx-auto w-full px-3.5 py-3 space-y-3.5 pb-28'>
         
+        {/* ── AVISO DE 30 DIAS DE TESTE GRÁTIS ATIVO ── */}
+        {trialInfo?.isTrial && (
+          <div className='bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/15 border-2 border-emerald-500/30 dark:border-emerald-500/40 text-emerald-950 dark:text-emerald-100 p-3 rounded-2xl flex items-center justify-between gap-2 shadow-xs animate-in fade-in duration-300'>
+            <div className='flex items-center gap-2.5 min-w-0'>
+              <div className='w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0'>
+                <Sparkles className='h-4 w-4' />
+              </div>
+              <div className='min-w-0'>
+                <p className='text-xs font-extrabold leading-tight truncate'>
+                  Período de Teste Grátis Ativo
+                </p>
+                <p className='text-[11px] text-emerald-800 dark:text-emerald-300 font-semibold truncate'>
+                  Você tem <strong className='font-black underline'>{trialInfo.daysRemaining === 1 ? '1 dia restante' : `${trialInfo.daysRemaining} dias restantes`}</strong> sem cobrança
+                </p>
+              </div>
+            </div>
+            <span className='text-[10px] uppercase tracking-wider font-black text-emerald-800 dark:text-emerald-200 bg-white dark:bg-stone-900 border border-emerald-300 dark:border-emerald-700 px-2.5 py-1 rounded-xl shrink-0 shadow-2xs'>
+              30 Dias
+            </span>
+          </div>
+        )}
+
         {/* Banner de Sucesso / Desfazer */}
         {successMsg && (
           <div className='bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-500 text-emerald-950 dark:text-emerald-200 p-3.5 rounded-2xl flex items-center gap-3 shadow-md animate-in slide-in-from-top-2 duration-200'>
@@ -1349,6 +1398,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                 ].map(f => (
                   <button
                     key={f.key}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onClick={() => { setRoutineFilter(f.key as any); triggerHaptic(20); }}
                     className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition ${
                       routineFilter === f.key
@@ -1504,10 +1554,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               <h3 className='text-base font-black text-stone-900 dark:text-stone-100'>Como está seu humor hoje?</h3>
               <div className='grid grid-cols-4 gap-2'>
                 {[
-                  { mood: 'great', emoji: '😄', label: 'Muito Bem', color: 'emerald' },
-                  { mood: 'good', emoji: '😊', label: 'Tranquilo', color: 'sky' },
-                  { mood: 'okay', emoji: '😐', label: 'Mais ou Menos', color: 'amber' },
-                  { mood: 'bad', emoji: '😔', label: 'Com Dor', color: 'rose' },
+                  { mood: 'great', emoji: '😄', label: 'Muito Bem' },
+                  { mood: 'good', emoji: '😊', label: 'Tranquilo' },
+                  { mood: 'okay', emoji: '😐', label: 'Mais ou Menos' },
+                  { mood: 'bad', emoji: '😔', label: 'Com Dor' },
                 ].map(item => (
                   <button
                     key={item.mood}

@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Falha ao registrar usuário.' }, { status: 500 });
     }
 
-    // 2. Ensure public.users profile exists
+    // 2. Ensure public.users profile exists and authenticate userClient session
     try {
       await (adminSupabase as any).from('users').upsert({
         id: userId,
@@ -185,6 +185,18 @@ export async function POST(req: NextRequest) {
         locale,
         updated_at: new Date().toISOString(),
       });
+    } catch {
+      // ignore
+    }
+
+    try {
+      const { data: signInRes } = await userClient.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (signInRes?.session) {
+        autoConfirmed = true;
+      }
     } catch {
       // ignore
     }
@@ -219,20 +231,44 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    const { error: orgErr } = await (adminSupabase as any).from('organizations').insert({
-      id: newOrgId,
-      name: orgName,
-      slug: uniqueSlug,
-      owner_id: userId,
-      subscription_status: 'trial',
-      trial_ends_at: trialEndsAt,
-      settings: orgSettings,
-      created_at: now.toISOString(),
-      updated_at: now.toISOString(),
-    });
+    let orgCreated = false;
+    // Try via admin client first
+    try {
+      const { error: adminOrgErr } = await (adminSupabase as any).from('organizations').insert({
+        id: newOrgId,
+        name: orgName,
+        slug: uniqueSlug,
+        owner_id: userId,
+        subscription_status: 'trial',
+        trial_ends_at: trialEndsAt,
+        settings: orgSettings,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+      });
+      if (!adminOrgErr) orgCreated = true;
+    } catch {
+      // ignore
+    }
 
-    if (orgErr) {
-      console.warn('[SignupTrial] Could not insert organization via admin:', orgErr.message);
+    // Fallback: insert using authenticated user client (satisfies RLS orgs_insert_owner)
+    if (!orgCreated) {
+      try {
+        const { error: userOrgErr } = await (userClient as any).from('organizations').insert({
+          id: newOrgId,
+          name: orgName,
+          slug: uniqueSlug,
+          owner_id: userId,
+          subscription_status: 'trial',
+          trial_ends_at: trialEndsAt,
+          settings: orgSettings,
+          created_at: now.toISOString(),
+          updated_at: now.toISOString(),
+        });
+        if (!userOrgErr) orgCreated = true;
+        else console.warn('[SignupTrial] Could not insert organization via user client:', userOrgErr.message);
+      } catch (err: any) {
+        console.warn('[SignupTrial] Exception creating organization via user client:', err.message);
+      }
     }
 
     // 4. Create membership as owner
@@ -245,7 +281,17 @@ export async function POST(req: NextRequest) {
         created_at: now.toISOString(),
       });
     } catch {
-      // ignore
+      try {
+        await (userClient as any).from('organization_members').insert({
+          organization_id: newOrgId,
+          user_id: userId,
+          role: 'owner',
+          status: 'active',
+          created_at: now.toISOString(),
+        });
+      } catch {
+        // ignore
+      }
     }
 
     // 5. Create organization_entitlements
