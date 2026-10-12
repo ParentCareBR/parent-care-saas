@@ -211,6 +211,8 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
   const [savingPension, setSavingPension] = useState(false);
   const [sosModalOpen, setSosModalOpen] = useState(false);
   const [sendingSos, setSendingSos] = useState(false);
+  const [conversationModalOpen, setConversationModalOpen] = useState(false);
+  const [sendingCallRequest, setSendingCallRequest] = useState(false);
 
   // Clock tick (every 30 seconds to avoid wasteful render cascades)
   useEffect(() => {
@@ -708,48 +710,57 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     playSuccessChime();
     triggerHaptic(40);
 
-    const payload = { organization_id: personInfo.organizationId, cared_person_id: params.id, ...payloadData };
-    const { data: result, error } = await supabase.from(dbTable).insert(payload).select().single();
-    if (error) {
-      setLoading(false);
-      alert('Falha na comunicação. Verifique sua internet.');
-      return;
+    let recordedId: string | null = null;
+    let targetTable = dbTable;
+
+    try {
+      const res = await fetch('/api/care/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cared_person_id: params.id,
+          type,
+          message,
+          payload: payloadData,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        recordedId = data.id;
+        targetTable = data.table || dbTable;
+      } else {
+        // Fallback to client-side insert if API returned error
+        const payload = { organization_id: personInfo.organizationId, cared_person_id: params.id, ...payloadData };
+        const { data: result } = await supabase.from(dbTable).insert(payload).select().maybeSingle();
+        if (result) recordedId = (result as any).id;
+      }
+    } catch {
+      try {
+        const payload = { organization_id: personInfo.organizationId, cared_person_id: params.id, ...payloadData };
+        const { data: result } = await supabase.from(dbTable).insert(payload).select().maybeSingle();
+        if (result) recordedId = (result as any).id;
+      } catch {}
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setLastAction({ id: (result as any).id, type, table: dbTable });
+    if (recordedId) {
+      setLastAction({ id: recordedId, type, table: targetTable });
+    }
     setLoading(false);
     setSuccessMsg(`${message}! A família foi avisada.`);
-
     speakReminder(`${message}! Sua família já sabe.`, params.locale);
-
-    const { data: members } = await supabase
-      .from('organization_members')
-      .select('user_id')
-      .eq('organization_id', personInfo.organizationId)
-      .neq('user_id', personInfo.userId);
-
-    if (members && members.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from('notifications').insert(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        members.map((m: any) => ({
-          user_id: m.user_id,
-          organization_id: personInfo.organizationId,
-          type: type === 'emergency' ? 'alert' : 'info',
-          title: `Aviso de ${personInfo.name}`,
-          body: message,
-          data: { cared_person_id: params.id, type, link_url: `/${params.locale}/dashboard` },
-        }))
-      );
-    }
     setTimeout(() => setSuccessMsg(''), 6000);
   };
 
   const undoLastAction = async () => {
     if (!lastAction) return;
     setLoading(true);
-    await supabase.from(lastAction.table).delete().eq('id', lastAction.id);
+    try {
+      await fetch(`/api/care/action?table=${lastAction.table}&id=${lastAction.id}`, {
+        method: 'DELETE',
+      });
+    } catch {
+      await supabase.from(lastAction.table).delete().eq('id', lastAction.id);
+    }
     setLoading(false);
     setLastAction(null);
     setSuccessMsg('Ação cancelada.');
@@ -792,7 +803,6 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
   const handleMoodCheckIn = async (mood: string, label: string) => {
     await handleAction('mood', `Humor: ${label}`, 'check_ins', {
       mood,
-      checked_by: personInfo.userId,
       notes: `Humor registrado na tela do idoso: ${label}`,
     });
 
@@ -827,36 +837,18 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     speakReminder(voiceSpeech, params.locale);
     setSuccessMsg(replyText);
 
-    // 1. Post to care_notes
-    await supabase.from('care_notes').insert({
-      cared_person_id: params.id,
-      organization_id: personInfo.organizationId,
-      author_id: personInfo.userId,
-      content: `[Resposta de ${personInfo.name}]: ${replyText}`,
-      type: 'general',
-    });
-
-    // 2. Notify family
-    const { data: members } = await supabase
-      .from('organization_members')
-      .select('user_id')
-      .eq('organization_id', personInfo.organizationId)
-      .neq('user_id', personInfo.userId);
-
-    if (members && members.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from('notifications').insert(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        members.map((m: any) => ({
-          user_id: m.user_id,
-          organization_id: personInfo.organizationId,
-          type: 'info',
-          title: `Carinho de ${personInfo.name}`,
-          body: `${personInfo.name} respondeu ao recado: "${noteText.substring(0, 50)}...": ${replyText}`,
-          data: { cared_person_id: params.id, reply: replyText, link_url: `/${params.locale}/dashboard` },
-        }))
-      );
-    }
+    try {
+      await fetch('/api/care/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cared_person_id: params.id,
+          type: 'reaction',
+          message: replyText,
+          payload: { content: `[Resposta de ${personInfo.name}]: ${replyText}` },
+        }),
+      });
+    } catch {}
 
     setTimeout(() => setSuccessMsg(''), 6000);
   };
@@ -866,22 +858,26 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     unlockAudioContext();
     playSuccessChime();
     triggerHaptic(40);
+    setConversationModalOpen(true);
+    setSendingCallRequest(true);
 
-    speakReminder(`Avisamos seus filhos, ${personInfo.name}! Logo alguém vai te dar uma ligadinha para conversar.`, params.locale);
+    speakReminder(`Avisamos sua família, ${personInfo.name}! Logo alguém vai te dar uma ligadinha para conversar.`, params.locale);
     setSuccessMsg('📞 Pedido de conversa enviado para a família!');
 
     try {
-      await fetch('/api/care/alert', {
+      await fetch('/api/care/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cared_person_id: params.id,
           type: 'help',
-          message: `${personInfo.name} tocou em "Quero Conversar" e solicitou que a família entre em contato.`,
+          message: `${personInfo.name} tocou em "Quero Conversar" e pediu para a família entrar em contato.`,
         }),
       });
     } catch (e) {
-      console.error('Error sending help alert:', e);
+      console.error('Error sending conversation alert:', e);
+    } finally {
+      setSendingCallRequest(false);
     }
 
     setTimeout(() => setSuccessMsg(''), 6000);
@@ -1694,6 +1690,60 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
 
         </div>
       </nav>
+
+      {/* ── MODAL DE CONVERSA: QUERO CONVERSAR COM A FAMÍLIA ── */}
+      {conversationModalOpen && (
+        <div className='fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200'>
+          <div className='bg-white dark:bg-stone-900 border-4 border-amber-400 rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl text-center space-y-4 animate-in zoom-in-95 duration-200'>
+            <div className='mx-auto w-18 h-18 rounded-3xl bg-amber-100 dark:bg-amber-950/60 border-2 border-amber-300 flex items-center justify-center text-3xl'>
+              📞
+            </div>
+
+            <div>
+              <span className='inline-block px-2.5 py-0.5 bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 font-extrabold text-xs rounded-full uppercase tracking-wider mb-1'>
+                Pedido de Conversa
+              </span>
+              <h2 className='text-xl sm:text-2xl font-black text-stone-900 dark:text-stone-100 leading-tight'>
+                Avisamos sua família!
+              </h2>
+              <p className='text-xs text-stone-600 dark:text-stone-300 mt-1 font-medium'>
+                {sendingCallRequest
+                  ? 'Enviando aviso para seus cuidadores...'
+                  : 'Um aviso foi registrado no painel e enviado no WhatsApp da família para te darem uma ligadinha.'}
+              </p>
+            </div>
+
+            <div className='space-y-2.5 pt-1'>
+              {personInfo.primaryPhone && (
+                <>
+                  <a
+                    href={`tel:${personInfo.primaryPhone}`}
+                    className='w-full h-13 text-base font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition'
+                  >
+                    <Phone className='h-5 w-5' /> Ligar para a Família Agora
+                  </a>
+                  <a
+                    href={`https://wa.me/${personInfo.primaryPhone.replace(/\D/g, '')}`}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='w-full h-12 text-sm font-bold bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-2xl flex items-center justify-center gap-2 shadow-md active:scale-95 transition'
+                  >
+                    💬 Abrir WhatsApp da Família
+                  </a>
+                </>
+              )}
+
+              <button
+                type='button'
+                onClick={() => setConversationModalOpen(false)}
+                className='w-full h-11 text-xs font-bold text-stone-600 dark:text-stone-300 border-2 border-stone-300 dark:border-stone-700 hover:bg-stone-100 rounded-2xl'
+              >
+                ✓ Entendi, vou aguardar a ligação
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── MODAL DE CONFIRMAÇÃO DE EMERGÊNCIA / SOS ── */}
       {sosModalOpen && (

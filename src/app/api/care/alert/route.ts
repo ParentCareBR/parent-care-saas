@@ -19,18 +19,21 @@ function getDbClient(authenticatedSupabase: any) {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
-    }
-
     const body = await req.json();
     const { cared_person_id, type, message } = body;
 
     if (!cared_person_id || !type) {
       return NextResponse.json({ error: 'cared_person_id e type são obrigatórios.' }, { status: 400 });
+    }
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // For non-emergency requests from the elder's own device (e.g. Quero Conversar),
+    // we allow unauthenticated requests since the care page uses a separate session.
+    // Emergency requests still require authentication for security.
+    if (!user && type === 'emergency') {
+      return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
     }
 
     const db = getDbClient(supabase);
@@ -48,13 +51,14 @@ export async function POST(req: NextRequest) {
 
     const orgId = person.organization_id;
     const elderName = person.full_name.split(' ')[0];
+    const reporterId = user?.id || null;
 
     // 2. Registrar na tabela específica
     if (type === 'emergency') {
       await db.from('emergency_events').insert({
         organization_id: orgId,
         cared_person_id: person.id,
-        reported_by: user.id,
+        reported_by: reporterId,
         description: message || `Emergência acionada pelo botão SOS da tela de ${elderName}`,
         severity: 'critical',
       });
@@ -63,7 +67,7 @@ export async function POST(req: NextRequest) {
       await db.from('care_notes').insert({
         organization_id: orgId,
         cared_person_id: person.id,
-        author_id: user.id,
+        author_id: reporterId,
         content: `🚨 EMERGÊNCIA: ${elderName} acionou o botão SOS de emergência!`,
         type: 'incident',
       });
@@ -71,7 +75,7 @@ export async function POST(req: NextRequest) {
       await db.from('help_requests').insert({
         organization_id: orgId,
         cared_person_id: person.id,
-        requested_by: user.id,
+        requested_by: reporterId,
         message: message || `${elderName} solicitou atenção ou ligação da família.`,
         status: 'open',
       });
@@ -80,7 +84,7 @@ export async function POST(req: NextRequest) {
       await db.from('care_notes').insert({
         organization_id: orgId,
         cared_person_id: person.id,
-        author_id: user.id,
+        author_id: reporterId,
         content: `📞 PEDIDO DE CONTATO: ${elderName} pediu ajuda e quer conversar com a família.`,
         type: 'general',
       });

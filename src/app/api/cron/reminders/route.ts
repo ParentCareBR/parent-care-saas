@@ -48,10 +48,10 @@ async function handleRemindersDispatch(req: NextRequest) {
     const results: any[] = [];
     let sentCount = 0;
 
-    // 1. Obter todas as pessoas cuidadas ativas
+    // 1. Obter todas as pessoas cuidadas ativas com telefone
     const { data: caredPeople, error: cpErr } = await db
       .from('cared_people')
-      .select('id, full_name, organization_id')
+      .select('id, full_name, organization_id, phone, whatsapp_phone')
       .order('created_at', { ascending: false });
 
     if (cpErr || !caredPeople) {
@@ -62,17 +62,22 @@ async function handleRemindersDispatch(req: NextRequest) {
       const elderName = person.full_name.split(' ')[0];
 
       // Obter telefone para WhatsApp do idoso:
-      // Busca em emergency_contacts (contato principal ou identificado como do idoso) ou settings
+      // Prioriza o WhatsApp/telefone próprio do idoso, ou fallback para contatos de emergência
       let targetPhone = '';
-      const { data: contacts } = await db
-        .from('emergency_contacts')
-        .select('name, phone, is_primary, relationship')
-        .eq('cared_person_id', person.id)
-        .order('is_primary', { ascending: false });
+      const elderWhatsApp = (person as any).whatsapp_phone || (person as any).phone || '';
 
-      if (contacts && contacts.length > 0) {
-        // Preferência para contato com telefone preenchido
-        targetPhone = contacts[0].phone || '';
+      if (elderWhatsApp) {
+        targetPhone = elderWhatsApp;
+      } else {
+        const { data: contacts } = await db
+          .from('emergency_contacts')
+          .select('name, phone, is_primary, relationship')
+          .eq('cared_person_id', person.id)
+          .order('is_primary', { ascending: false });
+
+        if (contacts && contacts.length > 0) {
+          targetPhone = contacts[0].phone || '';
+        }
       }
 
       // Se não houver telefone cadastrado, pula para a próxima pessoa

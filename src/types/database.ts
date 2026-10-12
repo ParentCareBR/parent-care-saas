@@ -31,6 +31,8 @@ export type Database = {
           birth_date: string | null; 
           photo_url: string | null; 
           blood_type: string | null;
+          phone?: string | null;
+          whatsapp_phone?: string | null;
           preferred_name?: string | null;
           relationship?: string | null;
           profile_type?: string | null;
@@ -57,6 +59,8 @@ export type Database = {
           birth_date?: string | null; 
           photo_url?: string | null; 
           blood_type?: string | null;
+          phone?: string | null;
+          whatsapp_phone?: string | null;
           preferred_name?: string | null;
           relationship?: string | null;
           profile_type?: string | null;
@@ -83,6 +87,8 @@ export type Database = {
           birth_date?: string | null; 
           photo_url?: string | null; 
           blood_type?: string | null;
+          phone?: string | null;
+          whatsapp_phone?: string | null;
           preferred_name?: string | null;
           relationship?: string | null;
           profile_type?: string | null;
@@ -247,9 +253,9 @@ export type Database = {
         Relationships: [];
       };
       care_notes: {
-        Row: { id: string; cared_person_id: string; organization_id: string; author_id: string; content: string; type: string; created_at: string; updated_at: string; };
-        Insert: { id?: string; cared_person_id: string; organization_id: string; author_id: string; content: string; type?: string; created_at?: string; updated_at?: string; };
-        Update: { id?: string; cared_person_id?: string; organization_id?: string; author_id?: string; content?: string; type?: string; };
+        Row: { id: string; cared_person_id: string; organization_id: string; author_id: string | null; content: string; type: string; created_at: string; updated_at: string; };
+        Insert: { id?: string; cared_person_id: string; organization_id: string; author_id?: string | null; content: string; type?: string; created_at?: string; updated_at?: string; };
+        Update: { id?: string; cared_person_id?: string; organization_id?: string; author_id?: string | null; content?: string; type?: string; };
         Relationships: [];
       };
       medication_schedules: {

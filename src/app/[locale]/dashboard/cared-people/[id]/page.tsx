@@ -12,6 +12,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import {
   User,
@@ -36,7 +37,9 @@ import {
   Clock,
   Sparkles,
   Sliders,
-  ShieldCheck
+  ShieldCheck,
+  Bot,
+  MessageSquare
 } from 'lucide-react';
 import type { CaredPersonFullProfile } from '@/types/cared-person';
 
@@ -56,6 +59,9 @@ export default function CaredPersonProfilePage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesText, setNotesText] = useState('');
+  const [whatsappPhone, setWhatsappPhone] = useState('');
+  const [whatsappAiEnabled, setWhatsappAiEnabled] = useState(true);
+  const [savingWhatsApp, setSavingWhatsApp] = useState(false);
 
   const fetchProfile = async () => {
     try {
@@ -65,6 +71,8 @@ export default function CaredPersonProfilePage() {
       const data = await res.json();
       setProfile(data);
       setNotesText(data.notes || '');
+      setWhatsappPhone(data.whatsapp_phone || data.phone || '');
+      setWhatsappAiEnabled(data.whatsapp_ai_enabled !== false);
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar perfil',
@@ -73,6 +81,38 @@ export default function CaredPersonProfilePage() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveWhatsAppConfig = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    try {
+      setSavingWhatsApp(true);
+      const res = await fetch(`/api/cared-people/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          whatsapp_phone: whatsappPhone,
+          phone: whatsappPhone,
+          whatsapp_ai_enabled: whatsappAiEnabled,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Não foi possível salvar as configurações de WhatsApp.');
+
+      toast({
+        title: 'WhatsApp e IA atualizados!',
+        description: 'Configurações de atendimento e lembretes salvas com sucesso.',
+      });
+      await fetchProfile();
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao salvar',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingWhatsApp(false);
     }
   };
 
@@ -661,6 +701,72 @@ export default function CaredPersonProfilePage() {
         {/* TAB 11: CONFIGURAÇÕES DO PERFIL                                           */}
         {/* ========================================================================= */}
         <TabsContent value="settings" className="space-y-4">
+          {/* Card WhatsApp & IA Conversacional */}
+          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600">
+                  <Bot className="h-5 w-5" />
+                </div>
+                <div>
+                  <CardTitle className="text-base font-bold">WhatsApp & Assistente IA (Gemini)</CardTitle>
+                  <CardDescription className="text-xs">
+                    Configure o número pessoal do idoso para receber lembretes diretos e interagir com o assistente inteligente.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4 text-xs">
+              <form onSubmit={handleSaveWhatsAppConfig} className="space-y-4">
+                <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/50 space-y-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="whatsapp-ai-switch" className="text-xs font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                        <MessageSquare className="h-3.5 w-3.5 text-emerald-600" /> Atendimento Conversacional por IA
+                      </Label>
+                      <p className="text-[11px] text-stone-500">
+                        Permite que {displayName} mande mensagens ou áudios para criar consultas, checar remédios e avisar a família.
+                      </p>
+                    </div>
+                    <Switch
+                      id="whatsapp-ai-switch"
+                      checked={whatsappAiEnabled}
+                      onCheckedChange={setWhatsappAiEnabled}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 pt-2 border-t border-stone-200/60 dark:border-stone-800">
+                    <Label htmlFor="whatsapp-phone-input" className="text-xs font-semibold text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
+                      <Phone className="h-3.5 w-3.5 text-emerald-600" /> WhatsApp Próprio do Idoso (com DDD)
+                    </Label>
+                    <Input
+                      id="whatsapp-phone-input"
+                      type="text"
+                      placeholder="Ex: (11) 98765-4321 ou 5511987654321"
+                      value={whatsappPhone}
+                      onChange={(e) => setWhatsappPhone(e.target.value)}
+                      className="text-xs h-9 font-mono"
+                    />
+                    <p className="text-[10px] text-stone-400">
+                      Os lembretes agendados de medicamentos e consultas serão enviados diretamente para este WhatsApp.
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <Button
+                      type="submit"
+                      disabled={savingWhatsApp}
+                      className="bg-brand-green hover:bg-brand-green/90 text-white text-xs gap-1.5 h-8"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {savingWhatsApp ? 'Salvando...' : 'Salvar Configurações de WhatsApp'}
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+
           <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
             <CardHeader>
               <CardTitle className="text-base font-bold">Configurações & Status do Perfil</CardTitle>

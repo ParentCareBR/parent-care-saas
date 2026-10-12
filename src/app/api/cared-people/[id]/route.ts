@@ -152,6 +152,9 @@ export async function GET(
       timezone: person.timezone || meta.timezone || 'America/Sao_Paulo',
       preferred_language: person.preferred_language || meta.preferred_language || 'pt-BR',
       country_code: person.country_code || meta.country_code || 'BR',
+      phone: person.phone || meta.phone || null,
+      whatsapp_phone: person.whatsapp_phone || meta.whatsapp_phone || null,
+      whatsapp_ai_enabled: orgSettings.whatsapp_ai_enabled !== false,
       contacts,
       addresses,
       important_information: importantInformation,
@@ -206,6 +209,8 @@ export async function PUT(
       'relationship',
       'birth_date',
       'blood_type',
+      'phone',
+      'whatsapp_phone',
       'gender_identity',
       'pronouns',
       'marital_status',
@@ -256,13 +261,19 @@ export async function PUT(
         updated_at: new Date().toISOString(),
       };
 
+      const newOrgSettings = {
+        ...existingSettings,
+        cared_people_profiles: profiles,
+      };
+
+      if (payload.whatsapp_ai_enabled !== undefined) {
+        newOrgSettings.whatsapp_ai_enabled = Boolean(payload.whatsapp_ai_enabled);
+      }
+
       await dbClient
         .from('organizations')
         .update({
-          settings: {
-            ...existingSettings,
-            cared_people_profiles: profiles,
-          },
+          settings: newOrgSettings,
         })
         .eq('id', currentPerson.organization_id);
     } catch (e) {

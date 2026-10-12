@@ -20,6 +20,7 @@ export interface CaredPersonFullProfile extends CaredPersonRow {
   professionals: CaredPersonProfessional[];
   consents: CaredPersonConsent[];
   audit_logs?: CaredPersonAuditLog[];
+  whatsapp_ai_enabled?: boolean;
 }
 
 export type ProfileType = 'family_member' | 'professional_care' | 'nursing_home_resident';
