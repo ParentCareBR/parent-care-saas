@@ -47,10 +47,21 @@ export async function POST(req: NextRequest) {
 }
 
 async function handleMetaWebhook(body: any) {
+  console.log('[Meta Webhook Received]', JSON.stringify(body));
   const entries = body.entry || [];
   for (const entry of entries) {
     for (const change of entry.changes || []) {
       const value = change.value;
+
+      // Handle delivery status updates (sent, delivered, read, failed)
+      const statuses = value?.statuses || [];
+      for (const st of statuses) {
+        console.log(`[Meta Status] Message ID: ${st.id}, Status: ${st.status}, Recipient: ${st.recipient_id}`);
+        if (st.errors && st.errors.length > 0) {
+          console.error('[Meta Status Error]', JSON.stringify(st.errors));
+        }
+      }
+
       const messages = value?.messages || [];
       for (const msg of messages) {
         const fromPhone = msg.from;
