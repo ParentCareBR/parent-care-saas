@@ -404,41 +404,23 @@ export default function CaredPersonProfilePage() {
       {/* ========================================================================= */}
       {/* 11-TAB NAVIGATION                                                         */}
       {/* ========================================================================= */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <div className="overflow-x-auto pb-1">
-          <TabsList className="bg-stone-100 dark:bg-stone-900 p-1 rounded-xl h-auto flex gap-1 min-w-max">
-            <TabsTrigger value="overview" className="text-xs gap-1.5 py-2">
-              <User className="h-3.5 w-3.5" /> Visão Geral
+      {/* ========================================================================= */}
+      {/* NAVEGAÇÃO OBJETIVA EM 4 PILARES (SEM ROLAGEM HORIZONTAL CLUNKY)           */}
+      {/* ========================================================================= */}
+      <Tabs value={activeTab === 'settings' ? 'whatsapp' : activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <div className="w-full">
+          <TabsList className="bg-stone-100 dark:bg-stone-900 p-1 rounded-2xl h-auto grid grid-cols-2 sm:grid-cols-4 gap-1 w-full border border-stone-200 dark:border-stone-800">
+            <TabsTrigger value="overview" className="text-xs font-bold gap-2 py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-stone-800 data-[state=active]:shadow-sm">
+              <User className="h-4 w-4 text-emerald-600" /> Visão Geral
             </TabsTrigger>
-            <TabsTrigger value="routine" className="text-xs gap-1.5 py-2">
-              <Clock className="h-3.5 w-3.5" /> Rotina & Gostos
+            <TabsTrigger value="whatsapp" className="text-xs font-bold gap-2 py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-stone-800 data-[state=active]:shadow-sm">
+              <MessageSquare className="h-4 w-4 text-[#25D366]" /> WhatsApp & IA
             </TabsTrigger>
-            <TabsTrigger value="monitoring" className="text-xs gap-1.5 py-2">
-              <Activity className="h-3.5 w-3.5" /> Acompanhamentos
+            <TabsTrigger value="routine" className="text-xs font-bold gap-2 py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-stone-800 data-[state=active]:shadow-sm">
+              <Clock className="h-4 w-4 text-indigo-500" /> Rotina & Cuidados
             </TabsTrigger>
-            <TabsTrigger value="medications" className="text-xs gap-1.5 py-2">
-              <Pill className="h-3.5 w-3.5" /> Medicamentos
-            </TabsTrigger>
-            <TabsTrigger value="meals" className="text-xs gap-1.5 py-2">
-              <Utensils className="h-3.5 w-3.5" /> Alimentação
-            </TabsTrigger>
-            <TabsTrigger value="schedule" className="text-xs gap-1.5 py-2">
-              <Calendar className="h-3.5 w-3.5" /> Agenda
-            </TabsTrigger>
-            <TabsTrigger value="family" className="text-xs gap-1.5 py-2">
-              <Users className="h-3.5 w-3.5" /> Contatos & Cuidador
-            </TabsTrigger>
-            <TabsTrigger value="occurrences" className="text-xs gap-1.5 py-2">
-              <AlertTriangle className="h-3.5 w-3.5" /> Ocorrências
-            </TabsTrigger>
-            <TabsTrigger value="documents" className="text-xs gap-1.5 py-2">
-              <FileText className="h-3.5 w-3.5" /> Documentos
-            </TabsTrigger>
-            <TabsTrigger value="history" className="text-xs gap-1.5 py-2">
-              <History className="h-3.5 w-3.5" /> Auditoria
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="text-xs gap-1.5 py-2">
-              <Settings className="h-3.5 w-3.5" /> Configurações
+            <TabsTrigger value="documents" className="text-xs font-bold gap-2 py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-stone-800 data-[state=active]:shadow-sm">
+              <FileText className="h-4 w-4 text-amber-500" /> Documentos & Histórico
             </TabsTrigger>
           </TabsList>
         </div>
@@ -777,9 +759,9 @@ export default function CaredPersonProfilePage() {
         </TabsContent>
 
         {/* ========================================================================= */}
-        {/* TAB 11: CONFIGURAÇÕES DO PERFIL                                           */}
+        {/* ABA 2: WHATSAPP & ASSISTENTE IA                                           */}
         {/* ========================================================================= */}
-        <TabsContent value="settings" className="space-y-4">
+        <TabsContent value="whatsapp" className="space-y-4">
           {/* Card WhatsApp & IA Conversacional */}
           <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
             <CardHeader>

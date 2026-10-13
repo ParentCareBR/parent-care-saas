@@ -31,7 +31,8 @@ import {
   BarChart3,
   Sliders,
   Heart,
-  ExternalLink
+  ExternalLink,
+  MessageSquare
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -123,23 +124,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const navHubs = [
     {
-      title: 'Rotina & Cuidado',
+      title: 'Rotina & Saúde',
       items: [
         { name: tNav('overview'), href: `/${locale}/dashboard`, exact: true, icon: LayoutDashboard },
         { name: tNav('medications'), href: `/${locale}/dashboard/medications`, icon: Pill },
         { name: tNav('meals'), href: `/${locale}/dashboard/meals`, icon: Utensils },
-        { name: tNav('history'), href: `/${locale}/dashboard/history`, icon: FileText },
-      ],
-    },
-    {
-      title: 'Agenda & Compromissos',
-      items: [
         { name: tNav('appointments'), href: `/${locale}/dashboard/appointments`, icon: Calendar },
-        { name: tNav('tasks'), href: `/${locale}/dashboard/tasks`, icon: CheckSquare },
       ],
     },
     {
-      title: 'Gestão da Família',
+      title: 'Gestão & Família',
       items: [
         { name: tNav('family'), href: `/${locale}/dashboard/family`, icon: Users },
         { name: tNav('expenses'), href: `/${locale}/dashboard/expenses`, icon: Receipt },
@@ -152,7 +146,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="flex h-screen bg-[#F8FAFC] dark:bg-[#07111F] overflow-hidden text-stone-900 dark:text-[#F8FAFC] font-sans">
       
       <aside className="w-64 bg-white dark:bg-[#08162A] text-stone-700 dark:text-slate-100 border-r border-stone-200 dark:border-[#172433] flex flex-col hidden md:flex transition-colors shrink-0">
-        <div className="p-5 border-b border-stone-200 dark:border-[#172433] space-y-4">
+        <div className="p-5 border-b border-stone-200 dark:border-[#172433] space-y-3.5">
           <div className="flex items-center justify-between">
             <Link href={`/${locale}/dashboard`} className="flex items-center gap-2.5 group">
               <div className="w-8 h-8 rounded-xl bg-[#19D3A2]/20 border border-[#19D3A2]/40 flex items-center justify-center text-[#19D3A2] group-hover:scale-105 transition-transform">
@@ -184,20 +178,38 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
 
           {selectedPerson && (
-            <Link
-              href={`/${locale}/care/${selectedPerson.id}`}
-              target="_blank"
-              className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 dark:bg-[#19D3A2]/10 hover:bg-emerald-100/70 dark:hover:bg-[#19D3A2]/20 border border-emerald-200 dark:border-[#19D3A2]/30 text-emerald-700 dark:text-[#5DE5BE] transition group shadow-xs"
-            >
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#19D3A2] shadow-[0_0_8px_#19D3A2] animate-pulse" />
-                <div>
-                  <p className="text-xs font-bold text-stone-900 dark:text-[#F8FAFC] leading-tight">Tela do Idoso</p>
-                  <p className="text-[10px] text-emerald-600 dark:text-[#19D3A2]/80 font-medium">Abrir Modo Sênior</p>
+            <div className="space-y-1.5">
+              <Link
+                href={`/${locale}/care/${selectedPerson.id}`}
+                target="_blank"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 dark:bg-[#19D3A2]/10 hover:bg-emerald-100/70 dark:hover:bg-[#19D3A2]/20 border border-emerald-200 dark:border-[#19D3A2]/30 text-emerald-700 dark:text-[#5DE5BE] transition group shadow-xs"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#19D3A2] shadow-[0_0_8px_#19D3A2] animate-pulse" />
+                  <div>
+                    <p className="text-xs font-bold text-stone-900 dark:text-[#F8FAFC] leading-tight">Tela do Idoso</p>
+                    <p className="text-[10px] text-emerald-600 dark:text-[#19D3A2]/80 font-medium">Abrir Modo Sênior</p>
+                  </div>
                 </div>
-              </div>
-              <ExternalLink className="h-3.5 w-3.5 text-emerald-600 dark:text-[#19D3A2] group-hover:translate-x-0.5 transition" />
-            </Link>
+                <ExternalLink className="h-3.5 w-3.5 text-emerald-600 dark:text-[#19D3A2] group-hover:translate-x-0.5 transition" />
+              </Link>
+
+              <Link
+                href={`/${locale}/dashboard/cared-people/${selectedPerson.id}`}
+                className={cn(
+                  "flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition border",
+                  pathname.includes(`/cared-people/${selectedPerson.id}`)
+                    ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold"
+                    : "bg-white/60 dark:bg-[#101D2B] border-stone-200 dark:border-[#172433] text-stone-700 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-slate-800"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-3.5 w-3.5 text-[#25D366]" />
+                  <span>Perfil & WhatsApp IA</span>
+                </div>
+                <ChevronRight className="h-3.5 w-3.5 text-stone-400" />
+              </Link>
+            </div>
           )}
         </div>
 
@@ -528,20 +540,20 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <span className={cn('text-[10px] font-bold', pathname.includes('/appointments') ? 'text-indigo-600 dark:text-indigo-400' : 'text-stone-500 dark:text-slate-400')}>Agenda</span>
           </Link>
 
-          {/* Tarefas */}
+          {/* WhatsApp IA */}
           <Link
-            href={`/${locale}/dashboard/tasks`}
+            href={selectedPerson ? `/${locale}/dashboard/cared-people/${selectedPerson.id}?tab=whatsapp` : `/${locale}/dashboard`}
             className="flex flex-col items-center gap-0.5 min-w-[52px] group"
           >
             <div className={cn(
               'w-11 h-9 flex items-center justify-center rounded-2xl transition-all',
-              pathname.includes('/tasks')
-                ? 'bg-amber-100 dark:bg-amber-500/20'
+              pathname.includes('/cared-people')
+                ? 'bg-emerald-100 dark:bg-[#19D3A2]/20'
                 : 'group-active:bg-stone-100 dark:group-active:bg-stone-800'
             )}>
-              <CheckSquare className={cn('h-5 w-5', pathname.includes('/tasks') ? 'text-amber-600 dark:text-amber-400' : 'text-stone-500 dark:text-slate-400')} />
+              <MessageSquare className={cn('h-5 w-5', pathname.includes('/cared-people') ? 'text-[#128C7E] dark:text-[#25D366]' : 'text-stone-500 dark:text-slate-400')} />
             </div>
-            <span className={cn('text-[10px] font-semibold', pathname.includes('/tasks') ? 'text-amber-600 dark:text-amber-400' : 'text-stone-500 dark:text-slate-400')}>Tarefas</span>
+            <span className={cn('text-[10px] font-semibold', pathname.includes('/cared-people') ? 'text-[#128C7E] dark:text-[#25D366]' : 'text-stone-500 dark:text-slate-400')}>WhatsApp IA</span>
           </Link>
 
           {/* Menu */}
