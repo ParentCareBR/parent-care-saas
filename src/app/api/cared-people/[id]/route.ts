@@ -155,6 +155,8 @@ export async function GET(
       phone: person.phone || meta.phone || null,
       whatsapp_phone: person.whatsapp_phone || meta.whatsapp_phone || null,
       whatsapp_ai_enabled: orgSettings.whatsapp_ai_enabled !== false,
+      whatsapp_meta_token: orgSettings.whatsapp_meta_token || null,
+      whatsapp_meta_phone_id: orgSettings.whatsapp_meta_phone_id || null,
       contacts,
       addresses,
       important_information: importantInformation,
@@ -268,6 +270,14 @@ export async function PUT(
 
       if (payload.whatsapp_ai_enabled !== undefined) {
         newOrgSettings.whatsapp_ai_enabled = Boolean(payload.whatsapp_ai_enabled);
+      }
+
+      if (payload.whatsapp_meta_token !== undefined) {
+        newOrgSettings.whatsapp_meta_token = payload.whatsapp_meta_token;
+      }
+
+      if (payload.whatsapp_meta_phone_id !== undefined) {
+        newOrgSettings.whatsapp_meta_phone_id = payload.whatsapp_meta_phone_id;
       }
 
       await dbClient

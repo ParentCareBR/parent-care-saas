@@ -40,7 +40,8 @@ import {
   ShieldCheck,
   Bot,
   MessageSquare,
-  Send
+  Send,
+  Key
 } from 'lucide-react';
 import type { CaredPersonFullProfile } from '@/types/cared-person';
 
@@ -62,6 +63,10 @@ export default function CaredPersonProfilePage() {
   const [notesText, setNotesText] = useState('');
   const [whatsappPhone, setWhatsappPhone] = useState('');
   const [whatsappAiEnabled, setWhatsappAiEnabled] = useState(true);
+  const [metaToken, setMetaToken] = useState('');
+  const [showTokenConfig, setShowTokenConfig] = useState(false);
+  const [testFallbackUrl, setTestFallbackUrl] = useState<string | null>(null);
+  const [testErrorMessage, setTestErrorMessage] = useState<string | null>(null);
   const [savingWhatsApp, setSavingWhatsApp] = useState(false);
   const [sendingTestWhatsApp, setSendingTestWhatsApp] = useState(false);
   const [generatingLink, setGeneratingLink] = useState(false);
@@ -79,6 +84,7 @@ export default function CaredPersonProfilePage() {
       setNotesText(data.notes || '');
       setWhatsappPhone(data.whatsapp_phone || data.phone || '');
       setWhatsappAiEnabled(data.whatsapp_ai_enabled !== false);
+      if (data.whatsapp_meta_token) setMetaToken(data.whatsapp_meta_token);
     } catch (err: any) {
       toast({
         title: 'Erro ao carregar perfil',
@@ -101,6 +107,7 @@ export default function CaredPersonProfilePage() {
           whatsapp_phone: whatsappPhone,
           phone: whatsappPhone,
           whatsapp_ai_enabled: whatsappAiEnabled,
+          whatsapp_meta_token: metaToken || undefined,
         }),
       });
 
@@ -134,6 +141,8 @@ export default function CaredPersonProfilePage() {
 
     try {
       setSendingTestWhatsApp(true);
+      setTestFallbackUrl(null);
+      setTestErrorMessage(null);
       // Auto-save changes first
       await handleSaveWhatsAppConfig();
 
@@ -143,11 +152,16 @@ export default function CaredPersonProfilePage() {
         body: JSON.stringify({
           phone: whatsappPhone,
           elder_name: displayName,
+          meta_token: metaToken || undefined,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) {
+        if (data.waMeUrl) {
+          setTestFallbackUrl(data.waMeUrl);
+        }
+        setTestErrorMessage(data.error || 'Erro ao enviar mensagem de teste.');
         throw new Error(data.error || 'Erro ao enviar mensagem de teste.');
       }
 
@@ -157,7 +171,7 @@ export default function CaredPersonProfilePage() {
       });
     } catch (err: any) {
       toast({
-        title: 'Falha no envio',
+        title: 'Aviso no envio automático',
         description: err.message,
         variant: 'destructive',
       });
@@ -409,38 +423,36 @@ export default function CaredPersonProfilePage() {
       {/* ========================================================================= */}
       <Tabs value={activeTab === 'settings' ? 'whatsapp' : activeTab} onValueChange={setActiveTab} className="space-y-4">
         <div className="w-full">
-          <TabsList className="bg-stone-100 dark:bg-stone-900 p-1 rounded-2xl h-auto grid grid-cols-2 sm:grid-cols-4 gap-1 w-full border border-stone-200 dark:border-stone-800">
+          <TabsList className="bg-stone-100 dark:bg-stone-900 p-1 rounded-2xl h-auto grid grid-cols-2 sm:grid-cols-5 gap-1 w-full border border-stone-200 dark:border-stone-800">
             <TabsTrigger value="overview" className="text-xs font-bold gap-2 py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-stone-800 data-[state=active]:shadow-sm">
               <User className="h-4 w-4 text-emerald-600" /> Visão Geral
             </TabsTrigger>
             <TabsTrigger value="whatsapp" className="text-xs font-bold gap-2 py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-stone-800 data-[state=active]:shadow-sm">
               <MessageSquare className="h-4 w-4 text-[#25D366]" /> WhatsApp & IA
             </TabsTrigger>
-            <TabsTrigger value="routine" className="text-xs font-bold gap-2 py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-stone-800 data-[state=active]:shadow-sm">
-              <Clock className="h-4 w-4 text-indigo-500" /> Rotina & Cuidados
+            <TabsTrigger value="health" className="text-xs font-bold gap-2 py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-stone-800 data-[state=active]:shadow-sm">
+              <Pill className="h-4 w-4 text-rose-500" /> Saúde & Remédios
             </TabsTrigger>
-            <TabsTrigger value="documents" className="text-xs font-bold gap-2 py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-stone-800 data-[state=active]:shadow-sm">
-              <FileText className="h-4 w-4 text-amber-500" /> Documentos & Histórico
+            <TabsTrigger value="routine" className="text-xs font-bold gap-2 py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-stone-800 data-[state=active]:shadow-sm">
+              <Clock className="h-4 w-4 text-indigo-500" /> Rotina & Hábitos
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="text-xs font-bold gap-2 py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-stone-800 data-[state=active]:shadow-sm col-span-2 sm:col-span-1">
+              <FileText className="h-4 w-4 text-amber-500" /> Documentos & Segurança
             </TabsTrigger>
           </TabsList>
         </div>
 
         {/* ========================================================================= */}
-        {/* TAB 1: VISÃO GERAL                                                        */}
+        {/* ABA 1: VISÃO GERAL & FICHA                                                */}
         {/* ========================================================================= */}
         <TabsContent value="overview" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Quick Contacts */}
+            {/* Contatos de Emergência Imediata */}
             <Card className="border-stone-200 dark:border-stone-800 shadow-sm md:col-span-2">
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-emerald-600" /> Contatos de Emergência Imediata
-                  </CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => setActiveTab('family')} className="text-xs text-brand-green h-7">
-                    Gerenciar todos
-                  </Button>
-                </div>
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-emerald-600" /> Contatos de Emergência Imediata
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {profile.contacts && profile.contacts.length > 0 ? (
@@ -467,7 +479,7 @@ export default function CaredPersonProfilePage() {
               </CardContent>
             </Card>
 
-            {/* Quick Info / Health Summary */}
+            {/* Dados Críticos de Saúde */}
             <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -498,7 +510,43 @@ export default function CaredPersonProfilePage() {
             </Card>
           </div>
 
-          {/* Notes Card */}
+          {/* Rede de Apoio Familiar & Cuidadores */}
+          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Users className="h-4 w-4 text-emerald-600" /> Rede de Apoio Familiar & Cuidadores
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Contatos prioritários vinculados exclusivamente ao cuidado de {displayName}.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {profile.contacts && profile.contacts.length > 0 ? (
+                profile.contacts.map((c: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-xs">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-stone-900 dark:text-stone-100">{c.name}</span>
+                        <Badge variant="secondary" className="text-[10px]">{c.relationship || 'Familiar'}</Badge>
+                        {c.is_primary && <Badge className="bg-emerald-600 text-white text-[9px]">Principal</Badge>}
+                        {c.is_emergency && <Badge variant="destructive" className="text-[9px]">SOS</Badge>}
+                      </div>
+                      <p className="text-stone-500 font-mono mt-0.5">{c.phone || c.whatsapp || c.email}</p>
+                    </div>
+                    {c.phone && (
+                      <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+                        <a href={`tel:${c.phone}`}>Ligar</a>
+                      </Button>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs text-stone-400">Nenhum contato cadastrado.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Caderno de Recomendações e Cuidados */}
           <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -537,232 +585,9 @@ export default function CaredPersonProfilePage() {
         </TabsContent>
 
         {/* ========================================================================= */}
-        {/* TAB 2: ROTINA & GOSTOS                                                    */}
-        {/* ========================================================================= */}
-        <TabsContent value="routine" className="space-y-4">
-          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base font-bold">Hábitos & Preferências do Dia a Dia</CardTitle>
-              <CardDescription className="text-xs">
-                Informações para garantir que o idoso seja tratado respeitando seus costumes.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-3 bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-100 dark:border-stone-800">
-                  <span className="text-stone-400 font-semibold uppercase text-[10px]">Horários de Sono</span>
-                  <p className="font-bold text-stone-800 dark:text-stone-200 mt-1">
-                    Acorda: {(profile.preferences?.find((p: any) => p.preference_type === 'sleep_schedule')?.value_json as any)?.wake || '07:00'} • Dorme: {(profile.preferences?.find((p: any) => p.preference_type === 'sleep_schedule')?.value_json as any)?.sleep || '21:30'}
-                  </p>
-                </div>
-
-                <div className="p-3 bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-100 dark:border-stone-800">
-                  <span className="text-stone-400 font-semibold uppercase text-[10px]">Comunicação Recomendada</span>
-                  <p className="font-bold text-stone-800 dark:text-stone-200 mt-1">
-                    {(profile.preferences?.find((p: any) => p.preference_type === 'communication')?.value_json as any)?.style || 'Tranquila, com calma e olho no olho.'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3 bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-100 dark:border-stone-800">
-                <span className="text-stone-400 font-semibold uppercase text-[10px]">O que Acalma e Conforta</span>
-                <p className="text-stone-700 dark:text-stone-300 mt-1 leading-relaxed">
-                  {(profile.preferences?.find((p: any) => p.preference_type === 'comforts')?.value_json as any)?.actions || 'Música suave, fotos da família, conversas sobre o passado.'}
-                </p>
-              </div>
-
-              <div className="p-3 bg-amber-50/60 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900">
-                <span className="text-amber-800 dark:text-amber-300 font-semibold uppercase text-[10px]">O que Evitar (Gatilhos de Estresse)</span>
-                <p className="text-amber-900 dark:text-amber-200 mt-1 leading-relaxed">
-                  {(profile.preferences?.find((p: any) => p.preference_type === 'triggers')?.value_json as any)?.dislikes || 'Muitas pessoas falando alto ao mesmo tempo, pressa ou interrupções abruptas.'}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ========================================================================= */}
-        {/* TAB 3: ACOMPANHAMENTOS                                                    */}
-        {/* ========================================================================= */}
-        <TabsContent value="monitoring" className="space-y-4">
-          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base font-bold">Módulos de Acompanhamento</CardTitle>
-                  <CardDescription className="text-xs">
-                    Itens da rotina que geram pendências e registros diários no painel.
-                  </CardDescription>
-                </div>
-                <Button asChild size="sm" variant="outline" className="text-xs gap-1.5">
-                  <Link href={`/${locale}/dashboard/settings/monitoring`}>
-                    <Sliders className="h-3.5 w-3.5" /> Ajustar Acompanhamentos
-                  </Link>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-stone-500">
-                Os acompanhamentos configurados garantem que apenas a rotina relevante apareça no painel e na tela simplificada de {displayName}.
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ========================================================================= */}
-        {/* TAB 4: MEDICAMENTOS                                                       */}
-        {/* ========================================================================= */}
-        <TabsContent value="medications" className="space-y-4">
-          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-bold">Medicamentos em Uso</CardTitle>
-                <Button asChild size="sm" className="bg-brand-green text-white text-xs">
-                  <Link href={`/${locale}/dashboard/medications`}>Gerenciar Medicamentos</Link>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="text-xs text-stone-500">
-              Gerencie posologias, horários de tomada e confirmações no módulo de Medicamentos.
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ========================================================================= */}
-        {/* TAB 5: ALIMENTAÇÃO                                                        */}
-        {/* ========================================================================= */}
-        <TabsContent value="meals" className="space-y-4">
-          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-bold">Alimentação & Hidratação</CardTitle>
-                <Button asChild size="sm" className="bg-brand-green text-white text-xs">
-                  <Link href={`/${locale}/dashboard/meals`}>Acessar Cardápio</Link>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="text-xs text-stone-500">
-              Acompanhe as refeições registradas e as metas diárias de ingestão de água.
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ========================================================================= */}
-        {/* TAB 6: AGENDA                                                             */}
-        {/* ========================================================================= */}
-        <TabsContent value="schedule" className="space-y-4">
-          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-bold">Compromissos & Consultas Médicas</CardTitle>
-                <Button asChild size="sm" className="bg-brand-green text-white text-xs">
-                  <Link href={`/${locale}/dashboard/appointments`}>Abrir Agenda</Link>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="text-xs text-stone-500">
-              Gerencie consultas, exames e organize o transporte familiar.
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ========================================================================= */}
-        {/* TAB 7: FAMÍLIA & CONTATOS                                                 */}
-        {/* ========================================================================= */}
-        <TabsContent value="family" className="space-y-4">
-          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base font-bold">Rede de Apoio Familiar & Cuidadores</CardTitle>
-              <CardDescription className="text-xs">
-                Contatos prioritários vinculados exclusivamente ao cuidado de {displayName}.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {profile.contacts && profile.contacts.length > 0 ? (
-                profile.contacts.map((c: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-xs">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-stone-900 dark:text-stone-100">{c.name}</span>
-                        <Badge variant="secondary" className="text-[10px]">{c.relationship || 'Familiar'}</Badge>
-                        {c.is_primary && <Badge className="bg-emerald-600 text-white text-[9px]">Principal</Badge>}
-                        {c.is_emergency && <Badge variant="destructive" className="text-[9px]">SOS</Badge>}
-                      </div>
-                      <p className="text-stone-500 font-mono mt-0.5">{c.phone || c.whatsapp || c.email}</p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-stone-400">Nenhum contato cadastrado.</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ========================================================================= */}
-        {/* TAB 8: OCORRÊNCIAS                                                        */}
-        {/* ========================================================================= */}
-        <TabsContent value="occurrences" className="space-y-4">
-          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base font-bold">Registro de Ocorrências & Incidentes</CardTitle>
-            </CardHeader>
-            <CardContent className="text-xs text-stone-500">
-              Quedas, mal-estar ou incidentes são registrados no histórico geral da pessoa cuidada.
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ========================================================================= */}
-        {/* TAB 9: DOCUMENTOS                                                         */}
-        {/* ========================================================================= */}
-        <TabsContent value="documents" className="space-y-4">
-          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base font-bold">Documentos & Laudos</CardTitle>
-            </CardHeader>
-            <CardContent className="text-xs text-stone-500">
-              Receitas médicas, carteirinha do convênio e exames laboratoriais anexados.
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ========================================================================= */}
-        {/* TAB 10: AUDITORIA                                                         */}
-        {/* ========================================================================= */}
-        <TabsContent value="history" className="space-y-4">
-          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base font-bold">Histórico de Alterações do Perfil</CardTitle>
-              <CardDescription className="text-xs">
-                Auditoria de quem modificou campos cadastrais e dados críticos de saúde.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {profile.audit_logs && profile.audit_logs.length > 0 ? (
-                profile.audit_logs.map((log: any, idx: number) => (
-                  <div key={idx} className="p-2.5 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/50 flex items-center justify-between text-xs">
-                    <div>
-                      <span className="font-semibold text-stone-800 dark:text-stone-200">{log.action}</span>
-                      {log.field_name && <span className="text-stone-400"> ({log.field_name})</span>}
-                    </div>
-                    <span className="text-[10px] text-stone-400 font-mono">
-                      {new Date(log.occurred_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-stone-400">Nenhum evento registrado ainda.</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ========================================================================= */}
         {/* ABA 2: WHATSAPP & ASSISTENTE IA                                           */}
         {/* ========================================================================= */}
         <TabsContent value="whatsapp" className="space-y-4">
-          {/* Card WhatsApp & IA Conversacional */}
           <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -813,6 +638,74 @@ export default function CaredPersonProfilePage() {
                     </p>
                   </div>
 
+                  {testErrorMessage && (
+                    <div className="p-3.5 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 text-xs space-y-2">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="font-bold text-amber-900 dark:text-amber-200">
+                            Aviso no Envio Automático Meta API
+                          </p>
+                          <p className="text-amber-800 dark:text-amber-300 mt-0.5">
+                            {testErrorMessage}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 pt-1 flex-wrap">
+                        {testFallbackUrl && (
+                          <Button
+                            asChild
+                            size="sm"
+                            className="bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs gap-1.5 h-8 font-bold"
+                          >
+                            <a href={testFallbackUrl} target="_blank" rel="noopener noreferrer">
+                              <MessageSquare className="h-3.5 w-3.5" /> Enviar Agora Diretamente via WhatsApp
+                            </a>
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowTokenConfig(!showTokenConfig)}
+                          className="text-xs h-8 border-amber-300 text-amber-900 hover:bg-amber-100"
+                        >
+                          <Key className="h-3 w-3 mr-1" />
+                          {showTokenConfig ? 'Ocultar Chave Meta' : 'Atualizar Chave Meta'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {showTokenConfig && (
+                    <div className="p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="meta-token-input" className="text-xs font-bold text-stone-800 dark:text-stone-200 flex items-center gap-1.5">
+                          <Key className="h-3.5 w-3.5 text-stone-500" /> Token de Acesso da Meta Cloud API (Opcional)
+                        </Label>
+                        <a
+                          href="https://developers.facebook.com/apps"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] text-blue-600 hover:underline flex items-center gap-1"
+                        >
+                          Gerar no Facebook Developers <ExternalLink className="h-2.5 w-2.5" />
+                        </a>
+                      </div>
+                      <Input
+                        id="meta-token-input"
+                        type="password"
+                        placeholder="Cole aqui seu token de acesso da Meta (EAAG...)"
+                        value={metaToken}
+                        onChange={(e) => setMetaToken(e.target.value)}
+                        className="text-xs h-9 font-mono"
+                      />
+                      <p className="text-[10px] text-stone-400">
+                        O token de desenvolvedor da Meta dura 24h. Cole o novo token aqui e clique em &quot;Salvar Configurações&quot;.
+                      </p>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between gap-2 pt-3 border-t border-stone-200/60 dark:border-stone-800 flex-wrap">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Button
@@ -833,7 +726,7 @@ export default function CaredPersonProfilePage() {
                           className="text-xs h-9 gap-1.5 border-[#25D366] text-[#128C7E] dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
                         >
                           <a
-                            href={`https://wa.me/${whatsappPhone.replace(/\D/g, '').startsWith('55') ? whatsappPhone.replace(/\D/g, '') : '55' + whatsappPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${displayName}! Aqui é o Parent Care ❤️`)}`}
+                            href={`https://wa.me/${whatsappPhone.replace(/\D/g, '').startsWith('55') ? whatsappPhone.replace(/\D/g, '') : '55' + whatsappPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, ${displayName}! Aqui é o Parent Care ❤️ Mensagem de teste da família!`)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                           >
@@ -842,6 +735,17 @@ export default function CaredPersonProfilePage() {
                           </a>
                         </Button>
                       )}
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowTokenConfig(!showTokenConfig)}
+                        className="text-[11px] h-9 text-stone-500 hover:text-stone-800"
+                      >
+                        <Key className="h-3 w-3 mr-1" />
+                        {showTokenConfig ? 'Ocultar Chave' : 'Configurar Chave Meta'}
+                      </Button>
                     </div>
 
                     <Button
@@ -859,7 +763,7 @@ export default function CaredPersonProfilePage() {
             </CardContent>
           </Card>
 
-          {/* ── CARD: VINCULAR WHATSAPP DO IDOSO (Magic Link) ── */}
+          {/* Card: Vincular WhatsApp do Idoso (Magic Link) */}
           <Card className="border-emerald-200 dark:border-emerald-900 shadow-sm bg-emerald-50/30 dark:bg-emerald-950/10">
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -867,9 +771,9 @@ export default function CaredPersonProfilePage() {
                   <MessageSquare className="h-5 w-5" />
                 </div>
                 <div>
-                  <CardTitle className="text-base font-bold">Vincular WhatsApp do Idoso</CardTitle>
+                  <CardTitle className="text-base font-bold">Vincular WhatsApp do Idoso (1 Toque)</CardTitle>
                   <CardDescription className="text-xs">
-                    Gere um link de 1 toque e compartilhe com {displayName}. Ao clicar, o WhatsApp abre e o número é vinculado automaticamente — sem digitar nada.
+                    Gere um link e compartilhe com {displayName}. Ao tocar, o WhatsApp abre e o número é vinculado automaticamente.
                   </CardDescription>
                 </div>
               </div>
@@ -963,18 +867,214 @@ export default function CaredPersonProfilePage() {
                         📤 Compartilhar
                       </button>
                     </div>
-                    <p className="text-[10px] text-stone-400 text-center">
-                      Quando {displayName} tocar no link, o WhatsApp abrirá e o número será vinculado automaticamente.
-                    </p>
                   </div>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ========================================================================= */}
+        {/* ABA 3: SAÚDE & REMÉDIOS                                                   */}
+        {/* ========================================================================= */}
+        <TabsContent value="health" className="space-y-4">
+          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <Pill className="h-4 w-4 text-rose-500" /> Medicamentos em Uso
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Prescrições ativas, posologias, horários programados e controle de estoque.
+                  </CardDescription>
+                </div>
+                <Button asChild size="sm" className="bg-brand-green text-white text-xs">
+                  <Link href={`/${locale}/dashboard/medications`}>Gerenciar Medicamentos</Link>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="text-xs text-stone-500 space-y-2">
+              <p>
+                Acesse a central de medicamentos para cadastrar novos remédios, programar horários de tomada com alarmes falados e acompanhar as confirmações diárias.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <Sliders className="h-4 w-4 text-brand-green" /> Módulos de Acompanhamento de Saúde
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Itens da rotina que geram pendências e registros diários no painel.
+                  </CardDescription>
+                </div>
+                <Button asChild size="sm" variant="outline" className="text-xs gap-1.5">
+                  <Link href={`/${locale}/dashboard/settings/monitoring`}>
+                    <Sliders className="h-3.5 w-3.5" /> Ajustar Acompanhamentos
+                  </Link>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-stone-500">
+                Os acompanhamentos configurados garantem que apenas a rotina relevante apareça no painel e na tela simplificada de {displayName}.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ========================================================================= */}
+        {/* ABA 4: ROTINA & HÁBITOS                                                   */}
+        {/* ========================================================================= */}
+        <TabsContent value="routine" className="space-y-4">
+          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Clock className="h-4 w-4 text-indigo-500" /> Hábitos & Preferências do Dia a Dia
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Informações para garantir que {displayName} seja tratado(a) respeitando seus costumes.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-3 bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-100 dark:border-stone-800">
+                  <span className="text-stone-400 font-semibold uppercase text-[10px]">Horários de Sono</span>
+                  <p className="font-bold text-stone-800 dark:text-stone-200 mt-1">
+                    Acorda: {(profile.preferences?.find((p: any) => p.preference_type === 'sleep_schedule')?.value_json as any)?.wake || '07:00'} • Dorme: {(profile.preferences?.find((p: any) => p.preference_type === 'sleep_schedule')?.value_json as any)?.sleep || '21:30'}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-100 dark:border-stone-800">
+                  <span className="text-stone-400 font-semibold uppercase text-[10px]">Comunicação Recomendada</span>
+                  <p className="font-bold text-stone-800 dark:text-stone-200 mt-1">
+                    {(profile.preferences?.find((p: any) => p.preference_type === 'communication')?.value_json as any)?.style || 'Tranquila, com calma e olho no olho.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-stone-50 dark:bg-stone-900 rounded-xl border border-stone-100 dark:border-stone-800">
+                <span className="text-stone-400 font-semibold uppercase text-[10px]">O que Acalma e Conforta</span>
+                <p className="text-stone-700 dark:text-stone-300 mt-1 leading-relaxed">
+                  {(profile.preferences?.find((p: any) => p.preference_type === 'comforts')?.value_json as any)?.actions || 'Música suave, fotos da família, conversas sobre o passado.'}
+                </p>
+              </div>
+
+              <div className="p-3 bg-amber-50/60 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-900">
+                <span className="text-amber-800 dark:text-amber-300 font-semibold uppercase text-[10px]">O que Evitar (Gatilhos de Estresse)</span>
+                <p className="text-amber-900 dark:text-amber-200 mt-1 leading-relaxed">
+                  {(profile.preferences?.find((p: any) => p.preference_type === 'triggers')?.value_json as any)?.dislikes || 'Muitas pessoas falando alto ao mesmo tempo, pressa ou interrupções abruptas.'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <Utensils className="h-4 w-4 text-amber-500" /> Alimentação & Hidratação
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Cardápio diário, ingestão de líquidos e refeições assistidas.
+                  </CardDescription>
+                </div>
+                <Button asChild size="sm" className="bg-brand-green text-white text-xs">
+                  <Link href={`/${locale}/dashboard/meals`}>Acessar Cardápio</Link>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="text-xs text-stone-500">
+              Acompanhe as refeições registradas, o apetite e as metas diárias de ingestão de água da pessoa cuidada.
+            </CardContent>
+          </Card>
+
+          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-blue-500" /> Compromissos & Consultas Médicas
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Agenda integrada de consultas, exames, retorno médico e transporte.
+                  </CardDescription>
+                </div>
+                <Button asChild size="sm" className="bg-brand-green text-white text-xs">
+                  <Link href={`/${locale}/dashboard/appointments`}>Abrir Agenda</Link>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="text-xs text-stone-500">
+              Gerencie consultas médicas, agende novos compromissos com alarmes antecipados e organize o responsável pelo transporte familiar.
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ========================================================================= */}
+        {/* ABA 5: DOCUMENTOS & SEGURANÇA                                             */}
+        {/* ========================================================================= */}
+        <TabsContent value="documents" className="space-y-4">
+          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <FileText className="h-4 w-4 text-amber-500" /> Documentos & Laudos Médicos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-xs text-stone-500">
+              Receitas médicas, carteirinha do convênio, laudos e exames laboratoriais anexados ao prontuário de {displayName}.
+            </CardContent>
+          </Card>
+
+          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-rose-500" /> Registro de Ocorrências & Incidentes
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-xs text-stone-500">
+              Quedas, mal-estar ou incidentes são registrados no histórico geral da pessoa cuidada para acompanhamento clínico.
+            </CardContent>
+          </Card>
+
+          <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <History className="h-4 w-4 text-purple-500" /> Histórico de Alterações do Perfil
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Auditoria de quem modificou campos cadastrais e dados críticos de saúde.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {profile.audit_logs && profile.audit_logs.length > 0 ? (
+                profile.audit_logs.map((log: any, idx: number) => (
+                  <div key={idx} className="p-2.5 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/50 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-semibold text-stone-800 dark:text-stone-200">{log.action}</span>
+                      {log.field_name && <span className="text-stone-400"> ({log.field_name})</span>}
+                    </div>
+                    <span className="text-[10px] text-stone-400 font-mono">
+                      {new Date(log.occurred_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs text-stone-400">Nenhum evento registrado ainda.</p>
               )}
             </CardContent>
           </Card>
 
           <Card className="border-stone-200 dark:border-stone-800 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-base font-bold">Configurações & Status do Perfil</CardTitle>
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Archive className="h-4 w-4 text-stone-500" /> Configurações & Status do Perfil
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-xs">
               <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 space-y-2">

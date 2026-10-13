@@ -33,7 +33,11 @@ export function formatWhatsAppNumber(phone: string): string {
  * 2. Evolution API (Open Source gratuito com QR Code em chip próprio)
  * 3. Z-API (Gateway brasileiro)
  */
-export async function sendWhatsAppMessage(toPhone: string, text: string): Promise<SendWhatsAppResult> {
+export async function sendWhatsAppMessage(
+  toPhone: string, 
+  text: string,
+  options?: { metaToken?: string; metaPhoneId?: string }
+): Promise<SendWhatsAppResult> {
   const cleanNumber = formatWhatsAppNumber(toPhone);
   if (!cleanNumber || cleanNumber.length < 10) {
     return { success: false, error: 'Número de telefone inválido para WhatsApp.' };
@@ -42,8 +46,8 @@ export async function sendWhatsAppMessage(toPhone: string, text: string): Promis
   // =========================================================================
   // PROVEDOR 1: META WHATSAPP CLOUD API (OFICIAL)
   // =========================================================================
-  const metaToken = process.env.WHATSAPP_META_TOKEN || process.env.META_WHATSAPP_TOKEN;
-  const metaPhoneId = process.env.WHATSAPP_META_PHONE_ID || process.env.META_PHONE_NUMBER_ID;
+  const metaToken = options?.metaToken || process.env.WHATSAPP_META_TOKEN || process.env.META_WHATSAPP_TOKEN;
+  const metaPhoneId = options?.metaPhoneId || process.env.WHATSAPP_META_PHONE_ID || process.env.META_PHONE_NUMBER_ID;
 
   if (metaToken && metaPhoneId) {
     try {
@@ -75,7 +79,16 @@ export async function sendWhatsAppMessage(toPhone: string, text: string): Promis
         };
       } else {
         console.error('[WhatsApp Meta API Error]', data);
-        const errMsg = data.error?.message || data.error?.error_user_msg || 'Erro na Meta Cloud API';
+        const errObj = data.error || {};
+        const isExpired = errObj.code === 190 || 
+          errObj.error_subcode === 463 || 
+          errObj.type === 'OAuthException' || 
+          (typeof errObj.message === 'string' && /expired|access token|session/i.test(errObj.message));
+
+        let errMsg = errObj.message || errObj.error_user_msg || 'Erro na Meta Cloud API';
+        if (isExpired) {
+          errMsg = 'Token da Meta WhatsApp API expirado (sessão expirada). Renove seu token no Facebook Developers ou use o botão "Abrir no WhatsApp" para envio direto.';
+        }
         return { success: false, error: errMsg, provider: 'meta' };
       }
     } catch (err: any) {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -60,15 +60,27 @@ export default function DashboardOverviewPage() {
   const [activeHelpRequest, setActiveHelpRequest] = useState<{ id: string; created_at: string; message: string } | null>(null);
   const [primaryContactPhone, setPrimaryContactPhone] = useState<string>('');
   const [resolvingAlert, setResolvingAlert] = useState(false);
+  const dismissedAlertIdsRef = useRef<Set<string>>(new Set());
   const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(() => {
     if (typeof window === 'undefined') return new Set();
     try {
       const saved = localStorage.getItem('parentcare_dismissed_alerts');
-      return saved ? new Set(JSON.parse(saved)) : new Set();
+      const initial = saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
+      return initial;
     } catch {
       return new Set();
     }
   });
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('parentcare_dismissed_alerts');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        parsed.forEach((id: string) => dismissedAlertIdsRef.current.add(id));
+      }
+    } catch {}
+  }, []);
   const [medsData, setMedsData] = useState<{ taken: number; total: number; list: any[] }>({ taken: 0, total: 0, list: [] });
   const [hydration, setHydration] = useState<{ cups: number; goal: number }>({ cups: 0, goal: 8 });
   const [meals, setMeals] = useState<{ done: number; total: number }>({ done: 0, total: 4 });
@@ -267,15 +279,38 @@ export default function DashboardOverviewPage() {
           .limit(1),
       ]);
 
-      // Filter out alerts already dismissed by user
-      const validEm = (openEm || []).find((e: any) => !dismissedAlertIds.has(e.id));
+      // Filter out alerts already dismissed by user, older than 2h, or created before last dismissal
+      const lastDismissedEmTime = typeof window !== 'undefined' && selectedPerson?.id
+        ? localStorage.getItem(`parentcare_resolved_emergency_${selectedPerson.id}`)
+        : null;
+      const lastDismissedHrTime = typeof window !== 'undefined' && selectedPerson?.id
+        ? localStorage.getItem(`parentcare_resolved_help_${selectedPerson.id}`)
+        : null;
+
+      const isDismissed = (item: any, type: 'emergency' | 'help') => {
+        if (!item || !item.id) return true;
+        if (dismissedAlertIdsRef.current.has(item.id)) return true;
+        if (dismissedAlertIds.has(item.id)) return true;
+        // Age cutoff: any alert older than 2 hours is considered resolved/stale
+        if (item.created_at && (Date.now() - new Date(item.created_at).getTime() > 2 * 3600 * 1000)) {
+          return true;
+        }
+        // Timestamp cutoff: if alert was created before or at last resolved time
+        const cutoff = type === 'emergency' ? lastDismissedEmTime : lastDismissedHrTime;
+        if (cutoff && item.created_at && new Date(item.created_at) <= new Date(cutoff)) {
+          return true;
+        }
+        return false;
+      };
+
+      const validEm = (openEm || []).find((e: any) => !isDismissed(e, 'emergency'));
       if (validEm) {
         setActiveEmergency(validEm);
       } else {
         setActiveEmergency(null);
       }
 
-      const validHr = (openHr || []).find((h: any) => !dismissedAlertIds.has(h.id));
+      const validHr = (openHr || []).find((h: any) => !isDismissed(h, 'help'));
       if (validHr) {
         setActiveHelpRequest(validHr);
       } else {
@@ -306,7 +341,15 @@ export default function DashboardOverviewPage() {
 
   const handleResolveAlert = async (alertType: 'emergency' | 'help', id: string) => {
     setResolvingAlert(true);
-    // 1. Immediately dismiss in local state and localStorage so banner & siren stop instantly
+    // 1. Immediately dismiss synchronously in ref, state and localStorage so banner & siren stop instantly
+    dismissedAlertIdsRef.current.add(id);
+    const nowIso = new Date().toISOString();
+    try {
+      if (selectedPerson?.id) {
+        localStorage.setItem(`parentcare_resolved_${alertType}_${selectedPerson.id}`, nowIso);
+      }
+    } catch {}
+
     setDismissedAlertIds(prev => {
       const updated = new Set(prev).add(id);
       try {
@@ -322,12 +365,13 @@ export default function DashboardOverviewPage() {
     }
 
     try {
-      // 2. Direct client update attempt as safeguard
+      // 2. Direct client update attempt as safeguard for all open records of this cared person
       if (alertType === 'emergency') {
         await supabase
           .from('emergency_events')
           .update({ resolved_at: new Date().toISOString() })
-          .eq('id', id);
+          .eq('cared_person_id', selectedPerson?.id)
+          .is('resolved_at', null);
       } else {
         await supabase
           .from('help_requests')
@@ -337,7 +381,8 @@ export default function DashboardOverviewPage() {
             acknowledged_at: new Date().toISOString(),
             acknowledged_by: user?.id || null,
           })
-          .eq('id', id);
+          .eq('cared_person_id', selectedPerson?.id)
+          .eq('status', 'open');
       }
 
       // 3. Server API call with cared_person_id to resolve all open alerts
@@ -350,8 +395,6 @@ export default function DashboardOverviewPage() {
           cared_person_id: selectedPerson?.id,
         }),
       });
-
-      await fetchData();
     } catch (err) {
       console.error('Error resolving alert:', err);
     } finally {
