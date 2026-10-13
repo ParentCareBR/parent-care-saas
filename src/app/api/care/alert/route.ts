@@ -162,32 +162,52 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { alert_type, id } = body;
+    const { alert_type, id, cared_person_id } = body;
 
-    if (!alert_type || !id) {
-      return NextResponse.json({ error: 'alert_type e id são obrigatórios.' }, { status: 400 });
+    if (!alert_type || (!id && !cared_person_id)) {
+      return NextResponse.json({ error: 'alert_type e id (ou cared_person_id) são obrigatórios.' }, { status: 400 });
     }
 
     const db = getDbClient(supabase);
+    const now = new Date().toISOString();
 
     if (alert_type === 'emergency') {
-      await db
-        .from('emergency_events')
-        .update({ resolved_at: new Date().toISOString() })
-        .eq('id', id);
+      if (id) {
+        await db
+          .from('emergency_events')
+          .update({ resolved_at: now })
+          .eq('id', id);
+      }
+      if (cared_person_id) {
+        await db
+          .from('emergency_events')
+          .update({ resolved_at: now })
+          .eq('cared_person_id', cared_person_id)
+          .is('resolved_at', null);
+      }
     } else {
-      await db
-        .from('help_requests')
-        .update({
-          status: 'resolved',
-          resolved_at: new Date().toISOString(),
-          acknowledged_at: new Date().toISOString(),
-          acknowledged_by: user.id,
-        })
-        .eq('id', id);
+      const updateData = {
+        status: 'resolved',
+        resolved_at: now,
+        acknowledged_at: now,
+        acknowledged_by: user.id,
+      };
+      if (id) {
+        await db
+          .from('help_requests')
+          .update(updateData)
+          .eq('id', id);
+      }
+      if (cared_person_id) {
+        await db
+          .from('help_requests')
+          .update(updateData)
+          .eq('cared_person_id', cared_person_id)
+          .eq('status', 'open');
+      }
     }
 
-    return NextResponse.json({ success: true, message: 'Alerta marcado como atendido.' });
+    return NextResponse.json({ success: true, message: 'Alerta marcado como atendido com sucesso.' });
   } catch (err: any) {
     console.error('Error resolving alert:', err);
     return NextResponse.json({ error: err.message || 'Erro interno.' }, { status: 500 });

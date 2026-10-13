@@ -60,6 +60,15 @@ export default function DashboardOverviewPage() {
   const [activeHelpRequest, setActiveHelpRequest] = useState<{ id: string; created_at: string; message: string } | null>(null);
   const [primaryContactPhone, setPrimaryContactPhone] = useState<string>('');
   const [resolvingAlert, setResolvingAlert] = useState(false);
+  const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const saved = localStorage.getItem('parentcare_dismissed_alerts');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
   const [medsData, setMedsData] = useState<{ taken: number; total: number; list: any[] }>({ taken: 0, total: 0, list: [] });
   const [hydration, setHydration] = useState<{ cups: number; goal: number }>({ cups: 0, goal: 8 });
   const [meals, setMeals] = useState<{ done: number; total: number }>({ done: 0, total: 4 });
@@ -258,14 +267,17 @@ export default function DashboardOverviewPage() {
           .limit(1),
       ]);
 
-      if (openEm && openEm.length > 0) {
-        setActiveEmergency(openEm[0]);
+      // Filter out alerts already dismissed by user
+      const validEm = (openEm || []).find((e: any) => !dismissedAlertIds.has(e.id));
+      if (validEm) {
+        setActiveEmergency(validEm);
       } else {
         setActiveEmergency(null);
       }
 
-      if (openHr && openHr.length > 0) {
-        setActiveHelpRequest(openHr[0]);
+      const validHr = (openHr || []).find((h: any) => !dismissedAlertIds.has(h.id));
+      if (validHr) {
+        setActiveHelpRequest(validHr);
       } else {
         setActiveHelpRequest(null);
       }
@@ -276,7 +288,7 @@ export default function DashboardOverviewPage() {
     } catch (e) {
       console.error('Error fetching alerts:', e);
     }
-  }, [selectedPerson, currentOrganizationId, isModuleEnabled, supabase]);
+  }, [selectedPerson, currentOrganizationId, isModuleEnabled, supabase, dismissedAlertIds]);
 
   useEffect(() => {
     fetchData();
@@ -294,19 +306,57 @@ export default function DashboardOverviewPage() {
 
   const handleResolveAlert = async (alertType: 'emergency' | 'help', id: string) => {
     setResolvingAlert(true);
+    // 1. Immediately dismiss in local state and localStorage so banner & siren stop instantly
+    setDismissedAlertIds(prev => {
+      const updated = new Set(prev).add(id);
+      try {
+        localStorage.setItem('parentcare_dismissed_alerts', JSON.stringify(Array.from(updated)));
+      } catch {}
+      return updated;
+    });
+
+    if (alertType === 'emergency') {
+      setActiveEmergency(null);
+    } else {
+      setActiveHelpRequest(null);
+    }
+
     try {
+      // 2. Direct client update attempt as safeguard
+      if (alertType === 'emergency') {
+        await supabase
+          .from('emergency_events')
+          .update({ resolved_at: new Date().toISOString() })
+          .eq('id', id);
+      } else {
+        await supabase
+          .from('help_requests')
+          .update({
+            status: 'resolved',
+            resolved_at: new Date().toISOString(),
+            acknowledged_at: new Date().toISOString(),
+            acknowledged_by: user?.id || null,
+          })
+          .eq('id', id);
+      }
+
+      // 3. Server API call with cared_person_id to resolve all open alerts
       await fetch('/api/care/alert', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ alert_type: alertType, id }),
+        body: JSON.stringify({
+          alert_type: alertType,
+          id,
+          cared_person_id: selectedPerson?.id,
+        }),
       });
-      if (alertType === 'emergency') setActiveEmergency(null);
-      else setActiveHelpRequest(null);
+
       await fetchData();
     } catch (err) {
       console.error('Error resolving alert:', err);
+    } finally {
+      setResolvingAlert(false);
     }
-    setResolvingAlert(false);
   };
 
   const handleAddWater = async () => {
