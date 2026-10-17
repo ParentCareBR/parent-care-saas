@@ -1,21 +1,53 @@
 {
-  "name": "Parent Care",
+  "name": "Parent Care — Cuidado Familiar",
   "short_name": "Parent Care",
-  "description": "Parent Care SaaS - Solução em saúde",
-  "start_url": "/",
+  "description": "Plataforma inteligente de cuidado familiar, rotina, saúde e acompanhamento de idosos.",
+  "start_url": "/pt-BR/dashboard",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#059669",
+  "orientation": "portrait",
+  "background_color": "#060d1a",
+  "theme_color": "#0F4C3A",
   "icons": [
     {
       "src": "/icon-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": [
+    "health",
+    "lifestyle",
+    "medical"
+  ],
+  "shortcuts": [
+    {
+      "name": "Minha Agenda",
+      "url": "/pt-BR/dashboard/appointments",
+      "description": "Consultas e horários agendados"
+    },
+    {
+      "name": "Medicamentos",
+      "url": "/pt-BR/dashboard/medications",
+      "description": "Controle de remédios diários"
+    },
+    {
+      "name": "Jogos Cognitivos",
+      "url": "/pt-BR/dashboard/games",
+      "description": "Jogos para estímulo mental"
     }
   ]
 }

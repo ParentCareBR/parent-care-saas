@@ -29,7 +29,9 @@ import {
   LayoutDashboard,
   Check,
   Sun,
-  Moon
+  Moon,
+  Smartphone,
+  Download
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslations } from 'next-intl';
@@ -470,6 +472,27 @@ export function MobileCardMenu({
               </button>
             </div>
           )}
+        </div>
+
+        {/* ─── PWA INSTALL BUTTON STRIP ─── */}
+        <div className="px-5 py-2.5 border-t border-stone-200/80 dark:border-[#172433] bg-emerald-50/60 dark:bg-[#091D1A] flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2">
+            <Smartphone className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
+            <span className="text-xs font-bold text-emerald-950 dark:text-emerald-300">Aplicativo no Celular</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                localStorage.removeItem('parentcare_pwa_dismissed');
+                window.location.reload();
+              } catch {}
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-2xs active:scale-95 transition-all"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Instalar</span>
+          </button>
         </div>
 
         {/* ─── THEME TOGGLE & CONTROLS STRIP ─── */}

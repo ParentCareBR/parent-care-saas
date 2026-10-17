@@ -8,6 +8,7 @@ import CookieBanner from '@/components/shared/CookieBanner';
 import PaddleInitializer from '@/components/shared/PaddleInitializer';
 import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { PWAInstallPrompt } from '@/components/shared/PWAInstallPrompt';
 import '../globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -15,13 +16,25 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Parent Care — Cuidar de quem sempre cuidou de você',
   description: 'Plataforma para famílias organizarem o cuidado de pais idosos',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Parent Care',
+  },
+  icons: {
+    icon: '/icon-192x192.png',
+    shortcut: '/icon-192x192.png',
+    apple: '/apple-touch-icon.png',
+  },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#1e7a5f',
+  themeColor: '#0F4C3A',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  userScalable: false,
 };
 
 export const dynamic = 'force-dynamic';
@@ -56,6 +69,7 @@ export default async function LocaleLayout({
             <PaddleInitializer />
             <CookieBanner />
             <Toaster />
+            <PWAInstallPrompt />
           </NextIntlClientProvider>
         </ThemeProvider>
       </body>
