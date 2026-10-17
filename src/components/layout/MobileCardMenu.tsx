@@ -27,10 +27,13 @@ import {
   CreditCard,
   ChevronRight,
   LayoutDashboard,
-  Check
+  Check,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslations } from 'next-intl';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export interface MobileCardMenuProps {
   isOpen: boolean;
@@ -65,6 +68,7 @@ export function MobileCardMenu({
   signOut,
 }: MobileCardMenuProps) {
   const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
   const tNav = useTranslations('DashboardNav');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('all');
@@ -466,6 +470,39 @@ export function MobileCardMenu({
               </button>
             </div>
           )}
+        </div>
+
+        {/* ─── THEME TOGGLE & CONTROLS STRIP ─── */}
+        <div className="px-5 py-2.5 border-t border-stone-200/80 dark:border-[#172433] bg-stone-100/70 dark:bg-[#071324] flex items-center justify-between gap-3 shrink-0">
+          <span className="text-xs font-bold text-stone-600 dark:text-slate-400">Modo de Exibição</span>
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-stone-200/70 dark:bg-[#101D2B]">
+            <button
+              type="button"
+              onClick={() => setTheme('light')}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                theme === 'light'
+                  ? 'bg-white text-stone-900 shadow-xs'
+                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-stone-300'
+              )}
+            >
+              <Sun className="h-3.5 w-3.5 text-amber-500 fill-amber-500/20" />
+              <span>Claro</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme('dark')}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                theme === 'dark'
+                  ? 'bg-[#0F4C3A] text-white shadow-xs'
+                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-stone-300'
+              )}
+            >
+              <Moon className="h-3.5 w-3.5 text-indigo-400 fill-indigo-400/20" />
+              <span>Escuro</span>
+            </button>
+          </div>
         </div>
 
         {/* ─── FOOTER WITH SOS & LOGOUT ─── */}

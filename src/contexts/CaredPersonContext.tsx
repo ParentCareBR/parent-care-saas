@@ -20,6 +20,8 @@ export interface CaredPerson {
   status?: string | null;
   archived_at?: string | null;
   notes: string | null;
+  phone?: string | null;
+  whatsapp_phone?: string | null;
 }
 
 interface CaredPersonContextValue {

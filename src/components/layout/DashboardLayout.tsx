@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { CaredPersonSelector } from '@/components/shared/CaredPersonSelector';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
+import { GlobalAlarmClock, HostAlarmToggle } from '@/components/shared/GlobalAlarmClock';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { TrialBanner } from '@/components/billing/TrialBanner';
@@ -325,14 +326,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <span>Modo Idoso</span>
                 <ExternalLink className="h-3 w-3" />
               </Link>
-              <Link
-                href={`/${locale}/dashboard/cared-people/${selectedPerson.id}?tab=whatsapp`}
-                className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#132238] hover:bg-green-50 dark:hover:bg-green-950/30 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-slate-200 text-[11px] font-bold transition shadow-2xs"
-                title="Configurar WhatsApp e Inteligência Artificial"
+              <a
+                href={selectedPerson?.phone || selectedPerson?.whatsapp_phone 
+                  ? `https://wa.me/${(selectedPerson.whatsapp_phone || selectedPerson.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`Olá ${selectedPerson.full_name.split(' ')[0]}, tudo bem? Como você está hoje?`)}`
+                  : 'https://web.whatsapp.com'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700/60 text-[#128C7E] dark:text-[#25D366] text-[11px] font-bold transition shadow-2xs"
+                title="Conversar direto no WhatsApp"
               >
                 <MessageSquare className="h-3 w-3 text-[#25D366]" />
-                <span>IA</span>
-              </Link>
+                <span>WhatsApp</span>
+              </a>
             </div>
           )}
         </div>
@@ -549,6 +554,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           {/* Controls right */}
           <div className="flex items-center gap-2.5">
+            <HostAlarmToggle />
             <LanguageSwitcher />
             <ThemeToggle />
 
@@ -741,6 +747,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
         {/* Global Floating Action Button */}
         <QuickActionFAB />
+
+        {/* Global Audible Alarm Clock Engine */}
+        <GlobalAlarmClock locale={locale} />
       </div>
     </div>
   );

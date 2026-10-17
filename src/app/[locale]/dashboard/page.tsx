@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { useMonitoring } from '@/hooks/useMonitoring';
 import { createClient } from '@/lib/supabase/client';
+import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -500,13 +501,16 @@ export default function DashboardOverviewPage() {
                 </p>
               </div>
             </div>
-            <Link
-              href={`/${locale}/care/${selectedPerson.id}`}
-              target="_blank"
-              className="px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-[#0F4C3A] dark:text-emerald-300 text-xs font-bold border border-emerald-200 dark:border-emerald-500/30 flex items-center gap-1"
-            >
-              Modo Idoso <ExternalLink className="h-3 w-3" />
-            </Link>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <ThemeToggle className="h-8 w-8 min-h-[32px] min-w-[32px] rounded-xl" />
+              <Link
+                href={`/${locale}/care/${selectedPerson.id}`}
+                target="_blank"
+                className="px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-[#0F4C3A] dark:text-emerald-300 text-xs font-bold border border-emerald-200 dark:border-emerald-500/30 flex items-center gap-1"
+              >
+                Modo Idoso <ExternalLink className="h-3 w-3" />
+              </Link>
+            </div>
           </div>
         )}
 
@@ -596,9 +600,13 @@ export default function DashboardOverviewPage() {
             </span>
           </Link>
 
-          {/* 7. CHAT (WHATSAPP IA) */}
-          <Link
-            href={selectedPerson ? `/${locale}/dashboard/cared-people/${selectedPerson.id}?tab=whatsapp` : `/${locale}/dashboard`}
+          {/* 7. CHAT (WHATSAPP DIRETO) */}
+          <a
+            href={(selectedPerson?.whatsapp_phone || selectedPerson?.phone)
+              ? `https://wa.me/${(selectedPerson.whatsapp_phone || selectedPerson.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`Olá ${selectedPerson.full_name ? selectedPerson.full_name.split(' ')[0] : ''}, tudo bem? Como você está hoje?`)}`
+              : 'https://web.whatsapp.com'}
+            target="_blank"
+            rel="noopener noreferrer"
             className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-3xl p-5 flex flex-col items-center justify-center text-center shadow-md active:scale-95 transition-all aspect-square gap-2"
           >
             <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center">
@@ -607,11 +615,11 @@ export default function DashboardOverviewPage() {
             <span className="text-base font-black tracking-wider uppercase text-white">
               CHAT
             </span>
-          </Link>
+          </a>
 
-          {/* 8. JOGOS & ATIVIDADES */}
+          {/* 8. JOGOS (HUB COGNITIVO) */}
           <Link
-            href={`/${locale}/dashboard/activities`}
+            href={`/${locale}/dashboard/games`}
             className="bg-[#1D4ED8] hover:bg-[#1E40AF] text-white rounded-3xl p-5 flex flex-col items-center justify-center text-center shadow-md active:scale-95 transition-all aspect-square gap-2"
           >
             <div className="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center">

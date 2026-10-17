@@ -424,11 +424,80 @@ export default function NewCaredPersonPage() {
     })).filter((cat) => cat.definitions.length > 0);
   }, [searchFilter]);
 
+  // Map the 9 internal steps to 4 mobile-facing quiz phases
+  const mobilePhaseMap: Record<number, number> = { 1: 1, 2: 1, 3: 2, 4: 2, 5: 2, 6: 3, 7: 3, 8: 4, 9: 4 };
+  const mobilePhase = mobilePhaseMap[step] || 1;
+  const MOBILE_PHASES = [
+    { id: 1, label: 'Básico', icon: '👤' },
+    { id: 2, label: 'Saúde', icon: '🩺' },
+    { id: 3, label: 'Rotina', icon: '⏰' },
+    { id: 4, label: 'Concluir', icon: '✅' },
+  ];
+
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 py-8 px-4 sm:px-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header Breadcrumb */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-stone-200 dark:border-stone-800">
+    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 pb-28 md:pb-12">
+      {/* ─── MOBILE QUIZ HEADER & STEPPER (< md) ─── */}
+      <div className="md:hidden sticky top-0 z-20 bg-white dark:bg-[#0B1526] border-b border-stone-200 dark:border-[#1E293B] shadow-xs">
+        {/* Mobile App Bar */}
+        <div className="px-4 pt-3 pb-2.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              type="button"
+              onClick={step === 1 ? () => router.back() : handleBack}
+              className="w-9 h-9 rounded-xl bg-stone-100 dark:bg-[#16253C] flex items-center justify-center text-stone-700 dark:text-slate-200 shrink-0"
+              aria-label="Voltar"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-sm font-black text-stone-900 dark:text-white truncate leading-tight">
+                Cadastro do Familiar
+              </h1>
+              <p className="text-[11px] text-stone-500 dark:text-slate-400 leading-tight">
+                Etapa {step} de 9: <span className="font-semibold text-stone-700 dark:text-slate-300">{STEPS.find(s => s.id === step)?.label}</span>
+              </p>
+            </div>
+          </div>
+          <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700 shrink-0 text-xs font-bold px-2 py-0.5">
+            {step}/9
+          </Badge>
+        </div>
+
+        {/* Mobile Circular Phase Stepper (Quiz Format) */}
+        <div className="px-4 py-2.5 border-t border-stone-100 dark:border-[#1E293B]">
+          <div className="flex items-center justify-between gap-1">
+            {MOBILE_PHASES.map((phase, idx) => {
+              const isDone = mobilePhase > phase.id;
+              const isCurrent = mobilePhase === phase.id;
+              return (
+                <React.Fragment key={phase.id}>
+                  <div className="flex flex-col items-center gap-1 flex-1">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black border-2 transition-all ${
+                      isDone
+                        ? 'bg-emerald-500 border-emerald-500 text-white shadow-xs'
+                        : isCurrent
+                        ? 'bg-[#0F4C3A] border-[#0F4C3A] text-white shadow-sm ring-2 ring-[#0F4C3A]/20'
+                        : 'bg-stone-100 dark:bg-[#16253C] border-stone-200 dark:border-[#243B5C] text-stone-400 dark:text-slate-500'
+                    }`}>
+                      {isDone ? '✓' : isCurrent ? phase.icon : phase.id}
+                    </div>
+                    <span className={`text-[10px] font-bold text-center leading-tight ${
+                      isCurrent ? 'text-[#0F4C3A] dark:text-emerald-400' : isDone ? 'text-emerald-600 dark:text-emerald-400' : 'text-stone-400 dark:text-slate-500'
+                    }`}>{phase.label}</span>
+                  </div>
+                  {idx < MOBILE_PHASES.length - 1 && (
+                    <div className={`flex-1 h-0.5 mt-[-10px] ${isDone ? 'bg-emerald-400' : 'bg-stone-200 dark:bg-[#1E293B]'}`} />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto space-y-6 px-4 sm:px-6 pt-4 md:pt-8">
+        {/* Header Breadcrumb (hidden on mobile, visible on desktop) */}
+        <div className="hidden md:flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-stone-200 dark:border-stone-800">
           <div>
             <div className="flex items-center gap-2 text-xs text-stone-500 mb-1">
               <Link href={`/${locale}/dashboard`} className="hover:underline">Painel</Link>
@@ -447,8 +516,8 @@ export default function NewCaredPersonPage() {
           </Badge>
         </div>
 
-        {/* Step Progress Pills (Horizontal scrollable) */}
-        <div className="overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+        {/* Step Progress Pills (hidden on mobile, visible on desktop) */}
+        <div className="hidden md:block overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
           <div className="flex items-center gap-2 min-w-max">
             {STEPS.map((s) => {
               const Icon = s.icon;
@@ -1394,9 +1463,9 @@ export default function NewCaredPersonPage() {
         )}
 
         {/* ========================================================================= */}
-        {/* FOOTER ACTIONS                                                            */}
+        {/* FOOTER ACTIONS (Desktop)                                                  */}
         {/* ========================================================================= */}
-        <div className="flex items-center justify-between pt-4 border-t border-stone-200 dark:border-stone-800">
+        <div className="hidden md:flex items-center justify-between pt-4 border-t border-stone-200 dark:border-stone-800">
           <Button
             type="button"
             variant="outline"
@@ -1426,6 +1495,30 @@ export default function NewCaredPersonPage() {
             </Button>
           )}
         </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* MOBILE STICKY BOTTOM BUTTON (md:hidden)                                   */}
+      {/* ========================================================================= */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0B1526] border-t border-stone-200 dark:border-[#1E293B] px-4 py-3 pb-safe z-30 shadow-lg">
+        {step < 9 ? (
+          <Button
+            type="button"
+            onClick={handleNext}
+            className="w-full h-12 bg-[#0F4C3A] hover:bg-[#0F4C3A]/90 text-white gap-2 text-base font-black rounded-2xl shadow-md active:scale-[0.98] transition-all"
+          >
+            Avançar <ArrowRight className="h-5 w-5" />
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white gap-2 text-base font-black rounded-2xl shadow-md active:scale-[0.98] transition-all"
+          >
+            {loading ? 'Criando Perfil...' : '✓ Concluir e Criar Perfil'}
+          </Button>
+        )}
       </div>
     </div>
   );
