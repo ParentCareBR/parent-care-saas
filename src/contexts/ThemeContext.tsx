@@ -30,9 +30,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       } else {
         document.documentElement.classList.remove('dark');
       }
-    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setThemeState('dark');
-      document.documentElement.classList.add('dark');
+    } else {
+      // Default to crisp, high-contrast light theme matching the official Parent Care design
+      setThemeState('light');
+      document.documentElement.classList.remove('dark');
     }
   }, []);
 

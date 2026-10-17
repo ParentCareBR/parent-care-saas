@@ -427,20 +427,20 @@ export default function CaredPersonProfilePage() {
       {/* ========================================================================= */}
       <Tabs value={activeTab === 'settings' ? 'whatsapp' : activeTab} onValueChange={setActiveTab} className="space-y-4">
         <div className="w-full">
-          <TabsList className="bg-stone-100 dark:bg-stone-900 p-1 rounded-2xl h-auto grid grid-cols-2 sm:grid-cols-5 gap-1 w-full border border-stone-200 dark:border-stone-800">
-            <TabsTrigger value="overview" className="text-xs font-bold gap-2 py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-stone-800 data-[state=active]:shadow-sm">
-              <User className="h-4 w-4 text-emerald-600" /> Visão Geral
+          <TabsList className="bg-stone-100 dark:bg-[#16253C] p-1.5 rounded-2xl h-auto grid grid-cols-2 sm:grid-cols-5 gap-1.5 w-full border border-stone-200 dark:border-stone-700">
+            <TabsTrigger value="overview" className="text-xs font-extrabold gap-2 py-2.5 rounded-xl text-stone-700 dark:text-slate-200 data-[state=active]:bg-white dark:data-[state=active]:bg-[#0F4C3A] data-[state=active]:text-stone-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm">
+              <User className="h-4 w-4 text-emerald-600 dark:text-emerald-300" /> Visão Geral
             </TabsTrigger>
-            <TabsTrigger value="whatsapp" className="text-xs font-bold gap-2 py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-stone-800 data-[state=active]:shadow-sm">
+            <TabsTrigger value="whatsapp" className="text-xs font-extrabold gap-2 py-2.5 rounded-xl text-stone-700 dark:text-slate-200 data-[state=active]:bg-white dark:data-[state=active]:bg-[#0F4C3A] data-[state=active]:text-stone-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm">
               <MessageSquare className="h-4 w-4 text-[#25D366]" /> WhatsApp & IA
             </TabsTrigger>
-            <TabsTrigger value="health" className="text-xs font-bold gap-2 py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-stone-800 data-[state=active]:shadow-sm">
+            <TabsTrigger value="health" className="text-xs font-extrabold gap-2 py-2.5 rounded-xl text-stone-700 dark:text-slate-200 data-[state=active]:bg-white dark:data-[state=active]:bg-[#0F4C3A] data-[state=active]:text-stone-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm">
               <Pill className="h-4 w-4 text-rose-500" /> Saúde & Remédios
             </TabsTrigger>
-            <TabsTrigger value="routine" className="text-xs font-bold gap-2 py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-stone-800 data-[state=active]:shadow-sm">
+            <TabsTrigger value="routine" className="text-xs font-extrabold gap-2 py-2.5 rounded-xl text-stone-700 dark:text-slate-200 data-[state=active]:bg-white dark:data-[state=active]:bg-[#0F4C3A] data-[state=active]:text-stone-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm">
               <Clock className="h-4 w-4 text-indigo-500" /> Rotina & Hábitos
             </TabsTrigger>
-            <TabsTrigger value="documents" className="text-xs font-bold gap-2 py-2.5 rounded-xl data-[state=active]:bg-white dark:data-[state=active]:bg-stone-800 data-[state=active]:shadow-sm col-span-2 sm:col-span-1">
+            <TabsTrigger value="documents" className="text-xs font-extrabold gap-2 py-2.5 rounded-xl text-stone-700 dark:text-slate-200 data-[state=active]:bg-white dark:data-[state=active]:bg-[#0F4C3A] data-[state=active]:text-stone-900 dark:data-[state=active]:text-white data-[state=active]:shadow-sm col-span-2 sm:col-span-1">
               <FileText className="h-4 w-4 text-amber-500" /> Documentos & Segurança
             </TabsTrigger>
           </TabsList>
