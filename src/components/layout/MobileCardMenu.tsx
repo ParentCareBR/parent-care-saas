@@ -282,10 +282,10 @@ export function MobileCardMenu({
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-200">
       
       {/* ─── MODAL CONTAINER ─── */}
-      <div className="relative w-full h-full max-w-2xl mx-auto bg-stone-50 dark:bg-[#07111F] text-stone-900 dark:text-[#F8FAFC] flex flex-col shadow-2xl overflow-hidden sm:my-6 sm:h-[92vh] sm:rounded-3xl border border-stone-200 dark:border-[#172433]">
+      <div className="relative w-full h-full max-w-2xl mx-auto bg-white dark:bg-[#07111F] text-stone-950 dark:text-[#F8FAFC] flex flex-col shadow-2xl overflow-hidden sm:my-6 sm:h-[92vh] sm:rounded-3xl border-2 border-stone-300 dark:border-slate-700">
         
         {/* ─── HEADER ─── */}
-        <header className="px-5 pt-4 pb-3 border-b border-stone-200/80 dark:border-[#172433] bg-white dark:bg-[#08162A] shrink-0">
+        <header className="px-5 pt-4 pb-3 border-b-2 border-stone-200 dark:border-slate-700 bg-white dark:bg-[#08162A] shrink-0">
           <div className="flex items-center justify-between gap-3 mb-3">
             <div className="flex items-center gap-2.5">
               <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 dark:bg-[#19D3A2]/20 border border-emerald-500/30 dark:border-[#19D3A2]/40 flex items-center justify-center text-emerald-600 dark:text-[#19D3A2] shadow-xs">
@@ -293,14 +293,14 @@ export function MobileCardMenu({
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <h2 className="text-base font-black tracking-tight text-stone-900 dark:text-white">
+                  <h2 className="text-base font-black tracking-tight text-stone-950 dark:text-white">
                     Central de Módulos
                   </h2>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-[#5DE5BE]">
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-600">
                     Cards Interativos
                   </span>
                 </div>
-                <p className="text-[11px] text-stone-500 dark:text-slate-400">
+                <p className="text-[11px] font-bold text-stone-700 dark:text-slate-200">
                   {selectedPerson ? `Navegação para ${selectedPerson.full_name}` : 'Acesse qualquer área com um toque'}
                 </p>
               </div>
@@ -308,34 +308,34 @@ export function MobileCardMenu({
 
             <button
               onClick={onClose}
-              className="w-9 h-9 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-[#101D2B] dark:hover:bg-[#172433] text-stone-600 dark:text-slate-300 flex items-center justify-center transition-all active:scale-95"
+              className="w-10 h-10 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-[#16253C] dark:hover:bg-[#203450] text-stone-800 dark:text-white flex items-center justify-center transition-all active:scale-95 border border-stone-300 dark:border-slate-600"
               aria-label="Fechar Menu"
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5 stroke-[2.5]" />
             </button>
           </div>
 
           {/* ─── SEARCH INPUT ─── */}
           <div className="relative mb-2.5">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 dark:text-slate-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-500 dark:text-slate-400" />
             <input
               type="text"
               placeholder="Buscar remédio, agenda, compras, finanças..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-stone-200 dark:border-[#172433] bg-stone-50 dark:bg-[#101D2B] text-stone-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+              className="w-full pl-9 pr-4 py-2.5 text-xs font-semibold rounded-xl border-2 border-stone-300 dark:border-slate-600 bg-stone-50 dark:bg-[#0E1A2D] text-stone-950 dark:text-white placeholder:text-stone-500 dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
             />
             {searchQuery && (
               <button 
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-stone-400 hover:text-stone-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-stone-600 dark:text-slate-300 hover:text-stone-900"
               >
                 Limpar
               </button>
             )}
           </div>
 
-          {/* ─── CATEGORY FILTER CHIPS (INSPIRADO NOS LAYOUTS MODELO) ─── */}
+          {/* ─── CATEGORY FILTER CHIPS ─── */}
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
             {[
               { id: 'all', label: `• Todos (${menuItems.length})` },
@@ -349,10 +349,10 @@ export function MobileCardMenu({
                   key={chip.id}
                   onClick={() => setActiveCategory(chip.id as CategoryFilter)}
                   className={cn(
-                    'px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all shrink-0',
+                    'px-3.5 py-1.5 rounded-full text-xs font-black whitespace-nowrap transition-all shrink-0 border-2',
                     isSelected
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'bg-stone-100 dark:bg-[#101D2B] text-stone-600 dark:text-slate-400 hover:bg-stone-200 dark:hover:bg-[#172433]'
+                      ? 'bg-[#0F4C3A] dark:bg-emerald-600 text-white border-[#0F4C3A] dark:border-emerald-600 shadow-xs'
+                      : 'bg-white dark:bg-[#132238] text-stone-800 dark:text-slate-100 border-stone-300 dark:border-slate-600 hover:bg-stone-100 dark:hover:bg-[#1C3252]'
                   )}
                 >
                   {chip.label}
@@ -369,14 +369,14 @@ export function MobileCardMenu({
               href={`/${locale}/care/${selectedPerson.id}`}
               target="_blank"
               onClick={onClose}
-              className="flex items-center gap-2 p-2.5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border border-amber-200/80 dark:border-amber-900/50 hover:border-amber-400 transition-all group shadow-2xs"
+              className="flex items-center gap-2 p-2.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-300 dark:border-amber-700 hover:border-amber-500 transition-all group shadow-2xs"
             >
-              <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                 <Heart className="h-4 w-4 fill-amber-500" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-black text-amber-900 dark:text-amber-200 truncate">Modo Idoso</p>
-                <p className="text-[10px] text-amber-700 dark:text-amber-400 flex items-center gap-0.5">
+                <p className="text-xs font-black text-amber-950 dark:text-amber-100 truncate">Modo Idoso</p>
+                <p className="text-[10px] font-bold text-amber-800 dark:text-amber-300 flex items-center gap-0.5">
                   Botões Grandes <ExternalLink className="h-2.5 w-2.5" />
                 </p>
               </div>
@@ -385,14 +385,14 @@ export function MobileCardMenu({
             <Link
               href={`/${locale}/dashboard/cared-people/${selectedPerson.id}?tab=whatsapp`}
               onClick={onClose}
-              className="flex items-center gap-2 p-2.5 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 border border-emerald-200/80 dark:border-emerald-900/50 hover:border-emerald-400 transition-all group shadow-2xs"
+              className="flex items-center gap-2 p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-300 dark:border-emerald-700 hover:border-emerald-500 transition-all group shadow-2xs"
             >
               <div className="w-8 h-8 rounded-xl bg-[#25D366]/20 text-[#128C7E] dark:text-[#25D366] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                 <MessageSquare className="h-4 w-4" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-black text-emerald-900 dark:text-emerald-200 truncate">WhatsApp IA</p>
-                <p className="text-[10px] text-emerald-700 dark:text-emerald-400 truncate">Assistente 24h</p>
+                <p className="text-xs font-black text-emerald-950 dark:text-emerald-100 truncate">WhatsApp IA</p>
+                <p className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 truncate">Assistente 24h</p>
               </div>
             </Link>
           </div>
@@ -413,28 +413,28 @@ export function MobileCardMenu({
                   href={item.href}
                   onClick={onClose}
                   className={cn(
-                    'relative flex flex-col justify-between p-3.5 rounded-2xl border transition-all active:scale-[0.98] group shadow-2xs',
+                    'relative flex flex-col justify-between p-3.5 rounded-2xl border-2 transition-all active:scale-[0.98] group shadow-xs',
                     isActive
-                      ? 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-500 dark:border-emerald-500 ring-2 ring-emerald-500/20'
-                      : 'bg-white dark:bg-[#0d1c32] border-stone-200/80 dark:border-[#172433] hover:border-stone-300 dark:hover:border-slate-700'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-600 dark:border-emerald-400 ring-2 ring-emerald-500/30'
+                      : 'bg-white dark:bg-[#0F1E33] border-stone-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-400'
                   )}
                 >
                   {/* Top Bar inside Card: Category Badge + Active status */}
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-stone-100 dark:bg-[#172433] text-stone-500 dark:text-slate-400">
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-stone-200/80 dark:bg-slate-800 text-stone-800 dark:text-slate-100 border border-stone-300 dark:border-slate-600">
                       {item.categoryLabel}
                     </span>
                     {isActive ? (
-                      <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-[#19D3A2]">
+                      <span className="flex items-center gap-1 text-[10px] font-black text-emerald-700 dark:text-[#19D3A2]">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         Ativo
                       </span>
                     ) : (
-                      <ChevronRight className="h-3.5 w-3.5 text-stone-300 dark:text-slate-600 group-hover:text-stone-500 dark:group-hover:text-slate-400 transition-colors" />
+                      <ChevronRight className="h-3.5 w-3.5 text-stone-400 dark:text-slate-400 group-hover:text-stone-700 dark:group-hover:text-white transition-colors" />
                     )}
                   </div>
 
-                  {/* Centered / Prominent Icon Box (Inspirado no layout de Categorias) */}
+                  {/* Centered / Prominent Icon Box */}
                   <div className="my-1.5 flex items-center gap-2.5">
                     <div className={cn(
                       'w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-xs',
@@ -447,12 +447,12 @@ export function MobileCardMenu({
                   {/* Title & Subtitle */}
                   <div className="mt-1">
                     <h3 className={cn(
-                      'text-xs font-black leading-tight line-clamp-1',
-                      isActive ? 'text-emerald-900 dark:text-[#5DE5BE]' : 'text-stone-900 dark:text-white'
+                      'text-xs sm:text-sm font-black leading-tight line-clamp-1',
+                      isActive ? 'text-emerald-950 dark:text-emerald-300' : 'text-stone-950 dark:text-white'
                     )}>
                       {item.name}
                     </h3>
-                    <p className="text-[10px] text-stone-500 dark:text-slate-400 line-clamp-1 mt-0.5">
+                    <p className="text-[11px] font-bold text-stone-700 dark:text-slate-200 line-clamp-1 mt-1">
                       {item.subtitle}
                     </p>
                   </div>
@@ -462,11 +462,11 @@ export function MobileCardMenu({
           </div>
 
           {filteredItems.length === 0 && (
-            <div className="py-12 text-center text-stone-400 dark:text-slate-500">
-              <p className="text-sm font-semibold">Nenhum módulo encontrado para &quot;{searchQuery}&quot;</p>
+            <div className="py-12 text-center text-stone-600 dark:text-slate-300">
+              <p className="text-sm font-bold">Nenhum módulo encontrado para &quot;{searchQuery}&quot;</p>
               <button
                 onClick={() => { setSearchQuery(''); setActiveCategory('all'); }}
-                className="mt-2 text-xs font-bold text-emerald-600 dark:text-[#19D3A2] hover:underline"
+                className="mt-2 text-xs font-black text-emerald-700 dark:text-[#19D3A2] hover:underline"
               >
                 Limpar busca
               </button>
@@ -475,10 +475,10 @@ export function MobileCardMenu({
         </div>
 
         {/* ─── PWA INSTALL BUTTON STRIP ─── */}
-        <div className="px-5 py-2.5 border-t border-stone-200/80 dark:border-[#172433] bg-emerald-50/60 dark:bg-[#091D1A] flex items-center justify-between gap-3 shrink-0">
+        <div className="px-5 py-2.5 border-t-2 border-stone-200 dark:border-slate-700 bg-emerald-100/70 dark:bg-[#09221C] flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2">
-            <Smartphone className="h-4 w-4 text-emerald-700 dark:text-emerald-400" />
-            <span className="text-xs font-bold text-emerald-950 dark:text-emerald-300">Aplicativo no Celular</span>
+            <Smartphone className="h-4 w-4 text-emerald-800 dark:text-emerald-300" />
+            <span className="text-xs font-black text-emerald-950 dark:text-emerald-100">Aplicativo no Celular</span>
           </div>
           <button
             type="button"
@@ -496,17 +496,17 @@ export function MobileCardMenu({
         </div>
 
         {/* ─── THEME TOGGLE & CONTROLS STRIP ─── */}
-        <div className="px-5 py-2.5 border-t border-stone-200/80 dark:border-[#172433] bg-stone-100/70 dark:bg-[#071324] flex items-center justify-between gap-3 shrink-0">
-          <span className="text-xs font-bold text-stone-600 dark:text-slate-400">Modo de Exibição</span>
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-stone-200/70 dark:bg-[#101D2B]">
+        <div className="px-5 py-2.5 border-t-2 border-stone-200 dark:border-slate-700 bg-stone-100 dark:bg-[#071324] flex items-center justify-between gap-3 shrink-0">
+          <span className="text-xs font-black text-stone-900 dark:text-white">Modo de Exibição</span>
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-stone-200 dark:bg-[#101D2B] border border-stone-300 dark:border-slate-700">
             <button
               type="button"
               onClick={() => setTheme('light')}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all',
                 theme === 'light'
-                  ? 'bg-white text-stone-900 shadow-xs'
-                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-stone-300'
+                  ? 'bg-white text-stone-950 shadow-sm border border-stone-300'
+                  : 'text-stone-700 hover:text-stone-950 dark:text-slate-300 dark:hover:text-white'
               )}
             >
               <Sun className="h-3.5 w-3.5 text-amber-500 fill-amber-500/20" />
@@ -516,10 +516,10 @@ export function MobileCardMenu({
               type="button"
               onClick={() => setTheme('dark')}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all',
                 theme === 'dark'
-                  ? 'bg-[#0F4C3A] text-white shadow-xs'
-                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-stone-300'
+                  ? 'bg-[#0F4C3A] text-white shadow-sm border border-emerald-500'
+                  : 'text-stone-700 hover:text-stone-950 dark:text-slate-300 dark:hover:text-white'
               )}
             >
               <Moon className="h-3.5 w-3.5 text-indigo-400 fill-indigo-400/20" />
@@ -529,7 +529,7 @@ export function MobileCardMenu({
         </div>
 
         {/* ─── FOOTER WITH SOS & LOGOUT ─── */}
-        <footer className="px-5 py-3 border-t border-stone-200/80 dark:border-[#172433] bg-white dark:bg-[#08162A] shrink-0 flex items-center justify-between gap-3">
+        <footer className="px-5 py-3 border-t-2 border-stone-200 dark:border-slate-700 bg-white dark:bg-[#08162A] shrink-0 flex items-center justify-between gap-3">
           <Link
             href={`/${locale}/dashboard/emergency`}
             onClick={onClose}
@@ -542,7 +542,7 @@ export function MobileCardMenu({
           <Link
             href={`/${locale}/dashboard/settings/subscription`}
             onClick={onClose}
-            className="flex items-center gap-1.5 py-2.5 px-3 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-300/40 text-xs font-bold transition-all"
+            className="flex items-center gap-1.5 py-2.5 px-3 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 border-2 border-amber-300/60 dark:border-amber-700/60 text-xs font-black transition-all"
           >
             <CreditCard className="h-4 w-4" />
             <span className="hidden sm:inline">Assinatura</span>
@@ -550,7 +550,7 @@ export function MobileCardMenu({
 
           <button
             onClick={() => { onClose(); signOut(); }}
-            className="flex items-center gap-1.5 py-2.5 px-3 rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-[#101D2B] dark:hover:bg-[#172433] text-stone-700 dark:text-slate-300 text-xs font-bold transition-all"
+            className="flex items-center gap-1.5 py-2.5 px-3 rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-[#101D2B] dark:hover:bg-[#172433] text-stone-800 dark:text-white border border-stone-300 dark:border-slate-700 text-xs font-black transition-all"
           >
             <LogOut className="h-4 w-4 text-rose-500" />
             <span>Sair</span>

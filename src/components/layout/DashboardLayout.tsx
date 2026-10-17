@@ -649,7 +649,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </main>
 
         {/* ─── MOBILE BOTTOM NAV BAR (ESTILO NAVEGAÇÃO MODELO) ─────────────── */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/98 dark:bg-[#0C1728]/98 backdrop-blur-md border-t border-[#E5E7EB] dark:border-[#1E293B] px-3 pt-1.5 pb-2 flex items-center justify-around z-40 shadow-lg">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0C1728] backdrop-blur-md border-t-2 border-stone-200 dark:border-[#1E3A5F] px-3 pt-1.5 pb-2 flex items-center justify-around z-40 shadow-lg">
           {/* 1. Hoje */}
           <Link
             href={`/${locale}/dashboard`}
@@ -659,18 +659,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               className={cn(
                 'w-10 h-8 flex items-center justify-center rounded-xl transition-all',
                 pathname === `/${locale}/dashboard`
-                  ? 'bg-[#0F4C3A] text-white shadow-2xs'
-                  : 'text-stone-500 dark:text-slate-400'
+                  ? 'bg-[#0F4C3A] text-white shadow-sm'
+                  : 'text-stone-600 dark:text-slate-200'
               )}
             >
               <LayoutDashboard className="h-5 w-5" />
             </div>
             <span
               className={cn(
-                'text-[10px] font-bold',
+                'text-[11px] font-bold',
                 pathname === `/${locale}/dashboard`
                   ? 'text-[#0F4C3A] dark:text-emerald-400'
-                  : 'text-stone-500 dark:text-slate-400'
+                  : 'text-stone-700 dark:text-slate-200'
               )}
             >
               Hoje
@@ -686,18 +686,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               className={cn(
                 'w-10 h-8 flex items-center justify-center rounded-xl transition-all',
                 pathname.includes('/appointments')
-                  ? 'bg-[#0F4C3A] text-white shadow-2xs'
-                  : 'text-stone-500 dark:text-slate-400'
+                  ? 'bg-[#0F4C3A] text-white shadow-sm'
+                  : 'text-stone-600 dark:text-slate-200'
               )}
             >
               <Calendar className="h-5 w-5" />
             </div>
             <span
               className={cn(
-                'text-[10px] font-bold',
+                'text-[11px] font-bold',
                 pathname.includes('/appointments')
                   ? 'text-[#0F4C3A] dark:text-emerald-400'
-                  : 'text-stone-500 dark:text-slate-400'
+                  : 'text-stone-700 dark:text-slate-200'
               )}
             >
               Agenda
@@ -713,18 +713,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               className={cn(
                 'w-10 h-8 flex items-center justify-center rounded-xl transition-all',
                 pathname.includes('/activities')
-                  ? 'bg-[#0F4C3A] text-white shadow-2xs'
-                  : 'text-stone-500 dark:text-slate-400'
+                  ? 'bg-[#0F4C3A] text-white shadow-sm'
+                  : 'text-stone-600 dark:text-slate-200'
               )}
             >
               <Activity className="h-5 w-5" />
             </div>
             <span
               className={cn(
-                'text-[10px] font-bold',
+                'text-[11px] font-bold',
                 pathname.includes('/activities')
                   ? 'text-[#0F4C3A] dark:text-emerald-400'
-                  : 'text-stone-500 dark:text-slate-400'
+                  : 'text-stone-700 dark:text-slate-200'
               )}
             >
               Atividades
@@ -736,10 +736,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             onClick={() => setMobileMenuOpen(true)}
             className="flex flex-col items-center gap-0.5 min-w-[54px] group"
           >
-            <div className="w-10 h-8 flex items-center justify-center rounded-xl text-stone-500 dark:text-slate-400 group-active:scale-95">
+            <div className="w-10 h-8 flex items-center justify-center rounded-xl text-stone-600 dark:text-slate-200 group-active:scale-95 transition-all">
               <Menu className="h-5 w-5" />
             </div>
-            <span className="text-[10px] font-bold text-stone-500 dark:text-slate-400">
+            <span className="text-[11px] font-bold text-stone-700 dark:text-slate-200">
               Mais
             </span>
           </button>
