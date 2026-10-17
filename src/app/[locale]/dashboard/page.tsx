@@ -14,7 +14,7 @@ import {
   Moon, BedDouble, Check, ChevronRight, Plus, Activity,
   MessageSquare, Send, Clock, ExternalLink, Stethoscope,
   Dumbbell, Phone, AlertCircle, TrendingUp, Eye, Thermometer,
-  Wind, Gauge,
+  Wind, Gauge, ShoppingCart, ClipboardList, CheckCircle2, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -87,6 +87,7 @@ export default function DashboardOverviewPage() {
   const [sleep, setSleep] = useState<{ hours: number; quality: string } | null>(null);
   const [steps, setSteps] = useState<{ count: number; goal: number } | null>(null);
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [todayLifeActivities, setTodayLifeActivities] = useState<any[]>([]);
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [familyMessages, setFamilyMessages] = useState<any[]>([]);
   const [mood, setMood] = useState<{ emoji: string; text: string; quote: string; time: string } | null>(null);
@@ -172,6 +173,41 @@ export default function DashboardOverviewPage() {
         .order('starts_at', { ascending: true })
         .limit(5);
       setAppointments(appts || []);
+    }
+
+    // Today's Life Activities (Physical, Courses, Rehab, Leisure)
+    try {
+      const todayDayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
+      const todayDateStr = format(today, 'yyyy-MM-dd');
+
+      const { data: acts } = await supabase
+        .from('life_activities')
+        .select(`
+          id, title, activity_type, category, schedule_time, recurrence_days,
+          location_name, instructor_name, is_active,
+          activity_occurrences(id, occurrence_date, participation_status, voluntary_perception)
+        `)
+        .eq('cared_person_id', selectedPerson.id)
+        .eq('is_active', true);
+
+      if (acts) {
+        const todayActs = acts.filter((a: any) => {
+          if (Array.isArray(a.recurrence_days) && a.recurrence_days.length > 0) {
+            return a.recurrence_days.includes(todayDayOfWeek);
+          }
+          return true;
+        }).map((a: any) => {
+          const occ = (a.activity_occurrences || []).find((o: any) => o.occurrence_date === todayDateStr);
+          return {
+            ...a,
+            todayOccurrence: occ || null,
+          };
+        });
+
+        setTodayLifeActivities(todayActs);
+      }
+    } catch (e) {
+      console.error('Error fetching today life activities:', e);
     }
 
     // Recent Activities (care_notes)
@@ -442,17 +478,47 @@ export default function DashboardOverviewPage() {
     }));
   };
 
+  const handleQuickActivityParticipation = async (activityId: string, status: 'participated' | 'missed') => {
+    if (!selectedPerson || !currentOrganizationId || !user) return;
+    const todayDateStr = format(new Date(), 'yyyy-MM-dd');
+    try {
+      const { data, error } = await supabase
+        .from('activity_occurrences')
+        .upsert({
+          activity_id: activityId,
+          organization_id: currentOrganizationId,
+          cared_person_id: selectedPerson.id,
+          occurrence_date: todayDateStr,
+          participation_status: status,
+          logged_by: user.id,
+        }, { onConflict: 'activity_id,occurrence_date' })
+        .select()
+        .single();
+
+      if (!error && data) {
+        setTodayLifeActivities(prev => prev.map(a => {
+          if (a.id === activityId) {
+            return { ...a, todayOccurrence: data };
+          }
+          return a;
+        }));
+      }
+    } catch (err) {
+      console.error('Error updating activity participation:', err);
+    }
+  };
+
   const medsPercent = medsData.total > 0 ? Math.round((medsData.taken / medsData.total) * 100) : 0;
   const hydPercent = Math.round((hydration.cups / hydration.goal) * 100);
   const mealsPercent = Math.round((meals.done / meals.total) * 100);
 
   const quickActions = [
-    { label: 'Registrar Medicamento', icon: Pill, color: '#19D3A2', bg: '#19D3A2', href: `/${locale}/dashboard/medications` },
-    { label: 'Registrar Refeição', icon: Utensils, color: '#F59E0B', bg: '#F59E0B', href: `/${locale}/dashboard/meals` },
+    { label: 'Medicamentos', icon: Pill, color: '#19D3A2', bg: '#19D3A2', href: `/${locale}/dashboard/medications` },
+    { label: 'Refeições', icon: Utensils, color: '#F59E0B', bg: '#F59E0B', href: `/${locale}/dashboard/meals` },
     { label: 'Registrar Água', icon: Droplet, color: '#3B82F6', bg: '#3B82F6', href: '#', onClick: handleAddWater },
-    { label: 'Registrar Sono', icon: BedDouble, color: '#8B5CF6', bg: '#8B5CF6', href: `/${locale}/dashboard/history` },
-    { label: 'Registrar Atividade', icon: Dumbbell, color: '#10B981', bg: '#10B981', href: `/${locale}/dashboard/history` },
-    { label: 'Pedir Ajuda', icon: Phone, color: '#F43F5E', bg: '#F43F5E', href: `/${locale}/dashboard/emergency` },
+    { label: 'Atividades & Movimento', icon: Dumbbell, color: '#10B981', bg: '#10B981', href: `/${locale}/dashboard/activities` },
+    { label: 'Compras & Estoque', icon: ShoppingCart, color: '#8B5CF6', bg: '#8B5CF6', href: `/${locale}/dashboard/shopping` },
+    { label: 'Passagem de Turno', icon: ClipboardList, color: '#06B6D4', bg: '#06B6D4', href: `/${locale}/dashboard/handovers` },
   ];
 
   const activityIcon = (type: string) => {
@@ -803,7 +869,7 @@ export default function DashboardOverviewPage() {
                 </div>
               ) : (
                 <div className="text-center py-4 text-stone-400 dark:text-slate-500 text-sm">
-                  <p>Nenhum check-in registrado hoje.</p>
+                  <p>Sem registros recentes de check-in para hoje.</p>
                   <Link href={`/${locale}/dashboard/history`} className="text-emerald-600 dark:text-[#5DE5BE] text-xs hover:underline font-bold mt-1 block">Registrar agora</Link>
                 </div>
               )}
@@ -906,7 +972,7 @@ export default function DashboardOverviewPage() {
                 })}
               </div>
             ) : (
-              <p className="text-xs text-stone-400 dark:text-slate-500 text-center py-4">Nenhuma atividade registrada ainda.</p>
+              <p className="text-xs text-stone-400 dark:text-slate-500 text-center py-4">Sem registros recentes na linha do tempo.</p>
             )}
           </div>
 
@@ -919,8 +985,72 @@ export default function DashboardOverviewPage() {
           </div>
         </div>
 
-        {/* Right 1/3: Appointments + Messages */}
+        {/* Right 1/3: Activities + Appointments + Messages */}
         <div className="space-y-5">
+
+          {/* Today's Life Activities (Physical, Learning, Rehab, Leisure) */}
+          <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-5 border border-stone-200 dark:border-[#172433] shadow-xs">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Dumbbell className="h-4 w-4 text-emerald-600 dark:text-[#19D3A2]" />
+                <h2 className="text-sm font-black text-stone-900 dark:text-[#F8FAFC]">Atividades & Aulas de Hoje</h2>
+              </div>
+              <Link href={`/${locale}/dashboard/activities`} className="text-xs text-emerald-600 dark:text-[#5DE5BE] hover:underline font-bold">Ver todas</Link>
+            </div>
+            {todayLifeActivities.length > 0 ? (
+              <div className="space-y-2.5">
+                {todayLifeActivities.map((act) => {
+                  const status = act.todayOccurrence?.participation_status;
+                  return (
+                    <div key={act.id} className="p-3 rounded-2xl bg-stone-50 dark:bg-[#172433] border border-stone-100 dark:border-transparent space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-extrabold text-stone-900 dark:text-[#F8FAFC] leading-snug truncate">
+                            {act.title}
+                          </p>
+                          <p className="text-[10px] text-stone-400 dark:text-slate-500 truncate">
+                            {act.schedule_time ? `⏰ ${act.schedule_time.slice(0, 5)} · ` : ''}
+                            {act.instructor_name || act.location_name || 'Rotina cadastrada'}
+                          </p>
+                        </div>
+                        {status === 'participated' ? (
+                          <Badge className="bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-300 text-[10px] font-bold shrink-0">
+                            Participou ✓
+                          </Badge>
+                        ) : status === 'missed' ? (
+                          <Badge variant="outline" className="text-stone-500 border-stone-300 text-[10px] font-bold shrink-0">
+                            Faltou
+                          </Badge>
+                        ) : (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => handleQuickActivityParticipation(act.id, 'participated')}
+                              className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold transition active:scale-95"
+                              title="Confirmar participação"
+                            >
+                              Fez ✓
+                            </button>
+                            <button
+                              onClick={() => handleQuickActivityParticipation(act.id, 'missed')}
+                              className="px-2 py-1 rounded-lg bg-stone-200 dark:bg-stone-700 hover:bg-stone-300 text-stone-700 dark:text-stone-300 text-[10px] font-bold transition active:scale-95"
+                              title="Marcar falta"
+                            >
+                              Não fez
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-xs text-stone-400 dark:text-slate-500">Sem atividades programadas para hoje.</p>
+                <Link href={`/${locale}/dashboard/activities`} className="text-xs text-emerald-600 dark:text-[#5DE5BE] hover:underline font-bold mt-1 block">+ Programar atividade</Link>
+              </div>
+            )}
+          </div>
 
           {/* Upcoming Appointments */}
           {isModuleEnabled('schedule_appointments') && (
@@ -952,7 +1082,7 @@ export default function DashboardOverviewPage() {
                 </div>
               ) : (
                 <div className="text-center py-4">
-                  <p className="text-xs text-stone-400 dark:text-slate-500">Nenhum compromisso hoje.</p>
+                  <p className="text-xs text-stone-400 dark:text-slate-500">Sem registros recentes de compromissos para hoje.</p>
                   <Link href={`/${locale}/dashboard/appointments`} className="text-xs text-emerald-600 dark:text-[#5DE5BE] hover:underline font-bold mt-1 block">+ Agendar</Link>
                 </div>
               )}
@@ -985,7 +1115,7 @@ export default function DashboardOverviewPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-stone-400 dark:text-slate-500 text-center py-3 mb-3">Nenhuma mensagem ainda.</p>
+              <p className="text-xs text-stone-400 dark:text-slate-500 text-center py-3 mb-3">Sem registros recentes de mensagens.</p>
             )}
             <Link
               href={`/${locale}/dashboard/family`}

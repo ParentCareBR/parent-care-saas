@@ -32,7 +32,12 @@ import {
   Sliders,
   Heart,
   ExternalLink,
-  MessageSquare
+  MessageSquare,
+  Activity,
+  ShoppingCart,
+  ArrowLeftRight,
+  Smile,
+  Home
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -124,19 +129,29 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const navHubs = [
     {
-      title: 'Rotina & Saúde',
+      title: 'Hoje & Atividades',
       items: [
         { name: tNav('overview'), href: `/${locale}/dashboard`, exact: true, icon: LayoutDashboard },
+        { name: tNav('activities'), href: `/${locale}/dashboard/activities`, icon: Activity },
+        { name: tNav('appointments'), href: `/${locale}/dashboard/appointments`, icon: Calendar },
         { name: tNav('medications'), href: `/${locale}/dashboard/medications`, icon: Pill },
         { name: tNav('meals'), href: `/${locale}/dashboard/meals`, icon: Utensils },
-        { name: tNav('appointments'), href: `/${locale}/dashboard/appointments`, icon: Calendar },
       ],
     },
     {
-      title: 'Gestão & Família',
+      title: 'Vida & Organização',
+      items: [
+        { name: tNav('shopping'), href: `/${locale}/dashboard/shopping`, icon: ShoppingCart },
+        { name: tNav('memories'), href: `/${locale}/dashboard/memories`, icon: Smile },
+        { name: tNav('homeSafety'), href: `/${locale}/dashboard/home-safety`, icon: Home },
+        { name: tNav('expenses'), href: `/${locale}/dashboard/expenses`, icon: Receipt },
+      ],
+    },
+    {
+      title: 'Equipe & Cuidado',
       items: [
         { name: tNav('family'), href: `/${locale}/dashboard/family`, icon: Users },
-        { name: tNav('expenses'), href: `/${locale}/dashboard/expenses`, icon: Receipt },
+        { name: tNav('handovers'), href: `/${locale}/dashboard/handovers`, icon: ArrowLeftRight },
         { name: tNav('reports'), href: `/${locale}/dashboard/reports`, icon: BarChart3 },
       ],
     },
