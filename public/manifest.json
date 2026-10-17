@@ -1,13 +1,15 @@
 {
   "name": "Parent Care — Cuidado Familiar",
   "short_name": "Parent Care",
+  "id": "/",
   "description": "Plataforma inteligente de cuidado familiar, rotina, saúde e acompanhamento de idosos.",
-  "start_url": "/pt-BR/dashboard",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#060d1a",
   "theme_color": "#0F4C3A",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icon-192x192.png",

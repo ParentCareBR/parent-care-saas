@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Download, X, Share2, PlusSquare, Sparkles, Smartphone, Check } from 'lucide-react';
+import { Download, X, Share2, PlusSquare, Smartphone, Check, MoreVertical, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -9,12 +9,26 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 }
 
+// Early capture if fired before mount
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    (window as any).__pwaPrompt = e;
+  });
+}
+
 export function PWAInstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(() => {
+    if (typeof window !== 'undefined' && (window as any).__pwaPrompt) {
+      return (window as any).__pwaPrompt;
+    }
+    return null;
+  });
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
-  const [dismissed, setDismissed] = useState(true); // default true until client checks
+  const [dismissed, setDismissed] = useState(true);
   const [installedSuccess, setInstalledSuccess] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -24,14 +38,14 @@ export function PWAInstallPrompt() {
       navigator.serviceWorker
         .register('/sw.js')
         .then((reg) => {
-          console.log('[PWA] Service Worker registrado com escopo:', reg.scope);
+          console.log('[PWA] Service Worker registrado:', reg.scope);
         })
         .catch((err) => {
           console.warn('[PWA] Falha ao registrar Service Worker:', err);
         });
     }
 
-    // 2. Check if already running in standalone mode (installed)
+    // 2. Check standalone mode (already installed)
     const isAppStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as any).standalone === true;
@@ -46,8 +60,9 @@ export function PWAInstallPrompt() {
     try {
       const lastDismissed = localStorage.getItem('parentcare_pwa_dismissed');
       if (lastDismissed) {
-        const diffDays = (Date.now() - Number(lastDismissed)) / (1000 * 60 * 60 * 24);
-        if (diffDays < 7) {
+        const diffHours = (Date.now() - Number(lastDismissed)) / (1000 * 60 * 60);
+        // Only suppress for 24 hours if dismissed
+        if (diffHours < 24) {
           setDismissed(true);
           return;
         }
@@ -56,26 +71,33 @@ export function PWAInstallPrompt() {
 
     setDismissed(false);
 
-    // 4. Detect iOS Safari
+    // 4. Detect iOS
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isAppleDevice = /iphone|ipad|ipod/.test(userAgent);
     const isSafari = /safari/.test(userAgent) && !/chrome|crios|fxios/.test(userAgent);
-    if (isAppleDevice && isSafari && !isAppStandalone) {
+    if (isAppleDevice) {
       setIsIOS(true);
     }
 
-    // 5. Capture beforeinstallprompt (Android / Chrome / Edge)
+    // 5. Check if window already has captured prompt
+    if ((window as any).__pwaPrompt) {
+      setDeferredPrompt((window as any).__pwaPrompt);
+    }
+
+    // 6. Capture beforeinstallprompt
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault();
+      (window as any).__pwaPrompt = e;
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
 
-    // 6. Listen for appinstalled
+    // 7. App installed event
     const handleAppInstalled = () => {
       setInstalledSuccess(true);
       setDeferredPrompt(null);
+      (window as any).__pwaPrompt = null;
       setTimeout(() => setDismissed(true), 3500);
     };
     window.addEventListener('appinstalled', handleAppInstalled);
@@ -87,18 +109,27 @@ export function PWAInstallPrompt() {
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    try {
-      await deferredPrompt.prompt();
-      const choice = await deferredPrompt.userChoice;
-      if (choice.outcome === 'accepted') {
-        setInstalledSuccess(true);
-        setTimeout(() => setDismissed(true), 3000);
+    // If native prompt is available, trigger it directly!
+    const promptEvent = deferredPrompt || (typeof window !== 'undefined' ? (window as any).__pwaPrompt : null);
+    
+    if (promptEvent) {
+      try {
+        await promptEvent.prompt();
+        const choice = await promptEvent.userChoice;
+        if (choice.outcome === 'accepted') {
+          setInstalledSuccess(true);
+          setTimeout(() => setDismissed(true), 3000);
+        }
+        setDeferredPrompt(null);
+        (window as any).__pwaPrompt = null;
+        return;
+      } catch (err) {
+        console.warn('[PWA] Prompt error:', err);
       }
-      setDeferredPrompt(null);
-    } catch (err) {
-      console.warn('[PWA] Prompt error:', err);
     }
+
+    // If native prompt not directly fired by browser, open the visual 1-2-3 guide
+    setShowGuide(true);
   };
 
   const handleDismiss = () => {
@@ -108,7 +139,6 @@ export function PWAInstallPrompt() {
     } catch {}
   };
 
-  // Do not show if already standalone, or dismissed, or nothing to show
   if (isStandalone || dismissed) return null;
 
   return (
@@ -116,9 +146,9 @@ export function PWAInstallPrompt() {
       aria-label="Instalação do Aplicativo"
       className="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:bottom-6 md:max-w-md z-50 animate-in slide-in-from-bottom-5 duration-300"
     >
-      <div className="bg-[#0B1526] text-white border-2 border-emerald-500/40 rounded-3xl p-4 sm:p-5 shadow-2xl backdrop-blur-md relative overflow-hidden">
+      <div className="bg-[#0B1526] text-white border-2 border-emerald-500/50 rounded-3xl p-4 sm:p-5 shadow-2xl backdrop-blur-md relative overflow-hidden">
         {/* Glow ambient background */}
-        <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/15 rounded-full blur-2xl pointer-events-none" />
 
         <button
           type="button"
@@ -142,12 +172,12 @@ export function PWAInstallPrompt() {
         ) : (
           <div className="space-y-3">
             <div className="flex items-start gap-3 pr-6">
-              <div className="w-12 h-12 rounded-2xl bg-[#0F4C3A] border border-emerald-400/40 flex items-center justify-center shrink-0 shadow-md">
+              <div className="w-12 h-12 rounded-2xl bg-[#0F4C3A] border border-emerald-400/50 flex items-center justify-center shrink-0 shadow-md">
                 <Smartphone className="h-6 w-6 text-emerald-300" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300 bg-emerald-500/20 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
                     App no Celular
                   </span>
                 </div>
@@ -160,43 +190,72 @@ export function PWAInstallPrompt() {
               </div>
             </div>
 
-            {/* Instruction for iOS Safari */}
-            {isIOS ? (
-              <div className="bg-[#101D2B] border border-slate-700/80 rounded-2xl p-3 text-xs text-slate-200 space-y-1.5">
-                <p className="font-bold text-white flex items-center gap-1.5">
-                  <Share2 className="h-4 w-4 text-emerald-400" /> Como instalar no iPhone:
-                </p>
-                <ol className="list-decimal list-inside space-y-1 text-slate-300 text-[11px]">
-                  <li>
-                    Toque no botão <span className="font-bold text-white">Compartilhar</span> (ícone quadrado com seta no rodapé do Safari).
-                  </li>
-                  <li>
-                    Role para baixo e selecione <span className="font-bold text-white">&quot;Adicionar à Tela de Início&quot;</span> <PlusSquare className="inline h-3 w-3 ml-0.5" />.
-                  </li>
-                </ol>
-              </div>
-            ) : (
-              /* Button for Android / Chrome / Edge */
-              <div className="flex items-center gap-2 pt-1">
-                <Button
-                  type="button"
-                  onClick={handleInstallClick}
-                  disabled={!deferredPrompt}
-                  className="flex-1 h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-lg active:scale-95 transition-all gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  {deferredPrompt ? 'Instalar Aplicativo Agora' : 'Adicionar à Tela Inicial'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleDismiss}
-                  className="h-11 px-3 text-xs font-semibold text-slate-400 border-slate-700 hover:bg-white/5 hover:text-white rounded-xl"
-                >
-                  Agora Não
-                </Button>
+            {/* Visual step-by-step guide if manual installation or iOS */}
+            {(showGuide || isIOS) && (
+              <div className="bg-[#101D2B] border border-emerald-500/30 rounded-2xl p-3.5 text-xs text-slate-200 space-y-2 animate-in fade-in duration-200">
+                {isIOS ? (
+                  <>
+                    <p className="font-bold text-emerald-300 flex items-center gap-1.5 text-xs">
+                      <Share2 className="h-4 w-4 text-emerald-400" /> Como adicionar no iPhone:
+                    </p>
+                    <ol className="list-decimal list-inside space-y-1.5 text-slate-300 text-[11px] font-medium">
+                      <li>
+                        Toque no botão <span className="font-bold text-white">Compartilhar</span> (ícone ⬆️ no rodapé do Safari).
+                      </li>
+                      <li>
+                        Role a lista e toque em <span className="font-bold text-white">&quot;Adicionar à Tela de Início&quot;</span> <PlusSquare className="inline h-3.5 w-3.5 ml-1 text-emerald-400" />.
+                      </li>
+                      <li>
+                        Toque em <span className="font-bold text-white">&quot;Adicionar&quot;</span> no canto superior direito.
+                      </li>
+                    </ol>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-bold text-emerald-300 flex items-center gap-1.5 text-xs">
+                      <MoreVertical className="h-4 w-4 text-emerald-400" /> Para adicionar na sua tela:
+                    </p>
+                    <ol className="list-decimal list-inside space-y-1.5 text-slate-300 text-[11px] font-medium">
+                      <li>
+                        Toque no menu de <span className="font-bold text-white">3 pontinhos (⋮)</span> no topo ou rodapé do navegador.
+                      </li>
+                      <li>
+                        Selecione <span className="font-bold text-white">&quot;Instalar aplicativo&quot;</span> ou <span className="font-bold text-white">&quot;Adicionar à tela inicial&quot;</span>.
+                      </li>
+                      <li>
+                        Confirme em <span className="font-bold text-white">&quot;Instalar&quot;</span> e o ícone aparecerá no seu celular!
+                      </li>
+                    </ol>
+                  </>
+                )}
               </div>
             )}
+
+            {/* Main Action Button - ALWAYS ENABLED AND ACTIVE */}
+            <div className="flex items-center gap-2 pt-1">
+              <Button
+                type="button"
+                onClick={handleInstallClick}
+                className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl shadow-lg active:scale-95 transition-all gap-2"
+              >
+                <Download className="h-4.5 w-4.5" />
+                <span>
+                  {deferredPrompt
+                    ? 'Instalar Aplicativo Agora'
+                    : showGuide || isIOS
+                    ? '✓ Seguir Instruções Acima'
+                    : 'Adicionar à Tela Inicial'}
+                </span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDismiss}
+                className="h-12 px-3 text-xs font-semibold text-slate-400 border-slate-700 hover:bg-white/5 hover:text-white rounded-xl"
+              >
+                Agora Não
+              </Button>
+            </div>
           </div>
         )}
       </div>
