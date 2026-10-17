@@ -129,7 +129,7 @@ export default function CaredPersonProfilePage() {
     }
   };
 
-  const handleSendTestWhatsApp = async () => {
+  const handleSendTestWhatsApp = async (useTemplate: boolean = false) => {
     if (!whatsappPhone) {
       toast({
         title: 'Número obrigatório',
@@ -153,6 +153,8 @@ export default function CaredPersonProfilePage() {
           phone: whatsappPhone,
           elder_name: displayName,
           meta_token: metaToken || undefined,
+          use_template: useTemplate,
+          template_name: 'hello_world',
         }),
       });
 
@@ -167,7 +169,9 @@ export default function CaredPersonProfilePage() {
 
       toast({
         title: 'Mensagem enviada com sucesso! 🚀',
-        description: `Enviamos uma mensagem de teste para o WhatsApp de ${displayName} (${whatsappPhone}). Verifique o celular!`,
+        description: useTemplate
+          ? `Template oficial da Meta entregue para ${whatsappPhone}! Verifique seu WhatsApp.`
+          : `Mensagem enviada para o WhatsApp de ${displayName} (${whatsappPhone}). Verifique o celular!`,
       });
     } catch (err: any) {
       toast({
@@ -706,16 +710,45 @@ export default function CaredPersonProfilePage() {
                     </div>
                   )}
 
+                  {/* Guia Meta Sandbox "To" */}
+                  <div className="p-3.5 rounded-2xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/60 space-y-2 text-xs">
+                    <div className="flex items-center gap-2 text-blue-950 dark:text-blue-200 font-bold">
+                      <span className="text-base">📌</span>
+                      <span>Como receber as mensagens de teste no seu celular (Regra da Meta)</span>
+                    </div>
+                    <p className="text-blue-900/90 dark:text-blue-300/90 text-[11px] leading-relaxed">
+                      Em modo de teste (Sandbox da Meta), o WhatsApp <strong>só entrega mensagens</strong> para números que foram adicionados e verificados na lista <strong>&quot;To&quot; (Para)</strong> dentro do painel do Facebook Developers.
+                    </p>
+                    <div className="bg-white/90 dark:bg-[#07111F]/90 p-3 rounded-xl border border-blue-200/60 dark:border-blue-800/50 text-[11px] space-y-1.5 text-stone-700 dark:text-slate-300">
+                      <p className="font-bold text-stone-900 dark:text-white">Onde entrar no Facebook Developers:</p>
+                      <p>1. Acesse <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 font-bold underline">developers.facebook.com/apps</a> e clique no aplicativo do Parent Care.</p>
+                      <p>2. No menu lateral esquerdo, clique em <strong>WhatsApp</strong> &rarr; <strong>API Setup</strong> (ou <em>Início rápido</em>).</p>
+                      <p>3. Na <strong>Etapa 1</strong>, procure o campo <strong>&quot;To&quot; (Para)</strong> &rarr; clique em <strong>&quot;Manage phone number list&quot;</strong> (Gerenciar lista de números de telefone).</p>
+                      <p>4. Adicione seu número com código do país (ex: <code>+55 11 98987-8993</code>) e digite o código de 6 dígitos enviado ao seu WhatsApp.</p>
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between gap-2 pt-3 border-t border-stone-200/60 dark:border-stone-800 flex-wrap">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Button
                         type="button"
-                        onClick={handleSendTestWhatsApp}
+                        onClick={() => handleSendTestWhatsApp(false)}
                         disabled={sendingTestWhatsApp || !whatsappPhone}
                         className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 h-9 font-bold shadow-md active:scale-95 transition-all"
                       >
                         <Send className="h-3.5 w-3.5" />
-                        {sendingTestWhatsApp ? 'Enviando Mensagem...' : 'Enviar Mensagem de Teste'}
+                        {sendingTestWhatsApp ? 'Enviando...' : 'Enviar Mensagem de Teste'}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        onClick={() => handleSendTestWhatsApp(true)}
+                        disabled={sendingTestWhatsApp || !whatsappPhone}
+                        variant="secondary"
+                        className="text-xs gap-1.5 h-9 font-bold shadow-xs active:scale-95 transition-all bg-emerald-100 hover:bg-emerald-200 text-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-300/50"
+                        title="Envia o template oficial hello_world aprovado pela Meta"
+                      >
+                        <span>⚡ Testar Template (hello_world)</span>
                       </Button>
 
                       {whatsappPhone && (

@@ -14,7 +14,8 @@ import {
   Moon, BedDouble, Check, ChevronRight, Plus, Activity,
   MessageSquare, Send, Clock, ExternalLink, Stethoscope,
   Dumbbell, Phone, AlertCircle, TrendingUp, Eye, Thermometer,
-  Wind, Gauge, ShoppingCart, ClipboardList, CheckCircle2, X
+  Wind, Gauge, ShoppingCart, ClipboardList, CheckCircle2, X,
+  Receipt
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -513,12 +514,14 @@ export default function DashboardOverviewPage() {
   const mealsPercent = Math.round((meals.done / meals.total) * 100);
 
   const quickActions = [
-    { label: 'Medicamentos', icon: Pill, color: '#19D3A2', bg: '#19D3A2', href: `/${locale}/dashboard/medications` },
-    { label: 'Refeições', icon: Utensils, color: '#F59E0B', bg: '#F59E0B', href: `/${locale}/dashboard/meals` },
-    { label: 'Registrar Água', icon: Droplet, color: '#3B82F6', bg: '#3B82F6', href: '#', onClick: handleAddWater },
-    { label: 'Atividades & Movimento', icon: Dumbbell, color: '#10B981', bg: '#10B981', href: `/${locale}/dashboard/activities` },
-    { label: 'Compras & Estoque', icon: ShoppingCart, color: '#8B5CF6', bg: '#8B5CF6', href: `/${locale}/dashboard/shopping` },
-    { label: 'Passagem de Turno', icon: ClipboardList, color: '#06B6D4', bg: '#06B6D4', href: `/${locale}/dashboard/handovers` },
+    { label: 'Medicamentos', sub: 'Prescrições', icon: Pill, color: '#0EA5E9', href: `/${locale}/dashboard/medications` },
+    { label: 'Refeições', sub: 'Cardápio', icon: Utensils, color: '#F59E0B', href: `/${locale}/dashboard/meals` },
+    { label: 'Registrar Água', sub: '+250ml', icon: Droplet, color: '#3B82F6', href: '#', onClick: handleAddWater },
+    { label: 'Agenda & Consultas', sub: 'Médicos', icon: Calendar, color: '#6366F1', href: `/${locale}/dashboard/appointments` },
+    { label: 'Atividades', sub: 'Fisioterapia', icon: Dumbbell, color: '#10B981', href: `/${locale}/dashboard/activities` },
+    { label: 'Compras & Estoque', sub: 'Suprimentos', icon: ShoppingCart, color: '#8B5CF6', href: `/${locale}/dashboard/shopping` },
+    { label: 'Passagem Turno', sub: 'Cuidadores', icon: ClipboardList, color: '#06B6D4', href: `/${locale}/dashboard/handovers` },
+    { label: 'Finanças', sub: 'Despesas', icon: Receipt, color: '#10B981', href: `/${locale}/dashboard/expenses` },
   ];
 
   const activityIcon = (type: string) => {
@@ -815,20 +818,41 @@ export default function DashboardOverviewPage() {
         </div>
       </div>
 
-      {/* ─── QUICK ACCESS ─────────────────────────────────────────────────── */}
+      {/* ─── ATALHOS RÁPIDOS (CARDS GRID INSPIRADO EM LAYOUTS MODELO) ──── */}
       <div className="bg-white dark:bg-[#101D2B] rounded-3xl p-5 border border-stone-200 dark:border-[#172433] shadow-xs">
-        <h2 className="text-sm font-black text-stone-900 dark:text-[#F8FAFC] mb-4">Acesso rápido</h2>
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-black text-stone-900 dark:text-[#F8FAFC]">Atalhos Rápidos</h2>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-[#5DE5BE]">
+                1 Toque
+              </span>
+            </div>
+            <p className="text-xs text-stone-400 dark:text-slate-500 mt-0.5">Registre e navegue pela rotina instantaneamente</p>
+          </div>
+          <Link
+            href={`/${locale}/dashboard/settings/monitoring`}
+            className="text-xs font-bold text-emerald-600 dark:text-[#5DE5BE] hover:underline"
+          >
+            Ajustar Módulos
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 sm:gap-3">
           {quickActions.map((action, idx) => {
             const Icon = action.icon;
             const content = (
-              <div className="flex flex-col items-center gap-2.5 p-3 rounded-2xl border border-stone-200/80 dark:border-[#172433] hover:border-current bg-stone-50/50 dark:bg-transparent transition-colors cursor-pointer group"
-                style={{ borderColor: `${action.color}30` }}>
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-xs dark:shadow-lg transition-transform group-hover:scale-105"
-                  style={{ background: `${action.color}25`, color: action.color }}>
+              <div
+                className="flex flex-col items-center text-center p-3 sm:p-3.5 rounded-2xl border border-stone-200/80 dark:border-[#172433] hover:border-emerald-500/50 bg-stone-50/60 dark:bg-[#0d1c32]/60 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20 transition-all cursor-pointer group shadow-2xs hover:shadow-xs active:scale-[0.98]"
+              >
+                <div
+                  className="w-11 h-11 rounded-2xl flex items-center justify-center mb-2 shadow-xs group-hover:scale-110 transition-transform"
+                  style={{ background: `${action.color}20`, color: action.color }}
+                >
                   <Icon className="h-5 w-5" />
                 </div>
-                <span className="text-[11px] font-bold text-center text-stone-700 dark:text-slate-300 leading-tight">{action.label}</span>
+                <span className="text-xs font-black text-stone-800 dark:text-slate-200 leading-tight line-clamp-1">{action.label}</span>
+                <span className="text-[10px] text-stone-400 dark:text-slate-500 line-clamp-1 mt-0.5">{action.sub}</span>
               </div>
             );
             if (action.onClick) {

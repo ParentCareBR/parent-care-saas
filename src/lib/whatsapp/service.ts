@@ -36,7 +36,12 @@ export function formatWhatsAppNumber(phone: string): string {
 export async function sendWhatsAppMessage(
   toPhone: string, 
   text: string,
-  options?: { metaToken?: string; metaPhoneId?: string }
+  options?: { 
+    metaToken?: string; 
+    metaPhoneId?: string; 
+    templateName?: string; 
+    templateLanguage?: string;
+  }
 ): Promise<SendWhatsAppResult> {
   const cleanNumber = formatWhatsAppNumber(toPhone);
   if (!cleanNumber || cleanNumber.length < 10) {
@@ -52,22 +57,36 @@ export async function sendWhatsAppMessage(
   if (metaToken && metaPhoneId) {
     try {
       const endpoint = `https://graph.facebook.com/v20.0/${metaPhoneId}/messages`;
+
+      const requestBody = options?.templateName ? {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: cleanNumber,
+        type: 'template',
+        template: {
+          name: options.templateName,
+          language: {
+            code: options.templateLanguage || 'en_US',
+          },
+        },
+      } : {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: cleanNumber,
+        type: 'text',
+        text: {
+          preview_url: true,
+          body: text,
+        },
+      };
+
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${metaToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to: cleanNumber,
-          type: 'text',
-          text: {
-            preview_url: true,
-            body: text,
-          },
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await res.json();

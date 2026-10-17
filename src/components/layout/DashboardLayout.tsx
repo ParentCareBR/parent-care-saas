@@ -40,6 +40,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from 'next-intl';
 import { QuickActionFAB } from '@/components/shared/QuickActionFAB';
+import { MobileCardMenu } from '@/components/layout/MobileCardMenu';
 
 interface NavItem {
   name: string;
@@ -414,120 +415,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
       </aside>
 
-      {/* ─── MOBILE DRAWER (MENU HAMBURGUER) ─────────────────────────────── */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 md:hidden flex animate-in fade-in duration-200">
-          <div 
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity" 
-            onClick={() => setMobileMenuOpen(false)}
-          />
-
-          <div className="relative w-4/5 max-w-xs bg-white dark:bg-[#08162A] text-stone-800 dark:text-slate-100 h-full flex flex-col z-10 shadow-2xl p-4 space-y-3">
-            {/* Drawer Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-stone-200 dark:border-[#172433]">
-              <div className="flex items-center gap-2">
-                <Heart className="h-5 w-5 text-emerald-500 fill-emerald-500" />
-                <h2 className="text-base font-black text-stone-900 dark:text-white">Parent Care</h2>
-              </div>
-              <button 
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-1.5 rounded-lg text-stone-400 hover:bg-stone-100 dark:hover:bg-[#101D2B]"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Cared Person Selector on Mobile */}
-            <div className="space-y-1.5 bg-stone-50 dark:bg-[#101D2B] p-2.5 rounded-2xl border border-stone-200/80 dark:border-[#172433]">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-[10px] font-extrabold text-stone-400 uppercase tracking-wider">{tHeader('caring_for')}</span>
-                <Link 
-                  href={`/${locale}/dashboard/cared-people/new`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="text-xs text-emerald-600 font-bold hover:underline"
-                >
-                  {tHeader('new_person')}
-                </Link>
-              </div>
-              <CaredPersonSelector />
-            </div>
-
-            {/* Navigation Links in Drawer */}
-            <nav className="flex-1 space-y-3 overflow-y-auto pt-1 pr-1">
-              {navHubs.map((hub, hi) => (
-                <div key={hi} className="space-y-1">
-                  <p className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-stone-400 dark:text-slate-500">
-                    {hub.title}
-                  </p>
-                  {hub.items.map((item) => {
-                    const isActive = item.exact 
-                      ? pathname === item.href 
-                      : pathname === item.href || pathname.startsWith(`${item.href}/`);
-                    const Icon = item.icon;
-
-                    return (
-                      <Link
-                        key={item.name}
-                        href={item.href}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className={cn(
-                          "flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-colors",
-                          isActive 
-                            ? "bg-emerald-500/10 text-emerald-800 dark:text-[#5DE5BE] font-bold" 
-                            : "text-stone-600 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-[#101D2B]"
-                        )}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Icon className={cn("h-4 w-4", item.accentColor)} />
-                          <span>{item.name}</span>
-                        </div>
-                        {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_#19D3A2]" />}
-                      </Link>
-                    );
-                  })}
-                </div>
-              ))}
-
-              <div className="pt-2 border-t border-stone-200 dark:border-[#172433] space-y-1">
-                <Link
-                  href={`/${locale}/dashboard/settings/subscription`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-stone-600 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-[#101D2B]"
-                >
-                  <Sparkles className="h-4 w-4 text-amber-500" />
-                  <span>{tNav('plans')}</span>
-                </Link>
-                <Link
-                  href={`/${locale}/dashboard/settings/monitoring`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-stone-600 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-[#101D2B]"
-                >
-                  <Sliders className="h-4 w-4 text-stone-400" />
-                  <span>{tNav('monitoring')}</span>
-                </Link>
-                <Link
-                  href={`/${locale}/dashboard/settings`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-stone-600 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-[#101D2B]"
-                >
-                  <Settings className="h-4 w-4 text-stone-400" />
-                  <span>{tNav('settings')}</span>
-                </Link>
-              </div>
-            </nav>
-
-            {/* Logout on Drawer */}
-            <div className="pt-2 border-t border-stone-200 dark:border-[#172433] flex items-center justify-between">
-              <button
-                onClick={() => { setMobileMenuOpen(false); signOut(); }}
-                className="flex items-center gap-2 text-xs font-bold text-rose-600 hover:underline"
-              >
-                <LogOut className="h-4 w-4" /> {tNav('logout')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ─── MOBILE & CARD HUB MENU MODAL ─────────────────────────────── */}
+      <MobileCardMenu
+        isOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+        locale={locale}
+        selectedPerson={selectedPerson}
+        signOut={signOut}
+      />
 
       {/* ─── MAIN CONTENT VIEWPORT ───────────────────────────────────────── */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#F8FAFC] dark:bg-[#07111F]">

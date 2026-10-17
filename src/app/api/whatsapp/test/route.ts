@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { phone, elder_name, meta_token, meta_phone_id } = body;
+    const { phone, elder_name, meta_token, meta_phone_id, use_template, template_name } = body;
 
     if (!phone) {
       return NextResponse.json({ error: 'Número de telefone é obrigatório.' }, { status: 400 });
@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
     const result = await sendWhatsAppMessage(phone, text, {
       metaToken: customMetaToken,
       metaPhoneId: customPhoneId,
+      templateName: use_template ? (template_name || 'hello_world') : undefined,
     });
 
     const isExpiredToken = Boolean(
