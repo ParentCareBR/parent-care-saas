@@ -4,7 +4,9 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
+import { CognitiveGamesHub } from '@/components/games/CognitiveGamesHub';
 import { 
+  Gamepad2,
   Heart, AlertCircle, Pill, Coffee, Droplet, CheckCircle2,
   Calendar, BellRing, RotateCcw, Sun, Moon, Activity as ActivityIcon,
   Clock, Volume2, ChevronLeft, ChevronRight,
@@ -123,7 +125,7 @@ interface FamilyMessage {
   fullDate: Date;
 }
 
-type MobileTab = 'home' | 'routine' | 'actions' | 'finances';
+type MobileTab = 'home' | 'routine' | 'games' | 'actions' | 'finances';
 
 export default function ElderlyViewPage({ params }: { params: { id: string; locale: string } }) {
   // Stable client instance across renders to prevent infinite re-fetching loops
@@ -794,6 +796,8 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
         const eventsDesc = dayEvents.map(e => `${e.title}${e.time ? ` às ${e.time}` : ''}`).join('. ');
         speakReminder(`Sua rotina de ${dayLabel} tem ${dayEvents.length} atividades: ${eventsDesc}.`, params.locale);
       }
+    } else if (activeTab === 'games') {
+      speakReminder('Aqui estão seus jogos cognitivos: Jogo da Forca, Memória, Caça-Palavras, Trivia Brasil, Genius e muito mais. Toque em um jogo para exercitar a mente!', params.locale);
     } else if (activeTab === 'actions') {
       speakReminder(`Aqui você pode registrar o que fez hoje: beber água, tomar remédio, refeição, ou avisar como está se sentindo.`, params.locale);
     } else if (activeTab === 'finances') {
@@ -1348,6 +1352,34 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               <ChevronRight className='h-4 w-4 text-stone-400 shrink-0' />
             </button>
 
+                        {/* 1.2c CARD DE JOGOS & ESTÍMULO MENTAL */}
+            <div className='bg-gradient-to-r from-amber-500/15 via-purple-500/10 to-indigo-500/15 dark:from-amber-950/40 dark:via-purple-950/30 dark:to-indigo-950/40 border-3 border-amber-400 dark:border-amber-600/80 p-4 sm:p-5 rounded-3xl shadow-sm flex items-center justify-between gap-3'>
+              <div className='flex items-center gap-3.5 min-w-0'>
+                <div className='w-14 h-14 rounded-2xl bg-[#D97706] text-white flex items-center justify-center text-3xl shadow-md shrink-0 animate-bounce'>
+                  🎮
+                </div>
+                <div className='min-w-0'>
+                  <span className='text-[11px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-400 block'>
+                    Passatempos & Memória
+                  </span>
+                  <h3 className='text-lg font-black text-stone-900 dark:text-white leading-tight truncate'>
+                    Jogos Cognitivos
+                  </h3>
+                  <p className='text-xs font-bold text-stone-600 dark:text-slate-300 mt-0.5 line-clamp-1'>
+                    Forca, Memória, Caça-Palavras e Trivia!
+                  </p>
+                </div>
+              </div>
+              <button
+                type='button'
+                onClick={() => { setActiveTab('games'); triggerHaptic(30); }}
+                className='px-4 py-2.5 rounded-2xl bg-[#D97706] hover:bg-[#B45309] text-white font-black text-sm shadow-md active:scale-95 shrink-0 transition-all flex items-center gap-1.5'
+              >
+                <span>Jogar</span>
+                <ChevronRight className='h-4 w-4' />
+              </button>
+            </div>
+
             {/* Link para ver rotina completa */}
             <button
               onClick={() => { setActiveTab('routine'); triggerHaptic(20); }}
@@ -1483,6 +1515,39 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
         )}
 
         {/* ═════════════════════════════════════════════════════════════ */}
+        
+        {/* ═════════════════════════════════════════════════════════════ */}
+        {/* TAB: 🎮 JOGOS COGNITIVOS (ACESSO TOTAL PARA O IDOSO)           */}
+        {/* ═════════════════════════════════════════════════════════════ */}
+        {activeTab === 'games' && (
+          <div className='space-y-4 pb-12 animate-in fade-in duration-200'>
+            <div className='bg-white dark:bg-stone-900 p-4 rounded-3xl border-2 border-stone-200 dark:border-stone-800 shadow-sm flex items-center justify-between'>
+              <div className='flex items-center gap-3'>
+                <div className='w-12 h-12 rounded-2xl bg-[#D97706] text-white flex items-center justify-center text-2xl shadow-xs'>
+                  🎮
+                </div>
+                <div>
+                  <h2 className='text-lg font-black text-stone-900 dark:text-white leading-tight'>
+                    Passatempos Cognitivos
+                  </h2>
+                  <p className='text-xs font-bold text-stone-600 dark:text-slate-300 mt-0.5'>
+                    7 jogos para exercitar a memória e o raciocínio
+                  </p>
+                </div>
+              </div>
+              <button
+                type='button'
+                onClick={() => { setActiveTab('home'); triggerHaptic(20); }}
+                className='text-xs font-black text-stone-700 dark:text-slate-200 bg-stone-100 dark:bg-stone-800 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 hover:bg-stone-200'
+              >
+                Voltar
+              </button>
+            </div>
+
+            <CognitiveGamesHub showBackHeader={false} />
+          </div>
+        )}
+
         {/* TAB 3: ⚡ AÇÕES (Central de 1 Toque para o Idoso)             */}
         {/* ═════════════════════════════════════════════════════════════ */}
         {activeTab === 'actions' && (
@@ -1493,6 +1558,23 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               <h2 className='text-lg font-black text-stone-900 dark:text-stone-100'>O que você fez agora?</h2>
               <p className='text-xs text-stone-500 font-medium'>Toque no botão para registrar e avisar a família:</p>
             </div>
+
+                        {/* Acesso a Finanças / Saldo */}
+            <button
+              onClick={() => { setActiveTab('finances'); triggerHaptic(20); }}
+              className='w-full bg-white dark:bg-stone-900 border-2 border-stone-200 dark:border-stone-800 p-4 rounded-3xl flex items-center justify-between text-left transition active:scale-95 shadow-xs'
+            >
+              <div className='flex items-center gap-3'>
+                <div className='w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/60 flex items-center justify-center text-2xl'>
+                  💰
+                </div>
+                <div>
+                  <span className='text-sm font-black text-stone-900 dark:text-white block'>Meu Saldo & Finanças</span>
+                  <span className='text-xs font-bold text-emerald-700 dark:text-emerald-400'>Ver extrato mensal disponível</span>
+                </div>
+              </div>
+              <ChevronRight className='h-4 w-4 text-stone-400' />
+            </button>
 
             {/* Grade de Ações Rápidas (Toques grandes e acessíveis) */}
             <div className='grid grid-cols-2 gap-3'>
@@ -1653,11 +1735,11 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
             className={`py-1.5 flex flex-col items-center justify-center gap-1 rounded-2xl transition-all ${
               activeTab === 'home'
                 ? 'text-emerald-600 dark:text-emerald-400 font-black'
-                : 'text-stone-400 dark:text-stone-500 font-bold hover:text-stone-700'
+                : 'text-stone-600 dark:text-slate-300 font-bold hover:text-stone-900'
             }`}
           >
             <Home className='h-6 w-6 stroke-[2.2]' />
-            <span className='text-[10px] leading-none'>Início</span>
+            <span className='text-[11px] leading-none'>Início</span>
           </button>
 
           {/* Tab 2: Rotina */}
@@ -1666,11 +1748,11 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
             className={`py-1.5 flex flex-col items-center justify-center gap-1 rounded-2xl transition-all ${
               activeTab === 'routine'
                 ? 'text-indigo-600 dark:text-indigo-400 font-black'
-                : 'text-stone-400 dark:text-stone-500 font-bold hover:text-stone-700'
+                : 'text-stone-600 dark:text-slate-300 font-bold hover:text-stone-900'
             }`}
           >
             <Clock className='h-6 w-6 stroke-[2.2]' />
-            <span className='text-[10px] leading-none'>Rotina</span>
+            <span className='text-[11px] leading-none'>Rotina</span>
           </button>
 
           {/* Tab Central: SOS de Emergência */}
@@ -1684,30 +1766,30 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
             <span className='text-[10px] font-black text-red-600 dark:text-red-400 leading-none mt-0.5'>SOS</span>
           </button>
 
-          {/* Tab 3: Ações Rápidas */}
+          {/* Tab 3: 🎮 Jogos Cognitivos */}
+          <button
+            onClick={() => { setActiveTab('games'); triggerHaptic(20); }}
+            className={`py-1.5 flex flex-col items-center justify-center gap-1 rounded-2xl transition-all ${
+              activeTab === 'games'
+                ? 'text-[#D97706] dark:text-amber-400 font-black'
+                : 'text-stone-600 dark:text-slate-300 font-bold hover:text-stone-900'
+            }`}
+          >
+            <Gamepad2 className='h-6 w-6 stroke-[2.2]' />
+            <span className='text-[11px] leading-none'>Jogos</span>
+          </button>
+
+          {/* Tab 4: Ações Rápidas */}
           <button
             onClick={() => { setActiveTab('actions'); triggerHaptic(20); }}
             className={`py-1.5 flex flex-col items-center justify-center gap-1 rounded-2xl transition-all ${
               activeTab === 'actions'
-                ? 'text-amber-600 dark:text-amber-400 font-black'
-                : 'text-stone-400 dark:text-stone-500 font-bold hover:text-stone-700'
+                ? 'text-emerald-600 dark:text-emerald-400 font-black'
+                : 'text-stone-600 dark:text-slate-300 font-bold hover:text-stone-900'
             }`}
           >
             <Zap className='h-6 w-6 stroke-[2.2]' />
-            <span className='text-[10px] leading-none'>Ações</span>
-          </button>
-
-          {/* Tab 4: Finanças */}
-          <button
-            onClick={() => { setActiveTab('finances'); triggerHaptic(20); }}
-            className={`py-1.5 flex flex-col items-center justify-center gap-1 rounded-2xl transition-all ${
-              activeTab === 'finances'
-                ? 'text-emerald-600 dark:text-emerald-400 font-black'
-                : 'text-stone-400 dark:text-stone-500 font-bold hover:text-stone-700'
-            }`}
-          >
-            <Wallet className='h-6 w-6 stroke-[2.2]' />
-            <span className='text-[10px] leading-none'>Finanças</span>
+            <span className='text-[11px] leading-none'>Ações</span>
           </button>
 
         </div>
