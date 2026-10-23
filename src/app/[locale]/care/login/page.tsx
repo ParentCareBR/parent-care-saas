@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Heart, Mail, Lock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { ThemeToggle } from '@/components/shared/ThemeToggle';
 
 export default function ElderlyLoginPage() {
   const [email, setEmail] = useState('');
@@ -70,8 +71,12 @@ export default function ElderlyLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-brand-soft flex flex-col items-center justify-center p-6 elderly-mode">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl overflow-hidden border-4 border-brand-green/20">
+    <div className="min-h-screen bg-stone-100 dark:bg-stone-950 flex flex-col items-center justify-center p-6 elderly-mode relative">
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggle showLabel className="h-11 px-3 bg-white dark:bg-stone-900 shadow-sm" />
+      </div>
+
+      <div className="max-w-md w-full bg-white dark:bg-stone-900 rounded-3xl shadow-xl overflow-hidden border-4 border-brand-green/20 dark:border-emerald-500/20">
         <div className="bg-brand-green p-8 text-center text-white">
           <Heart className="h-12 w-12 mx-auto mb-4 fill-white" />
           <h1 className="text-3xl font-bold mb-2">Acesso Familiar</h1>
@@ -82,13 +87,13 @@ export default function ElderlyLoginPage() {
           <form onSubmit={handleLogin} className="space-y-6 text-center">
             
             {error && (
-              <div className="bg-red-50 text-red-700 p-4 rounded-xl font-medium border border-red-200">
+              <div className="bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 p-4 rounded-xl font-medium border border-red-200 dark:border-red-800">
                 {error}
               </div>
             )}
 
             <div>
-              <label className="block text-xl font-bold text-stone-900 mb-4">
+              <label className="block text-xl font-bold text-stone-900 dark:text-stone-100 mb-4">
                 E-mail e Senha
               </label>
               <div className="relative mb-4">
@@ -97,7 +102,7 @@ export default function ElderlyLoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="h-20 text-2xl pl-16 rounded-2xl border-2 border-stone-300 focus-visible:ring-brand-green"
+                  className="h-20 text-2xl pl-16 rounded-2xl border-2 border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus-visible:ring-brand-green"
                   placeholder="Seu e-mail"
                 />
               </div>
@@ -107,7 +112,7 @@ export default function ElderlyLoginPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-20 text-3xl pl-16 rounded-2xl border-2 border-stone-300 focus-visible:ring-brand-green tracking-widest"
+                  className="h-20 text-3xl pl-16 rounded-2xl border-2 border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 focus-visible:ring-brand-green tracking-widest"
                   placeholder="••••••••"
                 />
               </div>
@@ -115,7 +120,7 @@ export default function ElderlyLoginPage() {
 
             <Button 
               type="submit"
-              className="w-full h-20 text-2xl rounded-2xl bg-brand-green hover:bg-emerald-800 shadow-md font-bold"
+              className="w-full h-20 text-2xl rounded-2xl bg-brand-green hover:bg-emerald-800 text-white shadow-md font-bold"
               disabled={loading || !email || !password}
             >
               {loading ? 'Entrando...' : 'Entrar'}

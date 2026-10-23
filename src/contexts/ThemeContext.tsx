@@ -22,16 +22,26 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-    const saved = localStorage.getItem('parentcare_theme') as Theme | null;
-    if (saved) {
-      setThemeState(saved);
-      if (saved === 'dark') {
-        document.documentElement.classList.add('dark');
+    try {
+      const saved = localStorage.getItem('parentcare_theme') as Theme | null;
+      if (saved === 'dark' || saved === 'light') {
+        setThemeState(saved);
+        if (saved === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
       } else {
-        document.documentElement.classList.remove('dark');
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const initialTheme: Theme = prefersDark ? 'dark' : 'light';
+        setThemeState(initialTheme);
+        if (prefersDark) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
       }
-    } else {
-      // Default to crisp, high-contrast light theme matching the official Parent Care design
+    } catch {
       setThemeState('light');
       document.documentElement.classList.remove('dark');
     }
@@ -39,7 +49,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
-    localStorage.setItem('parentcare_theme', newTheme);
+    try {
+      localStorage.setItem('parentcare_theme', newTheme);
+    } catch {}
     if (newTheme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {

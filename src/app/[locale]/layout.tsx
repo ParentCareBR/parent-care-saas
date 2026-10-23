@@ -61,7 +61,23 @@ export default async function LocaleLayout({
   }
 
   return (
-    <html lang={locale} className="h-full">
+    <html lang={locale} className="h-full" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var t = localStorage.getItem('parentcare_theme');
+                if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                }
+              } catch (_) {}
+            `,
+          }}
+        />
+      </head>
       <body className={`${inter.className} h-full bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 antialiased`}>
         <ThemeProvider>
           <NextIntlClientProvider messages={messages} locale={locale}>

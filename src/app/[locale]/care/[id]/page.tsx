@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { format, isSameDay, isToday, addDays } from 'date-fns';
 import { getDateFnsLocale, getSpeechSynthesisLang, getCareTexts, getFinanceTexts } from '@/lib/i18n/care-translations';
+import { useTheme } from '@/contexts/ThemeContext';
+import { ThemeToggle } from '@/components/shared/ThemeToggle';
 
 // ── Shared Audio Engine (Web Audio API Synthesizer) ──
 let globalAudioCtx: AudioContext | null = null;
@@ -132,6 +134,8 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
   // Stable client instance across renders to prevent infinite re-fetching loops
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { theme } = useTheme(); // consumed to keep ThemeContext reactive
   const tCare = getCareTexts(params.locale);
   const tFin = getFinanceTexts(params.locale);
   const dateFnsLoc = getDateFnsLocale(params.locale);
@@ -1095,6 +1099,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
             >
               <Volume2 className='h-5 w-5' />
             </button>
+            <ThemeToggle className='w-10 h-10' />
             <button
               onClick={() => { supabase.auth.signOut(); router.push(`/${params.locale}/care/login`); }}
               className='px-2.5 h-10 rounded-xl text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 text-xs font-bold transition active:scale-95'
