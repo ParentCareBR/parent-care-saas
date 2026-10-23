@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { 
   X, 
   Search, 
+  Gamepad2,
   Heart, 
   Pill, 
   Utensils, 
@@ -154,6 +155,19 @@ export function MobileCardMenu({
       bgColor: 'bg-teal-500/10 dark:bg-teal-500/15',
       borderColor: 'border-teal-500/30 hover:border-teal-500',
       badge: 'Corpo',
+    },
+    {
+      id: 'games',
+      name: 'Jogos e Momentos',
+      subtitle: 'Passatempos, memória e conexão familiar',
+      href: `/${locale}/dashboard/games`,
+      icon: Gamepad2,
+      category: 'health',
+      categoryLabel: 'Lazer',
+      accentColor: 'text-amber-500',
+      bgColor: 'bg-amber-500/10 dark:bg-amber-500/15',
+      borderColor: 'border-amber-500/30 hover:border-amber-500',
+      badge: '21 Jogos',
     },
 
     // ─── O LAR & FAMÍLIA ───

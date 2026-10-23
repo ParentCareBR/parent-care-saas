@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
@@ -199,6 +199,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         icon: Activity,
         href: `/${locale}/dashboard/activities`,
         subItems: [
+          { name: 'Jogos e Momentos', href: `/${locale}/dashboard/games` },
           { name: 'Exercícios e aulas', href: `/${locale}/dashboard/activities` },
           { name: 'Lazer e encontros', href: `/${locale}/dashboard/activities` },
           { name: 'Projetos e memórias', href: `/${locale}/dashboard/memories` },

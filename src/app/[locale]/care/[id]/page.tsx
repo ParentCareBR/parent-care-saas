@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { CognitiveGamesHub } from '@/components/games/CognitiveGamesHub';
+import { GamesAndMomentsHub } from '@/components/games/GamesAndMomentsHub';
 import { NinaAIChatbot } from '@/components/nina/NinaAIChatbot';
 import { 
   Gamepad2,
@@ -1766,7 +1767,13 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               </button>
             </div>
 
-            <CognitiveGamesHub showBackHeader={false} caredPersonId={params.id} caredPersonName={personInfo.name} />
+            <GamesAndMomentsHub
+              showBackHeader={false}
+              caredPersonId={params.id}
+              caredPersonName={personInfo.name}
+              organizationId={personInfo.organizationId}
+              locale={params.locale}
+            />
           </div>
         )}
 
