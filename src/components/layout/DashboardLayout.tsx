@@ -43,7 +43,6 @@ import {
   CheckCircle2,
   Phone,
   Home,
-  LayoutGrid,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -762,23 +761,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </span>
           </Link>
 
-          {/* 5. Todos os Cards / Início */}
-          <Link
-            href={`/${locale}/dashboard`}
-            className="flex flex-col items-center gap-0.5 min-w-[50px] group"
-          >
-            <div
-              className={cn(
-                'w-10 h-8 flex items-center justify-center rounded-xl text-stone-600 dark:text-slate-200 group-active:scale-95 transition-all',
-                pathname === `/${locale}/dashboard` ? 'bg-stone-100 dark:bg-stone-800' : ''
-              )}
-            >
-              <LayoutGrid className="h-5 w-5" />
-            </div>
-            <span className="text-[11px] font-bold text-stone-700 dark:text-slate-200">
-              Cards
-            </span>
-          </Link>
         </nav>
 
         {/* Global Floating Action Button */}

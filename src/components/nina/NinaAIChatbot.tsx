@@ -31,6 +31,7 @@ export interface NinaAIChatbotProps {
   isOpen?: boolean;
   onClose?: () => void;
   inline?: boolean;
+  userRole?: 'host' | 'elderly';
 }
 
 interface Message {
@@ -55,6 +56,7 @@ export function NinaAIChatbot({
   isOpen = true,
   onClose,
   inline = false,
+  userRole = 'host',
 }: NinaAIChatbotProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -154,6 +156,7 @@ export function NinaAIChatbot({
         body: JSON.stringify({
           messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
           caredPersonId,
+          userRole,
         }),
       });
 

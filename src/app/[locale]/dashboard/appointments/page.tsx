@@ -895,21 +895,27 @@ export default function AppointmentsPage() {
       </div>
     </div>
 
-      {/* ── Filters & Compass Legend ─────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* ── Filters ─────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        {/* "Todos" pill */}
         <button
           type="button"
           onClick={() => setTypeFilter('all')}
           className={cn(
-            'inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all cursor-pointer',
+            'shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-2xl border-2 transition-all',
             typeFilter === 'all'
-              ? 'bg-stone-900 text-white border-stone-900 dark:bg-stone-100 dark:text-stone-900 dark:border-stone-100 shadow-xs font-bold'
-              : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 border-stone-200 dark:border-stone-700 hover:border-stone-400'
+              ? 'bg-stone-900 dark:bg-white text-white dark:text-stone-900 border-stone-900 dark:border-white shadow-md'
+              : 'bg-white dark:bg-stone-800/60 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:border-stone-400 dark:hover:border-stone-500'
           )}
         >
-          <span>Todos ({events.length})</span>
+          Todos
+          <span className={cn(
+            'text-[10px] font-black px-1.5 py-0.5 rounded-full',
+            typeFilter === 'all' ? 'bg-white/20 dark:bg-black/20' : 'bg-stone-100 dark:bg-stone-700'
+          )}>{events.length}</span>
         </button>
 
+        {/* Type filter pills */}
         {(Object.entries(TYPE_CONFIG) as [EventType, typeof TYPE_CONFIG[EventType]][]).map(([type, cfg]) => {
           const count = events.filter(e => e.type === type).length;
           const isActive = typeFilter === type;
@@ -919,15 +925,18 @@ export default function AppointmentsPage() {
               type="button"
               onClick={() => setTypeFilter(isActive ? 'all' : type)}
               className={cn(
-                'inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all cursor-pointer',
+                'shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-2xl border-2 transition-all',
                 isActive
-                  ? cn(cfg.bgLight, cfg.bgDark, cfg.border, cfg.color, 'ring-2 ring-offset-1 ring-current font-bold')
-                  : cn(cfg.bgLight, cfg.bgDark, cfg.border, cfg.color, 'opacity-70 hover:opacity-100')
+                  ? cn(cfg.bgLight, cfg.bgDark, cfg.border, cfg.color, 'shadow-md ring-2 ring-offset-1 ring-current')
+                  : 'bg-white dark:bg-stone-800/60 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-700 hover:border-stone-300 dark:hover:border-stone-500'
               )}
             >
-              <cfg.Icon className="h-3.5 w-3.5" />
+              <cfg.Icon className="h-3.5 w-3.5 shrink-0" />
               <span>{cfg.label}</span>
-              <span className="text-[10px] font-bold opacity-80">({count})</span>
+              <span className={cn(
+                'text-[10px] font-black px-1.5 py-0.5 rounded-full',
+                isActive ? 'bg-black/15 dark:bg-white/15' : 'bg-stone-100 dark:bg-stone-700'
+              )}>{count}</span>
             </button>
           );
         })}
