@@ -99,14 +99,178 @@ export interface CognitiveGamesHubProps {
   onBack?: () => void;
   backHref?: string;
   showBackHeader?: boolean;
+  caredPersonId?: string;
+  caredPersonName?: string;
 }
 
-export function CognitiveGamesHub({ onBack, backHref, showBackHeader = true }: CognitiveGamesHubProps) {
+export interface CognitiveHistoryItem {
+  id: string;
+  date: string;
+  time: string;
+  gameId: GameType;
+  gameName: string;
+  difficulty: DiffLevel;
+  points: number;
+}
+
+export interface CognitiveEvolution {
+  totalPoints: number;
+  gamesPlayed: number;
+  gamesWon: number;
+  streakDays: number;
+  lastPlayedDate: string;
+  level: number;
+  levelTitle: string;
+  history: CognitiveHistoryItem[];
+}
+
+const EVOLUTION_STORAGE_KEY = 'parentcare_cognitive_evolution_v2';
+
+function getLevelInfo(points: number): { level: number; title: string; minPoints: number; nextLevelPoints: number } {
+  if (points < 100) return { level: 1, title: 'Iniciante Curioso 🌱', minPoints: 0, nextLevelPoints: 100 };
+  if (points < 250) return { level: 2, title: 'Mente Ativa ⭐', minPoints: 100, nextLevelPoints: 250 };
+  if (points < 500) return { level: 3, title: 'Memória Ágil 🧠', minPoints: 250, nextLevelPoints: 500 };
+  if (points < 900) return { level: 4, title: 'Raciocínio Brilhante 💡', minPoints: 500, nextLevelPoints: 900 };
+  if (points < 1500) return { level: 5, title: 'Mestre dos Desafios 🏆', minPoints: 900, nextLevelPoints: 1500 };
+  return { level: 6, title: 'Lenda Cognitiva 👑', minPoints: 1500, nextLevelPoints: 2500 };
+}
+
+function loadEvolution(): CognitiveEvolution {
+  if (typeof window === 'undefined') {
+    return {
+      totalPoints: 0,
+      gamesPlayed: 0,
+      gamesWon: 0,
+      streakDays: 1,
+      lastPlayedDate: new Date().toISOString().slice(0, 10),
+      level: 1,
+      levelTitle: 'Iniciante Curioso 🌱',
+      history: []
+    };
+  }
+  try {
+    const raw = localStorage.getItem(EVOLUTION_STORAGE_KEY);
+    if (!raw) {
+      return {
+        totalPoints: 0,
+        gamesPlayed: 0,
+        gamesWon: 0,
+        streakDays: 1,
+        lastPlayedDate: new Date().toISOString().slice(0, 10),
+        level: 1,
+        levelTitle: 'Iniciante Curioso 🌱',
+        history: []
+      };
+    }
+    const parsed = JSON.parse(raw);
+    const info = getLevelInfo(parsed.totalPoints || 0);
+    return {
+      ...parsed,
+      level: info.level,
+      levelTitle: info.title
+    };
+  } catch {
+    return {
+      totalPoints: 0,
+      gamesPlayed: 0,
+      gamesWon: 0,
+      streakDays: 1,
+      lastPlayedDate: new Date().toISOString().slice(0, 10),
+      level: 1,
+      levelTitle: 'Iniciante Curioso 🌱',
+      history: []
+    };
+  }
+}
+
+function saveEvolution(evolution: CognitiveEvolution) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(EVOLUTION_STORAGE_KEY, JSON.stringify(evolution));
+  } catch {}
+}
+
+export function CognitiveGamesHub({
+  onBack,
+  backHref,
+  showBackHeader = true,
+  caredPersonId,
+  caredPersonName
+}: CognitiveGamesHubProps) {
   const params = useParams();
   const locale = (params?.locale as string) || 'pt-BR';
   const [activeGame, setActiveGame] = useState<GameType>(null);
   const [pendingGame, setPendingGame] = useState<GameType>(null);
   const [difficulty, setDifficulty] = useState<DiffLevel>('facil');
+  const [evolution, setEvolution] = useState<CognitiveEvolution>(loadEvolution);
+  const [showEvolutionModal, setShowEvolutionModal] = useState(false);
+
+  useEffect(() => {
+    setEvolution(loadEvolution());
+  }, []);
+
+  const currentLevelInfo = getLevelInfo(evolution.totalPoints);
+  const pointsInCurrentLevel = Math.max(0, evolution.totalPoints - currentLevelInfo.minPoints);
+  const pointsNeededForLevel = currentLevelInfo.nextLevelPoints - currentLevelInfo.minPoints;
+  const progressPercent = Math.min(100, Math.round((pointsInCurrentLevel / pointsNeededForLevel) * 100));
+  const pointsToNextLevel = Math.max(0, currentLevelInfo.nextLevelPoints - evolution.totalPoints);
+
+  const recordGameWin = useCallback((gameId: GameType, diff: DiffLevel, pointsAwarded: number, summaryTitle: string) => {
+    setEvolution(prev => {
+      const today = new Date().toISOString().slice(0, 10);
+      const timeStr = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      let streak = prev.streakDays || 1;
+      if (prev.lastPlayedDate) {
+        const last = new Date(prev.lastPlayedDate);
+        const curr = new Date(today);
+        const diffDays = Math.round((curr.getTime() - last.getTime()) / (1000 * 3600 * 24));
+        if (diffDays === 1) streak += 1;
+        else if (diffDays > 1) streak = 1;
+      }
+
+      const newTotal = (prev.totalPoints || 0) + pointsAwarded;
+      const levelInfo = getLevelInfo(newTotal);
+      const newHistoryItem: CognitiveHistoryItem = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        date: today,
+        time: timeStr,
+        gameId,
+        gameName: summaryTitle,
+        difficulty: diff,
+        points: pointsAwarded
+      };
+
+      const updated: CognitiveEvolution = {
+        totalPoints: newTotal,
+        gamesPlayed: (prev.gamesPlayed || 0) + 1,
+        gamesWon: (prev.gamesWon || 0) + 1,
+        streakDays: streak,
+        lastPlayedDate: today,
+        level: levelInfo.level,
+        levelTitle: levelInfo.title,
+        history: [newHistoryItem, ...(prev.history || []).slice(0, 19)]
+      };
+
+      saveEvolution(updated);
+      return updated;
+    });
+
+    if (caredPersonId) {
+      fetch('/api/care/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cared_person_id: caredPersonId,
+          type: 'general',
+          message: `${caredPersonName || 'Idoso'} jogou ${summaryTitle}! (+${pointsAwarded} pts)`,
+          payload: {
+            content: `🧠 [Jogos Cognitivos] ${caredPersonName || 'Idoso'} venceu em ${summaryTitle} (${DIFF_CONFIG[diff].label}) e acumulou +${pointsAwarded} pontos.`,
+            type: 'cognitive_game'
+          }
+        })
+      }).catch(() => {});
+    }
+  }, [caredPersonId, caredPersonName]);
 
   const gamesList = [
     {
@@ -205,14 +369,84 @@ export function CognitiveGamesHub({ onBack, backHref, showBackHeader = true }: C
         <div className="w-11" />
       </header>
 
-      {/* DICA DE ESTÍMULO MENTAL */}
-      <div className="mb-4 p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border-2 border-indigo-200 dark:border-indigo-800 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
-          <Sparkles className="h-5 w-5" />
+      {/* ─── PAINEL DE EVOLUÇÃO COGNITIVA DO IDOSO ─── */}
+      <div className="mb-4 p-4 rounded-3xl bg-gradient-to-br from-amber-500/15 via-indigo-500/10 to-emerald-500/15 border-2 border-amber-400 dark:border-amber-600 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 text-white flex items-center justify-center text-2xl shadow-xs">
+              🏆
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-black uppercase tracking-wider text-amber-900 dark:text-amber-300">
+                  Evolução Mental
+                </span>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-white shadow-2xs">
+                  Nível {evolution.level}
+                </span>
+              </div>
+              <p className="text-sm font-black text-stone-900 dark:text-white leading-tight">
+                {evolution.levelTitle}
+              </p>
+            </div>
+          </div>
+          
+          <div className="text-right">
+            <span className="text-[10px] font-extrabold uppercase text-stone-500 block">Pontos</span>
+            <span className="text-xl font-black text-amber-600 dark:text-amber-400 tabular-nums">
+              ⭐ {evolution.totalPoints}
+            </span>
+          </div>
         </div>
-        <p className="text-xs font-bold text-indigo-950 dark:text-indigo-200 leading-snug">
-          Jogos com fases crescentes e banco gigante de palavras e perguntas para exercitar a memória todos os dias!
-        </p>
+
+        {/* Barra de progresso para o próximo nível */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[11px] font-bold text-stone-600 dark:text-slate-300">
+            <span>Próximo Nível: {pointsToNextLevel > 0 ? `${pointsToNextLevel} pts restantes` : 'Nível Máximo!'}</span>
+            <span className="font-black text-amber-600 dark:text-amber-400">{progressPercent}%</span>
+          </div>
+          <div className="w-full h-2.5 rounded-full bg-stone-200 dark:bg-slate-700 overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-amber-500 to-emerald-500 rounded-full transition-all duration-500"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Badges / Estatísticas Rápidas */}
+        <div className="grid grid-cols-3 gap-2 pt-1">
+          <div className="bg-white/80 dark:bg-slate-900/80 p-2 rounded-2xl text-center border border-stone-200 dark:border-slate-800 shadow-2xs">
+            <span className="text-[10px] text-stone-500 font-bold block">Vitórias</span>
+            <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
+              🎉 {evolution.gamesWon}
+            </span>
+          </div>
+          <div className="bg-white/80 dark:bg-slate-900/80 p-2 rounded-2xl text-center border border-stone-200 dark:border-slate-800 shadow-2xs">
+            <span className="text-[10px] text-stone-500 font-bold block">Partidas</span>
+            <span className="text-base font-black text-indigo-600 dark:text-indigo-400">
+              🎮 {evolution.gamesPlayed}
+            </span>
+          </div>
+          <div className="bg-white/80 dark:bg-slate-900/80 p-2 rounded-2xl text-center border border-stone-200 dark:border-slate-800 shadow-2xs">
+            <span className="text-[10px] text-stone-500 font-bold block">Sequência</span>
+            <span className="text-base font-black text-amber-600 dark:text-amber-400">
+              🔥 {evolution.streakDays}d
+            </span>
+          </div>
+        </div>
+
+        {evolution.history && evolution.history.length > 0 && (
+          <div className="text-center pt-0.5">
+            <button
+              type="button"
+              onClick={() => setShowEvolutionModal(true)}
+              className="text-xs font-black text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1"
+            >
+              <span>📜 Ver Meu Histórico de Conquistas</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ─── GRADE DE JOGOS ─── */}
@@ -368,14 +602,129 @@ export function CognitiveGamesHub({ onBack, backHref, showBackHeader = true }: C
             </div>
 
             {/* RENDERIZAR JOGO SELECIONADO */}
-            {activeGame === 'forca' && <HangmanMiniGame difficulty={difficulty} onLevelUp={() => setDifficulty(d => d === 'facil' ? 'medio' : 'dificil')} />}
-            {activeGame === 'memoria' && <MemoryMiniGame difficulty={difficulty} onLevelUp={() => setDifficulty(d => d === 'facil' ? 'medio' : 'dificil')} />}
-            {activeGame === 'trivia' && <TriviaMiniGame difficulty={difficulty} onLevelUp={() => setDifficulty(d => d === 'facil' ? 'medio' : 'dificil')} />}
-            {activeGame === 'genius' && <GeniusMiniGame difficulty={difficulty} onLevelUp={() => setDifficulty(d => d === 'facil' ? 'medio' : 'dificil')} />}
-            {activeGame === 'caca_palavras' && <WordSearchMiniGame difficulty={difficulty} onLevelUp={() => setDifficulty(d => d === 'facil' ? 'medio' : 'dificil')} />}
-            {activeGame === 'sudoku' && <SudokuMiniGame difficulty={difficulty} onLevelUp={() => setDifficulty(d => d === 'facil' ? 'medio' : 'dificil')} />}
-            {activeGame === 'velha' && <TicTacToeMiniGame difficulty={difficulty} onLevelUp={() => setDifficulty(d => d === 'facil' ? 'medio' : 'dificil')} />}
+            {activeGame === 'forca' && (
+              <HangmanMiniGame
+                key={`forca-${difficulty}`}
+                difficulty={difficulty}
+                onLevelUp={() => setDifficulty(d => d === 'facil' ? 'medio' : 'dificil')}
+                onRecordWin={(pts, title) => recordGameWin('forca', difficulty, pts, title)}
+              />
+            )}
+            {activeGame === 'memoria' && (
+              <MemoryMiniGame
+                key={`memoria-${difficulty}`}
+                difficulty={difficulty}
+                onLevelUp={() => setDifficulty(d => d === 'facil' ? 'medio' : 'dificil')}
+                onRecordWin={(pts, title) => recordGameWin('memoria', difficulty, pts, title)}
+              />
+            )}
+            {activeGame === 'trivia' && (
+              <TriviaMiniGame
+                key={`trivia-${difficulty}`}
+                difficulty={difficulty}
+                onLevelUp={() => setDifficulty(d => d === 'facil' ? 'medio' : 'dificil')}
+                onRecordWin={(pts, title) => recordGameWin('trivia', difficulty, pts, title)}
+              />
+            )}
+            {activeGame === 'genius' && (
+              <GeniusMiniGame
+                key={`genius-${difficulty}`}
+                difficulty={difficulty}
+                onLevelUp={() => setDifficulty(d => d === 'facil' ? 'medio' : 'dificil')}
+                onRecordWin={(pts, title) => recordGameWin('genius', difficulty, pts, title)}
+              />
+            )}
+            {activeGame === 'caca_palavras' && (
+              <WordSearchMiniGame
+                key={`caca_palavras-${difficulty}`}
+                difficulty={difficulty}
+                onLevelUp={() => setDifficulty(d => d === 'facil' ? 'medio' : 'dificil')}
+                onRecordWin={(pts, title) => recordGameWin('caca_palavras', difficulty, pts, title)}
+              />
+            )}
+            {activeGame === 'sudoku' && (
+              <SudokuMiniGame
+                key={`sudoku-${difficulty}`}
+                difficulty={difficulty}
+                onLevelUp={() => setDifficulty(d => d === 'facil' ? 'medio' : 'dificil')}
+                onRecordWin={(pts, title) => recordGameWin('sudoku', difficulty, pts, title)}
+              />
+            )}
+            {activeGame === 'velha' && (
+              <TicTacToeMiniGame
+                key={`velha-${difficulty}`}
+                difficulty={difficulty}
+                onLevelUp={() => setDifficulty(d => d === 'facil' ? 'medio' : 'dificil')}
+                onRecordWin={(pts, title) => recordGameWin('velha', difficulty, pts, title)}
+              />
+            )}
 
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL DE HISTÓRICO & EVOLUÇÃO COGNITIVA ─── */}
+      {showEvolutionModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#0A1220] border-2 border-stone-300 dark:border-slate-700 rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl relative animate-in zoom-in-95 duration-200 max-h-[85vh] overflow-y-auto space-y-4">
+            
+            <button
+              onClick={() => setShowEvolutionModal(false)}
+              className="absolute top-4 right-4 w-9 h-9 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-[#16253C] text-stone-800 dark:text-white flex items-center justify-center transition-all"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="text-center">
+              <div className="w-14 h-14 rounded-2xl bg-amber-500 text-white mx-auto flex items-center justify-center text-3xl shadow-sm mb-2">
+                🏆
+              </div>
+              <h3 className="text-xl font-black text-stone-900 dark:text-white">
+                Sua Evolução Cognitiva
+              </h3>
+              <p className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                Nível {evolution.level} · {evolution.levelTitle}
+              </p>
+            </div>
+
+            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 p-3 rounded-2xl flex items-center justify-between text-xs font-bold text-amber-950 dark:text-amber-200">
+              <span>Total de Pontos Acumulados</span>
+              <span className="text-base font-black text-amber-600 dark:text-amber-400">⭐ {evolution.totalPoints} pts</span>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="text-xs font-black uppercase text-stone-500 tracking-wider">
+                Partidas Recentes
+              </h4>
+              <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                {evolution.history && evolution.history.length > 0 ? (
+                  evolution.history.map(item => (
+                    <div
+                      key={item.id}
+                      className="p-2.5 rounded-xl bg-stone-50 dark:bg-[#101D2B] border border-stone-200 dark:border-slate-800 flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <p className="font-bold text-stone-900 dark:text-white">{item.gameName}</p>
+                        <p className="text-[10px] text-stone-500 font-semibold">{item.date} às {item.time}</p>
+                      </div>
+                      <span className="font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md">
+                        +{item.points} pts
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-stone-400 text-center py-4">Nenhuma partida recente registrada.</p>
+                )}
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              onClick={() => setShowEvolutionModal(false)}
+              className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs"
+            >
+              Fechar
+            </Button>
           </div>
         </div>
       )}
@@ -441,8 +790,16 @@ const HANGMAN_DATABASE: Record<DiffLevel, HangmanWord[]> = {
   ]
 };
 
-function HangmanMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLevelUp: () => void }) {
-  const bank = HANGMAN_DATABASE[difficulty];
+function HangmanMiniGame({
+  difficulty,
+  onLevelUp,
+  onRecordWin
+}: {
+  difficulty: DiffLevel;
+  onLevelUp: () => void;
+  onRecordWin: (pts: number, title: string) => void;
+}) {
+  const bank = HANGMAN_DATABASE[difficulty] || HANGMAN_DATABASE.facil;
   const [currentIdx, setCurrentIdx] = useState(() => Math.floor(Math.random() * bank.length));
   const currentItem = bank[currentIdx] || bank[0];
   const targetWord = currentItem.word.toUpperCase();
@@ -450,6 +807,7 @@ function HangmanMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onL
   const [guessedLetters, setGuessedLetters] = useState<Set<string>>(new Set());
   const [mistakes, setMistakes] = useState(0);
   const [showHint, setShowHint] = useState(false);
+  const [hasAwarded, setHasAwarded] = useState(false);
   const maxMistakes = 6;
 
   // Letras normalizadas para comparação
@@ -462,6 +820,17 @@ function HangmanMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onL
   });
 
   const isLost = mistakes >= maxMistakes;
+
+  // Reset completo quando mudar de fase
+  useEffect(() => {
+    const freshBank = HANGMAN_DATABASE[difficulty] || HANGMAN_DATABASE.facil;
+    const nextIdx = Math.floor(Math.random() * freshBank.length);
+    setCurrentIdx(nextIdx);
+    setGuessedLetters(new Set());
+    setMistakes(0);
+    setShowHint(false);
+    setHasAwarded(false);
+  }, [difficulty]);
 
   const handleGuess = (letter: string) => {
     if (guessedLetters.has(letter) || isWon || isLost) return;
@@ -477,7 +846,10 @@ function HangmanMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onL
         if (ch === ' ' || ch === '-') return true;
         return nextGuessed.has(normalize(ch));
       });
-      if (winCheck) {
+      if (winCheck && !hasAwarded) {
+        setHasAwarded(true);
+        const pts = difficulty === 'facil' ? 30 : difficulty === 'medio' ? 50 : 100;
+        onRecordWin(pts, 'Jogo da Forca');
         setTimeout(playWinJingle, 200);
       }
     } else {
@@ -496,6 +868,7 @@ function HangmanMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onL
     setGuessedLetters(new Set());
     setMistakes(0);
     setShowHint(false);
+    setHasAwarded(false);
   };
 
   // Teclado QWERTY fiel à imagem enviada
@@ -608,18 +981,29 @@ function HangmanMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onL
 
       {/* FEEDBACK DE VITÓRIA OU DERROTA */}
       {isWon && (
-        <div className="bg-emerald-100 dark:bg-emerald-950/60 border-2 border-emerald-500 p-3 rounded-2xl animate-in zoom-in-95">
+        <div className="bg-emerald-100 dark:bg-emerald-950/60 border-2 border-emerald-500 p-3.5 rounded-2xl animate-in zoom-in-95 space-y-2">
           <p className="text-base font-black text-emerald-950 dark:text-emerald-200 flex items-center justify-center gap-2">
             🎉 Parabéns! Você acertou a palavra!
           </p>
-          {difficulty !== 'dificil' && (
-            <button
-              onClick={onLevelUp}
-              className="mt-2 text-xs font-black text-emerald-800 dark:text-emerald-300 underline"
+          <p className="text-xs font-black text-emerald-800 dark:text-emerald-300">
+            +{difficulty === 'facil' ? 30 : difficulty === 'medio' ? 50 : 100} Pontos de Evolução Mental! ⭐
+          </p>
+          <div className="flex items-center justify-center gap-2 pt-1">
+            <Button
+              onClick={handleNewWord}
+              className="bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs h-9 px-3 rounded-xl shadow-xs"
             >
-              Subir para a próxima fase! →
-            </button>
-          )}
+              Próxima Palavra
+            </Button>
+            {difficulty !== 'dificil' && (
+              <Button
+                onClick={onLevelUp}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs h-9 px-3 rounded-xl shadow-xs"
+              >
+                Subir de Fase! →
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
@@ -686,7 +1070,15 @@ const MEMORY_EMOJI_POOL = [
   '🌻', '🌹', '🌴', '🍀', '🌈', '☀️', '⭐', '🌙', '🌊', '⚡'
 ];
 
-function MemoryMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLevelUp: () => void }) {
+function MemoryMiniGame({
+  difficulty,
+  onLevelUp,
+  onRecordWin
+}: {
+  difficulty: DiffLevel;
+  onLevelUp: () => void;
+  onRecordWin: (pts: number, title: string) => void;
+}) {
   const pairCount = difficulty === 'facil' ? 6 : difficulty === 'medio' ? 8 : 10;
 
   const generateCards = useCallback(() => {
@@ -700,12 +1092,14 @@ function MemoryMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLe
   const [flipped, setFlipped] = useState<number[]>([]);
   const [matched, setMatched] = useState<number[]>([]);
   const [moves, setMoves] = useState(0);
+  const [hasAwarded, setHasAwarded] = useState(false);
 
   useEffect(() => {
     setCards(generateCards());
     setFlipped([]);
     setMatched([]);
     setMoves(0);
+    setHasAwarded(false);
   }, [generateCards, difficulty]);
 
   const handleCardClick = (index: number) => {
@@ -723,7 +1117,10 @@ function MemoryMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLe
         playSuccessChime();
         setMatched(prev => {
           const updated = [...prev, first, second];
-          if (updated.length === cards.length) {
+          if (updated.length === cards.length && !hasAwarded) {
+            setHasAwarded(true);
+            const pts = difficulty === 'facil' ? 30 : difficulty === 'medio' ? 50 : 100;
+            onRecordWin(pts, 'Jogo da Memória');
             setTimeout(playWinJingle, 300);
           }
           return updated;
@@ -750,22 +1147,39 @@ function MemoryMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLe
       </div>
 
       {isComplete && (
-        <div className="bg-emerald-100 dark:bg-emerald-950/60 border-2 border-emerald-500 p-4 rounded-2xl text-center animate-in zoom-in-95">
+        <div className="bg-emerald-100 dark:bg-emerald-950/60 border-2 border-emerald-500 p-4 rounded-2xl text-center animate-in zoom-in-95 space-y-2">
           <Trophy className="h-10 w-10 text-amber-500 mx-auto mb-1 animate-bounce" />
           <p className="text-lg font-black text-emerald-950 dark:text-emerald-200">
             Parabéns! Memória Afiada!
           </p>
-          <p className="text-xs text-stone-700 dark:text-slate-200 mt-1">
+          <p className="text-xs text-stone-700 dark:text-slate-200">
             Você completou a fase em <strong>{moves}</strong> tentativas!
           </p>
-          {difficulty !== 'dificil' && (
-            <button
-              onClick={onLevelUp}
-              className="mt-3 px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-black text-xs hover:bg-emerald-700"
+          <p className="text-xs font-black text-emerald-800 dark:text-emerald-300">
+            +{difficulty === 'facil' ? 30 : difficulty === 'medio' ? 50 : 100} Pontos de Evolução Mental! ⭐
+          </p>
+          <div className="flex items-center justify-center gap-2 pt-1">
+            <Button
+              onClick={() => {
+                setCards(generateCards());
+                setFlipped([]);
+                setMatched([]);
+                setMoves(0);
+                setHasAwarded(false);
+              }}
+              className="bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs h-9 px-3 rounded-xl shadow-xs"
             >
-              Avançar para a próxima fase! →
-            </button>
-          )}
+              Jogar Novamente
+            </Button>
+            {difficulty !== 'dificil' && (
+              <Button
+                onClick={onLevelUp}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs h-9 px-3 rounded-xl shadow-xs"
+              >
+                Próxima Fase! →
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
@@ -856,13 +1270,22 @@ const TRIVIA_DATABASE: Record<DiffLevel, TriviaQuestion[]> = {
   ]
 };
 
-function TriviaMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLevelUp: () => void }) {
-  const bank = TRIVIA_DATABASE[difficulty];
+function TriviaMiniGame({
+  difficulty,
+  onLevelUp,
+  onRecordWin
+}: {
+  difficulty: DiffLevel;
+  onLevelUp: () => void;
+  onRecordWin: (pts: number, title: string) => void;
+}) {
+  const bank = TRIVIA_DATABASE[difficulty] || TRIVIA_DATABASE.facil;
   const [questions, setQuestions] = useState(() => [...bank].sort(() => Math.random() - 0.5).slice(0, 5));
   const [currentQ, setCurrentQ] = useState(0);
   const [selectedOpt, setSelectedOpt] = useState<number | null>(null);
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
+  const [hasAwarded, setHasAwarded] = useState(false);
 
   useEffect(() => {
     setQuestions([...bank].sort(() => Math.random() - 0.5).slice(0, 5));
@@ -870,9 +1293,20 @@ function TriviaMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLe
     setSelectedOpt(null);
     setScore(0);
     setFinished(false);
+    setHasAwarded(false);
   }, [difficulty]);
 
+  useEffect(() => {
+    if (finished && !hasAwarded && score >= 3) {
+      setHasAwarded(true);
+      const pts = score * 10 + (score === questions.length ? 30 : 0);
+      onRecordWin(pts, 'Trivia');
+      playWinJingle();
+    }
+  }, [finished, hasAwarded, score, questions.length, onRecordWin]);
+
   const handleSelect = (idx: number) => {
+    if (selectedOpt !== null || !questions[currentQ]) return;
     setSelectedOpt(idx);
     const isCorrect = idx === questions[currentQ].answer;
     if (isCorrect) {
@@ -887,7 +1321,6 @@ function TriviaMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLe
         setSelectedOpt(null);
       } else {
         setFinished(true);
-        playWinJingle();
       }
     }, 1500);
   };
@@ -898,9 +1331,11 @@ function TriviaMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLe
     setSelectedOpt(null);
     setScore(0);
     setFinished(false);
+    setHasAwarded(false);
   };
 
   if (finished) {
+    const ptsEarned = score >= 3 ? score * 10 + (score === questions.length ? 30 : 0) : 0;
     return (
       <div className="text-center space-y-4 py-3">
         <Trophy className="h-16 w-16 text-amber-500 mx-auto animate-bounce" />
@@ -908,22 +1343,30 @@ function TriviaMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLe
         <p className="text-base text-stone-700 dark:text-slate-200">
           Você acertou <strong className="text-emerald-600 dark:text-emerald-400 text-2xl">{score}</strong> de {questions.length} perguntas!
         </p>
-        {difficulty !== 'dificil' && score >= 4 && (
-          <button
-            onClick={onLevelUp}
-            className="px-4 py-2 rounded-2xl bg-indigo-600 text-white font-black text-xs hover:bg-indigo-700 shadow-sm"
-          >
-            Subir para a próxima fase! →
-          </button>
+        {ptsEarned > 0 && (
+          <p className="text-xs font-black text-emerald-800 dark:text-emerald-300">
+            +{ptsEarned} Pontos de Evolução Mental! ⭐
+          </p>
         )}
-        <Button onClick={restart} className="w-full bg-[#1D4ED8] hover:bg-[#1E40AF] text-white rounded-xl font-black h-12 shadow-md">
-          <RotateCcw className="h-4 w-4 mr-2" /> Jogar Novas Perguntas
-        </Button>
+        <div className="flex items-center justify-center gap-2 pt-1">
+          <Button onClick={restart} className="flex-1 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white rounded-xl font-black h-11 text-xs shadow-md">
+            <RotateCcw className="h-4 w-4 mr-1.5" /> Jogar Novas Perguntas
+          </Button>
+          {difficulty !== 'dificil' && score >= 3 && (
+            <Button
+              onClick={onLevelUp}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs h-11 px-3 rounded-xl shadow-xs"
+            >
+              Subir de Fase! →
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
 
   const qData = questions[currentQ];
+  if (!qData) return null;
 
   return (
     <div className="space-y-4">
@@ -1044,7 +1487,15 @@ function generateDynamicWordSearch(size: number, wordList: string[], count: numb
   return { grid, placedWords };
 }
 
-function WordSearchMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLevelUp: () => void }) {
+function WordSearchMiniGame({
+  difficulty,
+  onLevelUp,
+  onRecordWin
+}: {
+  difficulty: DiffLevel;
+  onLevelUp: () => void;
+  onRecordWin: (pts: number, title: string) => void;
+}) {
   const size = difficulty === 'facil' ? 5 : difficulty === 'medio' ? 6 : 7;
   const wordCount = difficulty === 'facil' ? 3 : difficulty === 'medio' ? 4 : 5;
 
@@ -1053,12 +1504,14 @@ function WordSearchMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; 
   );
   const [selectedCoords, setSelectedCoords] = useState<string[]>([]);
   const [foundWords, setFoundWords] = useState<string[]>([]);
+  const [hasAwarded, setHasAwarded] = useState(false);
 
   useEffect(() => {
     setPuzzle(generateDynamicWordSearch(size, WORD_POOLS[difficulty], wordCount));
     setSelectedCoords([]);
     setFoundWords([]);
-  }, [difficulty]);
+    setHasAwarded(false);
+  }, [difficulty, size, wordCount]);
 
   const handleCellClick = (r: number, c: number) => {
     const key = `${r}-${c}`;
@@ -1094,9 +1547,18 @@ function WordSearchMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; 
     setPuzzle(generateDynamicWordSearch(size, WORD_POOLS[difficulty], wordCount));
     setSelectedCoords([]);
     setFoundWords([]);
+    setHasAwarded(false);
   };
 
   const isWin = foundWords.length === puzzle.placedWords.length && puzzle.placedWords.length > 0;
+
+  useEffect(() => {
+    if (isWin && !hasAwarded) {
+      setHasAwarded(true);
+      const pts = difficulty === 'facil' ? 30 : difficulty === 'medio' ? 50 : 100;
+      onRecordWin(pts, 'Caça-Palavras');
+    }
+  }, [isWin, hasAwarded, difficulty, onRecordWin]);
 
   return (
     <div className="space-y-4 text-center">
@@ -1164,18 +1626,29 @@ function WordSearchMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; 
       </div>
 
       {isWin && (
-        <div className="bg-emerald-100 dark:bg-emerald-950/60 border-2 border-emerald-500 p-3 rounded-2xl">
+        <div className="bg-emerald-100 dark:bg-emerald-950/60 border-2 border-emerald-500 p-3.5 rounded-2xl animate-in zoom-in-95 space-y-2">
           <p className="text-base font-black text-emerald-950 dark:text-emerald-200">
             🎉 Fantástico! Todas as palavras foram encontradas!
           </p>
-          {difficulty !== 'dificil' && (
-            <button
-              onClick={onLevelUp}
-              className="mt-2 text-xs font-black text-emerald-800 dark:text-emerald-300 underline"
+          <p className="text-xs font-black text-emerald-800 dark:text-emerald-300">
+            +{difficulty === 'facil' ? 30 : difficulty === 'medio' ? 50 : 100} Pontos de Evolução Mental! ⭐
+          </p>
+          <div className="flex items-center justify-center gap-2 pt-1">
+            <Button
+              onClick={handleReset}
+              className="bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs h-9 px-3 rounded-xl shadow-xs"
             >
-              Avançar para a próxima fase! →
-            </button>
-          )}
+              Nova Grade
+            </Button>
+            {difficulty !== 'dificil' && (
+              <Button
+                onClick={onLevelUp}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs h-9 px-3 rounded-xl shadow-xs"
+              >
+                Próxima Fase! →
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
@@ -1192,7 +1665,15 @@ function WordSearchMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; 
 // ══════════════════════════════════════════════════════════════════════════════
 // 5. GENIUS DAS CORES (COM VELOCIDADES DIFERENTES POR FASE)
 // ══════════════════════════════════════════════════════════════════════════════
-function GeniusMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLevelUp: () => void }) {
+function GeniusMiniGame({
+  difficulty,
+  onLevelUp,
+  onRecordWin
+}: {
+  difficulty: DiffLevel;
+  onLevelUp: () => void;
+  onRecordWin: (pts: number, title: string) => void;
+}) {
   const COLORS = ['green', 'red', 'yellow', 'blue'] as const;
   type ColorType = typeof COLORS[number];
 
@@ -1212,25 +1693,52 @@ function GeniusMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLe
   const [activeButton, setActiveButton] = useState<ColorType | null>(null);
   const [gameOver, setGameOver] = useState(false);
   const [highScore, setHighScore] = useState(0);
+  const [hasAwarded, setHasAwarded] = useState(false);
+  const timerRefs = useRef<NodeJS.Timeout[]>([]);
+
+  const clearAllTimers = () => {
+    timerRefs.current.forEach(t => clearTimeout(t));
+    timerRefs.current = [];
+  };
+
+  useEffect(() => {
+    return () => clearAllTimers();
+  }, []);
+
+  useEffect(() => {
+    clearAllTimers();
+    setSequence([]);
+    setPlayerIndex(0);
+    setIsPlaying(false);
+    setActiveButton(null);
+    setGameOver(false);
+    setHasAwarded(false);
+  }, [difficulty]);
 
   const playSequence = (seq: ColorType[]) => {
+    clearAllTimers();
     setIsPlaying(true);
     seq.forEach((col, idx) => {
-      setTimeout(() => {
+      const t1 = setTimeout(() => {
         setActiveButton(col);
         playTone(COLOR_CONFIG[col].freq, 'triangle', speedMs * 0.0006, 0.25);
-        setTimeout(() => setActiveButton(null), speedMs * 0.6);
+        const t2 = setTimeout(() => setActiveButton(null), speedMs * 0.6);
+        timerRefs.current.push(t2);
       }, (idx + 1) * speedMs);
+      timerRefs.current.push(t1);
     });
 
-    setTimeout(() => {
+    const tEnd = setTimeout(() => {
       setIsPlaying(false);
       setPlayerIndex(0);
     }, (seq.length + 1) * speedMs);
+    timerRefs.current.push(tEnd);
   };
 
   const startGame = () => {
+    clearAllTimers();
     setGameOver(false);
+    setHasAwarded(false);
     const firstColor = COLORS[Math.floor(Math.random() * COLORS.length)];
     const newSeq = [firstColor];
     setSequence(newSeq);
@@ -1252,10 +1760,16 @@ function GeniusMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLe
         if (sequence.length > highScore) {
           setHighScore(sequence.length);
         }
+        if (sequence.length >= 4 && !hasAwarded) {
+          setHasAwarded(true);
+          const pts = sequence.length * 10;
+          onRecordWin(pts, 'Genius Musical');
+        }
         const nextColor = COLORS[Math.floor(Math.random() * COLORS.length)];
         const nextSeq = [...sequence, nextColor];
         setSequence(nextSeq);
-        setTimeout(() => playSequence(nextSeq), 900);
+        const tNext = setTimeout(() => playSequence(nextSeq), 900);
+        timerRefs.current.push(tNext);
       } else {
         setPlayerIndex(nextIndex);
       }
@@ -1309,10 +1823,15 @@ function GeniusMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLe
       )}
 
       {gameOver && (
-        <div className="bg-rose-100 dark:bg-rose-950/60 border-2 border-rose-500 p-3 rounded-2xl">
+        <div className="bg-rose-100 dark:bg-rose-950/60 border-2 border-rose-500 p-3 rounded-2xl space-y-1">
           <p className="text-sm font-black text-rose-950 dark:text-rose-200">
             Ops! Você chegou ao nível {sequence.length}!
           </p>
+          {sequence.length >= 4 && (
+            <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+              +{sequence.length * 10} Pontos de Evolução Mental! ⭐
+            </p>
+          )}
         </div>
       )}
 
@@ -1321,9 +1840,16 @@ function GeniusMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLe
           <Play className="h-4 w-4 mr-2" /> Iniciar Genius
         </Button>
       ) : (
-        <Button onClick={startGame} variant="outline" className="w-full rounded-xl font-bold h-11 text-xs border-stone-300 dark:border-slate-700">
-          <RotateCcw className="h-4 w-4 mr-1.5" /> Reiniciar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={startGame} variant="outline" className="flex-1 rounded-xl font-bold h-11 text-xs border-stone-300 dark:border-slate-700">
+            <RotateCcw className="h-4 w-4 mr-1.5" /> Reiniciar
+          </Button>
+          {difficulty !== 'dificil' && sequence.length >= 5 && (
+            <Button onClick={onLevelUp} className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs h-11 px-3 rounded-xl shadow-xs">
+              Próxima Fase! →
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -1350,20 +1876,30 @@ const SUDOKU_PUZZLE_BANK: Record<DiffLevel, { initial: string[]; fixed: number[]
   ]
 };
 
-function SudokuMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLevelUp: () => void }) {
-  const puzzles = SUDOKU_PUZZLE_BANK[difficulty];
+function SudokuMiniGame({
+  difficulty,
+  onLevelUp,
+  onRecordWin
+}: {
+  difficulty: DiffLevel;
+  onLevelUp: () => void;
+  onRecordWin: (pts: number, title: string) => void;
+}) {
+  const puzzles = SUDOKU_PUZZLE_BANK[difficulty] || SUDOKU_PUZZLE_BANK.facil;
   const [pIndex, setPIndex] = useState(0);
   const currentP = puzzles[pIndex] || puzzles[0];
 
   const [grid, setGrid] = useState<string[]>([...currentP.initial]);
   const [selectedCell, setSelectedCell] = useState<number | null>(null);
   const [hasWon, setHasWon] = useState(false);
+  const [hasAwarded, setHasAwarded] = useState(false);
 
   useEffect(() => {
     const p = puzzles[pIndex] || puzzles[0];
     setGrid([...p.initial]);
     setSelectedCell(null);
     setHasWon(false);
+    setHasAwarded(false);
   }, [difficulty, pIndex, puzzles]);
 
   const checkWin = (currentGrid: string[]) => {
@@ -1375,6 +1911,16 @@ function SudokuMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLe
     for (let c = 0; c < 4; c++) {
       const col = [currentGrid[c], currentGrid[c+4], currentGrid[c+8], currentGrid[c+12]];
       if (new Set(col).size !== 4) return false;
+    }
+    const boxes = [
+      [0, 1, 4, 5],
+      [2, 3, 6, 7],
+      [8, 9, 12, 13],
+      [10, 11, 14, 15]
+    ];
+    for (const b of boxes) {
+      const boxVals = b.map(idx => currentGrid[idx]);
+      if (new Set(boxVals).size !== 4) return false;
     }
     return true;
   };
@@ -1393,8 +1939,11 @@ function SudokuMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLe
     next[selectedCell] = num;
     setGrid(next);
 
-    if (checkWin(next)) {
+    if (checkWin(next) && !hasAwarded) {
+      setHasAwarded(true);
       setHasWon(true);
+      const pts = difficulty === 'facil' ? 30 : difficulty === 'medio' ? 50 : 100;
+      onRecordWin(pts, 'Sudoku 4x4');
       playWinJingle();
     }
   };
@@ -1479,28 +2028,43 @@ function SudokuMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLe
       </div>
 
       {hasWon && (
-        <div className="bg-emerald-100 dark:bg-emerald-950/60 border-2 border-emerald-500 p-3 rounded-2xl animate-in zoom-in-95">
+        <div className="bg-emerald-100 dark:bg-emerald-950/60 border-2 border-emerald-500 p-3.5 rounded-2xl animate-in zoom-in-95 space-y-2">
           <p className="text-base font-black text-emerald-950 dark:text-emerald-200">
             🎉 Parabéns! Sudoku resolvido com perfeição!
           </p>
-          {difficulty !== 'dificil' && (
-            <button
-              onClick={onLevelUp}
-              className="mt-2 text-xs font-black text-emerald-800 dark:text-emerald-300 underline"
+          <p className="text-xs font-black text-emerald-800 dark:text-emerald-300">
+            +{difficulty === 'facil' ? 30 : difficulty === 'medio' ? 50 : 100} Pontos de Evolução Mental! ⭐
+          </p>
+          <div className="flex items-center justify-center gap-2 pt-1">
+            <Button
+              onClick={() => {
+                setPIndex(i => (i + 1) % puzzles.length);
+                setHasAwarded(false);
+              }}
+              className="bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs h-9 px-3 rounded-xl shadow-xs"
             >
-              Avançar para a próxima fase! →
-            </button>
-          )}
+              Próximo Puzzle
+            </Button>
+            {difficulty !== 'dificil' && (
+              <Button
+                onClick={onLevelUp}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs h-9 px-3 rounded-xl shadow-xs"
+              >
+                Próxima Fase! →
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
       <Button
         onClick={() => {
           setPIndex(i => (i + 1) % puzzles.length);
+          setHasAwarded(false);
         }}
         className="w-full bg-[#0891B2] hover:bg-[#0E7490] text-white rounded-xl font-black h-12 shadow-md active:scale-95"
       >
-        <RotateCcw className="h-4 w-4 mr-2" /> Próximo Puzzle
+        <RotateCcw className="h-4 w-4 mr-2" /> Outro Puzzle
       </Button>
     </div>
   );
@@ -1509,11 +2073,26 @@ function SudokuMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLe
 // ══════════════════════════════════════════════════════════════════════════════
 // 7. JOGO DA VELHA (COM IA AJUSTADA POR NÍVEL E MODO 2 JOGADORES)
 // ══════════════════════════════════════════════════════════════════════════════
-function TicTacToeMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; onLevelUp: () => void }) {
+function TicTacToeMiniGame({
+  difficulty,
+  onLevelUp,
+  onRecordWin
+}: {
+  difficulty: DiffLevel;
+  onLevelUp: () => void;
+  onRecordWin: (pts: number, title: string) => void;
+}) {
   const [board, setBoard] = useState<(string | null)[]>(Array(9).fill(null));
   const [isXNext, setIsXNext] = useState(true);
   const [mode, setMode] = useState<'bot' | 'two_players'>('bot');
   const [score, setScore] = useState({ x: 0, o: 0, ties: 0 });
+  const [hasAwarded, setHasAwarded] = useState(false);
+
+  useEffect(() => {
+    setBoard(Array(9).fill(null));
+    setIsXNext(true);
+    setHasAwarded(false);
+  }, [difficulty]);
 
   const calculateWinner = (squares: (string | null)[]) => {
     const lines = [
@@ -1632,6 +2211,11 @@ function TicTacToeMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; o
       if (win === 'X') {
         playWinJingle();
         setScore(s => ({ ...s, x: s.x + 1 }));
+        if (mode === 'bot' && !hasAwarded) {
+          setHasAwarded(true);
+          const pts = difficulty === 'facil' ? 20 : difficulty === 'medio' ? 40 : 80;
+          onRecordWin(pts, 'Jogo da Velha');
+        }
       } else {
         setScore(s => ({ ...s, o: s.o + 1 }));
       }
@@ -1643,6 +2227,7 @@ function TicTacToeMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; o
   const reset = () => {
     setBoard(Array(9).fill(null));
     setIsXNext(true);
+    setHasAwarded(false);
   };
 
   return (
@@ -1698,10 +2283,15 @@ function TicTacToeMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; o
       </div>
 
       {winner && (
-        <div className="bg-emerald-100 dark:bg-emerald-950/60 border-2 border-emerald-500 p-3 rounded-2xl animate-in zoom-in-95">
+        <div className="bg-emerald-100 dark:bg-emerald-950/60 border-2 border-emerald-500 p-3 rounded-2xl animate-in zoom-in-95 space-y-1">
           <p className="text-base font-black text-emerald-950 dark:text-emerald-200">
-            🎉 Vitória do jogador {winner}!
+            🎉 Vitória do jogador {winner === 'X' && mode === 'bot' ? 'Você (X)!' : winner}!
           </p>
+          {winner === 'X' && mode === 'bot' && (
+            <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+              +{difficulty === 'facil' ? 20 : difficulty === 'medio' ? 40 : 80} Pontos de Evolução Mental! ⭐
+            </p>
+          )}
         </div>
       )}
 
@@ -1713,12 +2303,22 @@ function TicTacToeMiniGame({ difficulty, onLevelUp }: { difficulty: DiffLevel; o
         </div>
       )}
 
-      <Button
-        onClick={reset}
-        className="w-full bg-[#0D9488] hover:bg-[#0F766E] text-white rounded-xl font-black h-12 shadow-md active:scale-95"
-      >
-        <RotateCcw className="h-4 w-4 mr-2" /> Jogar Novamente
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={reset}
+          className="flex-1 bg-[#0D9488] hover:bg-[#0F766E] text-white rounded-xl font-black h-12 shadow-md active:scale-95"
+        >
+          <RotateCcw className="h-4 w-4 mr-2" /> Jogar Novamente
+        </Button>
+        {difficulty !== 'dificil' && winner === 'X' && mode === 'bot' && (
+          <Button
+            onClick={onLevelUp}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs h-12 px-3 rounded-xl shadow-xs"
+          >
+            Subir de Fase! →
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

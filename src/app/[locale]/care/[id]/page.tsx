@@ -1761,7 +1761,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               </button>
             </div>
 
-            <CognitiveGamesHub showBackHeader={false} />
+            <CognitiveGamesHub showBackHeader={false} caredPersonId={params.id} caredPersonName={personInfo.name} />
           </div>
         )}
 
