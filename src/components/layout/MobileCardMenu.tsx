@@ -78,6 +78,19 @@ export function MobileCardMenu({
   const menuItems: MenuItemCard[] = useMemo(() => [
     // ─── ROTINA & SAÚDE ───
     {
+      id: 'nina',
+      name: 'Nina IA — Enfermeira Virtual',
+      subtitle: 'Assistência humanizada para dúvidas em saúde 🩺💡',
+      href: `/${locale}/dashboard/nina`,
+      icon: Sparkles,
+      category: 'health',
+      categoryLabel: 'Saúde',
+      accentColor: 'text-sky-400',
+      bgColor: 'bg-gradient-to-r from-sky-500/15 to-indigo-500/15',
+      borderColor: 'border-sky-400/40 hover:border-sky-400',
+      badge: 'IA 24h',
+    },
+    {
       id: 'overview',
       name: tNav('overview') || 'Visão Geral',
       subtitle: 'Resumo e métricas do dia',

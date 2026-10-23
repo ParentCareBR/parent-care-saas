@@ -19,6 +19,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import RecurrenceSelector, { RecurrenceConfig, recurrenceLabel } from '@/components/ui/RecurrenceSelector';
 import { getAlarmTexts } from '@/lib/i18n/care-translations';
+import { GoogleCalendarSyncModal } from '@/components/appointments/GoogleCalendarSyncModal';
 import {
   format, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
   addDays, addWeeks, addMonths, subWeeks, subMonths,
@@ -108,6 +109,7 @@ export default function AppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<'all' | EventType>('all');
   const [modalOpen, setModalOpen] = useState(false);
+  const [googleSyncOpen, setGoogleSyncOpen] = useState(false);
   const [newItemType, setNewItemType] = useState<NewItemType>('appointment');
   const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('day');
@@ -711,12 +713,23 @@ export default function AppointmentsPage() {
           </p>
         </div>
 
-        <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 rounded-xl">
-              <Plus className="h-4 w-4 mr-2" /> + Agendar
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setGoogleSyncOpen(true)}
+            className="bg-[#1A73E8] hover:bg-[#1557B0] text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-2 shadow-xs transition-all active:scale-95"
+            title="Sincronizar eventos com o Google Agenda"
+          >
+            <span className="w-4 h-4 rounded-full bg-white text-[#1A73E8] flex items-center justify-center font-black text-[10px]">G</span>
+            Conectar com Google Agenda
+          </button>
+
+          <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 rounded-xl">
+                <Plus className="h-4 w-4 mr-2" /> + Agendar
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
             {/* Tab selector */}
             <DialogHeader>
@@ -880,6 +893,7 @@ export default function AppointmentsPage() {
           </DialogContent>
         </Dialog>
       </div>
+    </div>
 
       {/* ── Filters & Compass Legend ─────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2">
@@ -1348,6 +1362,14 @@ export default function AppointmentsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Google Calendar Sync Modal */}
+      <GoogleCalendarSyncModal
+        isOpen={googleSyncOpen}
+        onClose={() => setGoogleSyncOpen(false)}
+        personName={selectedPerson?.full_name || 'Idoso'}
+        events={events}
+      />
     </div>
   );
 }

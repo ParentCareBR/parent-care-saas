@@ -34,6 +34,8 @@ import {
   ListFilter,
   Layers,
   HeartPulse,
+  Bot,
+  Stethoscope,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -143,9 +145,20 @@ export function MobileMacroMicroCards({
       icon: HeartPulse,
       gradient: 'from-rose-500 via-pink-600 to-purple-600',
       borderLight: 'border-pink-300 dark:border-pink-800',
-      badgeText: '5 Micro Funções',
+      badgeText: '6 Micro Funções',
       badgeColor: 'bg-pink-100 text-pink-800 dark:bg-pink-950/70 dark:text-pink-200',
       micros: [
+        {
+          id: 'nina-ia',
+          title: 'Nina IA — Assistente de Saúde',
+          subtitle: 'Assistência humanizada e respostas rápidas para dúvidas em saúde 🩺💡',
+          icon: Bot,
+          href: `/${locale}/dashboard/nina`,
+          bgColor: 'bg-gradient-to-r from-sky-600 to-indigo-600',
+          hoverColor: 'hover:from-sky-700 hover:to-indigo-700',
+          badge: 'IA 24h',
+          highlight: true,
+        },
         {
           id: 'medicamentos',
           title: 'Medicamentos',

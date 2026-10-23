@@ -728,6 +728,14 @@ export default function DashboardOverviewPage() {
                 </Link>
               )}
 
+              <Link
+                href={`/${locale}/dashboard/nina`}
+                className="bg-gradient-to-r from-sky-400 to-indigo-500 hover:from-sky-500 hover:to-indigo-600 text-white font-black px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+              >
+                <Sparkles className="h-4 w-4" />
+                Nina IA (Enfermeira) 🩺
+              </Link>
+
               {(selectedPerson?.whatsapp_phone || selectedPerson?.phone) && (
                 <a
                   href={`https://wa.me/${(selectedPerson.whatsapp_phone || selectedPerson.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`Olá ${selectedPerson.full_name ? selectedPerson.full_name.split(' ')[0] : ''}, tudo bem? Como você está hoje?`)}`}
@@ -1138,6 +1146,37 @@ export default function DashboardOverviewPage() {
                 >
                   <Link href={`/${locale}/dashboard/medications`}>
                     Definir Responsável / Conferir
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            {/* Nina IA Banner Card */}
+            <div className="bg-gradient-to-br from-sky-600 via-indigo-600 to-purple-700 text-white rounded-3xl p-5 shadow-md relative overflow-hidden group">
+              <div className="absolute top-0 right-0 -mr-6 -mt-6 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="relative z-10 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-2xl shadow-inner shrink-0 border border-white/20">
+                    🩺
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full border border-white/20">
+                      IA Clínica 24h
+                    </span>
+                    <h3 className="text-base font-black text-white mt-1 leading-tight">
+                      Nina IA — Enfermeira Virtual
+                    </h3>
+                    <p className="text-[11px] text-sky-100/90 mt-0.5">
+                      Respostas rápidas e humanizadas para dúvidas em saúde
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  asChild
+                  className="bg-white hover:bg-sky-50 text-indigo-900 rounded-2xl font-black text-xs px-4 py-2 h-auto shadow-md shrink-0 active:scale-95 transition-all"
+                >
+                  <Link href={`/${locale}/dashboard/nina`}>
+                    Chatbot 🚀
                   </Link>
                 </Button>
               </div>

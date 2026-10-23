@@ -211,6 +211,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         icon: Heart,
         href: `/${locale}/dashboard/medications`,
         subItems: [
+          { name: 'Nina IA (Enfermeira 24h)', href: `/${locale}/dashboard/nina` },
           { name: 'Medicamentos & Horários', href: `/${locale}/dashboard/medications` },
           { name: 'Alimentação & Refeições', href: `/${locale}/dashboard/meals` },
           { name: 'Sinais vitais & Histórico', href: `/${locale}/dashboard/history` },
@@ -248,6 +249,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // Helper to determine breadcrumb page title
   const getPageTitle = () => {
     if (pathname === `/${locale}/dashboard`) return 'Hoje';
+    if (pathname.includes('/nina')) return 'Nina IA — Assistente de Saúde';
     if (pathname.includes('/appointments')) return 'Agenda';
     if (pathname.includes('/activities')) return 'Atividades';
     if (pathname.includes('/medications')) return 'Medicamentos';
