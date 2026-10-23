@@ -70,7 +70,9 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
-  const { signOut, currentOrganizationId, user } = useAuth();
+  const { signOut, currentOrganizationId, user, memberships } = useAuth();
+  const currentMember = memberships?.find(m => m.organization_id === currentOrganizationId);
+  const currentUserRole = currentMember?.role;
   const { selectedPerson, caredPeople, setSelectedPersonId } = useCaredPerson();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [entitlements, setEntitlements] = useState<any>(null);
@@ -229,7 +231,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         subItems: [
           { name: 'Compras & Suprimentos', href: `/${locale}/dashboard/shopping` },
           { name: 'Segurança do Lar', href: `/${locale}/dashboard/home-safety` },
-          { name: 'Despesas & Finanças', href: `/${locale}/dashboard/expenses` },
+          ...(currentUserRole !== 'caregiver' && currentUserRole !== 'emergency_contact'
+            ? [{ name: 'Despesas & Finanças', href: `/${locale}/dashboard/expenses` }]
+            : []),
         ],
       },
     },
@@ -241,7 +245,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         href: `/${locale}/dashboard/handovers`,
         subItems: [
           { name: 'Passagens de Turno', href: `/${locale}/dashboard/handovers` },
-          { name: 'Família & Cuidadores', href: `/${locale}/dashboard/family` },
+          ...(currentUserRole !== 'caregiver' && currentUserRole !== 'emergency_contact'
+            ? [{ name: 'Família & Cuidadores', href: `/${locale}/dashboard/family` }]
+            : []),
           { name: 'Relatórios do Cuidado', href: `/${locale}/dashboard/reports` },
         ],
       },

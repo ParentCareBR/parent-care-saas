@@ -38,6 +38,31 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
+      // Check if user is an Option C cared person with their own account
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: member } = await supabase
+          .from('organization_members')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'cared_person')
+          .maybeSingle();
+
+        if (member) {
+          const { data: cp } = await supabase
+            .from('cared_people')
+            .select('id')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (cp) {
+            router.push(`/${locale}/care/${cp.id}`);
+            router.refresh();
+            return;
+          }
+        }
+      }
+
       router.push(`/${locale}/dashboard`);
       router.refresh();
     }

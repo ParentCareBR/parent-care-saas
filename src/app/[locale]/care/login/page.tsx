@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Heart, Mail, Lock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
+import { ElderlyLanguageSwitcher } from '@/components/shared/ElderlyLanguageSwitcher';
 
 export default function ElderlyLoginPage() {
   const [email, setEmail] = useState('');
@@ -72,7 +73,8 @@ export default function ElderlyLoginPage() {
 
   return (
     <div className="min-h-screen bg-stone-100 dark:bg-stone-950 flex flex-col items-center justify-center p-6 elderly-mode relative">
-      <div className="absolute top-4 right-4 z-10">
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+        <ElderlyLanguageSwitcher compact />
         <ThemeToggle showLabel className="h-11 px-3 bg-white dark:bg-stone-900 shadow-sm" />
       </div>
 

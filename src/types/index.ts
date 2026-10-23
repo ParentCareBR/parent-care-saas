@@ -1,6 +1,14 @@
 export * from './database';
 
-export type UserRole = 'owner' | 'admin' | 'collaborator' | 'caregiver' | 'cared_person';
+export type UserRole =
+  | 'owner'
+  | 'admin'
+  | 'collaborator'
+  | 'caregiver'
+  | 'cared_person'
+  | 'professional'
+  | 'emergency_contact';
+
 export type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'canceled' | 'paused';
 
 export interface UserProfile {
@@ -10,6 +18,7 @@ export interface UserProfile {
   avatar_url: string | null;
   phone: string | null;
   locale: string;
+  preferred_language?: string;
   timezone: string;
 }
 

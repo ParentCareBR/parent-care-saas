@@ -59,7 +59,42 @@ export function CaredPersonProvider({ children }: { children: React.ReactNode })
       .eq('organization_id', currentOrganizationId);
 
     if (data) {
-      const typed = data as unknown as CaredPerson[];
+      let typed = data as unknown as CaredPerson[];
+
+      // Enforce granular segregation per cared person for non-admins
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData?.user) {
+          const { data: member } = await supabase
+            .from('organization_members')
+            .select('role')
+            .eq('organization_id', currentOrganizationId)
+            .eq('user_id', authData.user.id)
+            .maybeSingle();
+
+          const role = (member as any)?.role;
+          if (role && !['admin', 'owner', 'co_admin'].includes(role)) {
+            // Check explicit cared_person access
+            const { data: accessRows } = await supabase
+              .from('user_cared_person_access')
+              .select('cared_person_id')
+              .eq('organization_id', currentOrganizationId)
+              .eq('user_id', authData.user.id)
+              .eq('is_active', true);
+
+            if (accessRows && accessRows.length > 0) {
+              const allowedIds = new Set(accessRows.map((r: any) => r.cared_person_id));
+              typed = typed.filter(p => allowedIds.has(p.id));
+            } else if (role === 'cared_person') {
+              // Option C: senior only sees themselves
+              typed = typed.filter(p => (p as any).user_id === authData.user.id);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[CaredPersonContext] Permission filter fallback:', err);
+      }
+
       setAllCaredPeople(typed);
       
       const activePeople = typed.filter(p => !p.archived_at && p.status !== 'archived');

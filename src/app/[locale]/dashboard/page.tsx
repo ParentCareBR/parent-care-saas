@@ -135,6 +135,11 @@ export default function DashboardOverviewPage() {
   });
   const [financialSummary, setFinancialSummary] = useState<{ balance: number; income: number; expenses: number } | null>(null);
   const [peopleInRoutineCount, setPeopleInRoutineCount] = useState<number>(2);
+  const [currentUserRole, setCurrentUserRole] = useState<string>('collaborator');
+  const [shiftActive, setShiftActive] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('parentcare_shift_active') === 'true';
+  });
 
   // Modal dialog states
   const [vitalsModalOpen, setVitalsModalOpen] = useState(false);
@@ -145,20 +150,44 @@ export default function DashboardOverviewPage() {
   const todayFormatted = format(today, "EEEE, dd 'de' MMMM", { locale: ptBR });
   const todayCapitalized = todayFormatted.charAt(0).toUpperCase() + todayFormatted.slice(1);
 
+  const handleToggleShift = async () => {
+    if (!shiftActive) {
+      setShiftActive(true);
+      if (typeof window !== 'undefined') localStorage.setItem('parentcare_shift_active', 'true');
+      toast({
+        title: 'Turno / Plantão Iniciado! 🕒',
+        description: `Plantão registrado com sucesso para os cuidados de ${selectedPerson?.full_name}. Bom trabalho!`,
+      });
+      try {
+        await supabase.from('care_notes').insert({
+          organization_id: currentOrganizationId,
+          cared_person_id: selectedPerson?.id,
+          content: `[Início de Plantão] Cuidador(a) ${userName || 'da equipe'} iniciou o turno de cuidados.`,
+          type: 'observation',
+        });
+      } catch {}
+    } else {
+      setHandoverModalOpen(true);
+    }
+  };
+
   const fetchData = useCallback(async () => {
     if (!selectedPerson || !currentOrganizationId) return;
 
-    // Get current user's name
+    // Get current user's name & role
     const { data: profile } = await supabase.auth.getUser();
     if (profile?.user) {
       const { data: orgMember } = await supabase
         .from('organization_members')
-        .select('users(full_name)')
+        .select('role, users(full_name)')
         .eq('user_id', profile.user.id)
         .eq('organization_id', currentOrganizationId)
         .maybeSingle();
       if (orgMember?.users?.full_name) {
         setUserName(orgMember.users.full_name.split(' ')[0]);
+      }
+      if (orgMember?.role) {
+        setCurrentUserRole(orgMember.role);
       }
     }
 
@@ -756,6 +785,21 @@ export default function DashboardOverviewPage() {
                 <HeartPulse className="h-4 w-4" />
                 Registrar Sinais Vitais
               </Button>
+
+              {currentUserRole === 'caregiver' && (
+                <Button
+                  type="button"
+                  onClick={handleToggleShift}
+                  className={`font-black px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all h-auto ${
+                    shiftActive
+                      ? 'bg-amber-400 hover:bg-amber-500 text-stone-900 border border-amber-300'
+                      : 'bg-emerald-400 hover:bg-emerald-300 text-emerald-950 font-black'
+                  }`}
+                >
+                  <Clock className="h-4 w-4" />
+                  {shiftActive ? 'Encerrar Plantão' : 'Iniciar Plantão'}
+                </Button>
+              )}
             </div>
           </div>
 
@@ -1288,9 +1332,11 @@ export default function DashboardOverviewPage() {
                   <Users className="h-4 w-4 text-emerald-600" />
                   Equipe de Cuidados ({peopleInRoutineCount})
                 </h3>
-                <Link href={`/${locale}/dashboard/family`} className="text-[11px] text-emerald-600 font-bold hover:underline">
-                  Gerenciar
-                </Link>
+                {['admin', 'owner', 'co_admin'].includes(currentUserRole) && (
+                  <Link href={`/${locale}/dashboard/family`} className="text-[11px] text-emerald-600 font-bold hover:underline">
+                    Gerenciar
+                  </Link>
+                )}
               </div>
 
               <div className="space-y-2.5">

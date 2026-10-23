@@ -20,6 +20,7 @@ import { format, isSameDay, isToday, addDays } from 'date-fns';
 import { getDateFnsLocale, getSpeechSynthesisLang, getCareTexts, getFinanceTexts } from '@/lib/i18n/care-translations';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
+import { ElderlyLanguageSwitcher } from '@/components/shared/ElderlyLanguageSwitcher';
 
 // ── Shared Audio Engine (Web Audio API Synthesizer) ──
 let globalAudioCtx: AudioContext | null = null;
@@ -1091,8 +1092,9 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
             </div>
           </div>
 
-          {/* Quick Actions (Audio / Read / Logout) */}
+          {/* Quick Actions (Language / Audio / Read / Logout) */}
           <div className='flex items-center gap-1.5 shrink-0'>
+            <ElderlyLanguageSwitcher caredPersonId={params.id} compact />
             <button
               onClick={handleReadAloudCurrentTab}
               title='Ouvir em Voz Alta'
