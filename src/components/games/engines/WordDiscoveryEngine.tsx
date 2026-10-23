@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Lightbulb, RotateCcw, Check, Sparkles } from 'lucide-react';
 import { getWordDiscoveryLevel, WordDiscoveryPuzzle } from '@/lib/games/content-generator';
@@ -13,7 +13,8 @@ interface WordDiscoveryEngineProps {
 }
 
 export function WordDiscoveryEngine({ levelNumber, locale = 'pt-BR', onComplete, onNextLevel }: WordDiscoveryEngineProps) {
-  const [puzzle, setPuzzle] = useState<WordDiscoveryPuzzle>(() => getWordDiscoveryLevel(levelNumber, locale));
+  const puzzle = useMemo(() => getWordDiscoveryLevel(levelNumber, locale), [levelNumber, locale]);
+
   const [guessedLetters, setGuessedLetters] = useState<Set<string>>(new Set());
   const [mistakes, setMistakes] = useState(0);
   const [showHint, setShowHint] = useState(false);
@@ -24,9 +25,8 @@ export function WordDiscoveryEngine({ levelNumber, locale = 'pt-BR', onComplete,
 
   const MAX_MISTAKES = 6;
 
+  // Reset state whenever puzzle or level changes
   useEffect(() => {
-    const p = getWordDiscoveryLevel(levelNumber, locale);
-    setPuzzle(p);
     setGuessedLetters(new Set());
     setMistakes(0);
     setShowHint(false);
@@ -34,7 +34,7 @@ export function WordDiscoveryEngine({ levelNumber, locale = 'pt-BR', onComplete,
     setIsCompleted(false);
     setIsGameOver(false);
     setEarnedStars(3);
-  }, [levelNumber, locale]);
+  }, [puzzle]);
 
   const handleLetterClick = (letter: string) => {
     if (isCompleted || isGameOver) return;
@@ -71,7 +71,7 @@ export function WordDiscoveryEngine({ levelNumber, locale = 'pt-BR', onComplete,
     setShowHint(true);
     setHintsUsed(h => h + 1);
 
-    // Also reveal an unguessed letter
+    // Reveal an unguessed letter
     const unguessed = puzzle.word.split('').filter(ch => !guessedLetters.has(ch));
     if (unguessed.length > 0) {
       const next = new Set(guessedLetters);
@@ -97,20 +97,20 @@ export function WordDiscoveryEngine({ levelNumber, locale = 'pt-BR', onComplete,
     setIsGameOver(false);
   };
 
-  // Flower blooming petals state: from 0 to 6 correct stages
-  const flowerStages = ['🌱', '🌿', '🌷', '🌸', '🌺', '🌻', '💐'];
-  const flowerIdx = Math.min(flowerStages.length - 1, Math.floor((guessedLetters.size / Math.max(1, puzzle.word.length)) * 6));
+  // Peaceful flower blooming stages
+  const flowerStages = ['🌱', '🌿', '🍃', '🪴', '🌷', '🌺', '🌸'];
+  const flowerIdx = Math.min(flowerStages.length - 1, mistakes);
 
   const KEYBOARD_ROWS = [
     ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
-    ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+    ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'Ç'],
     ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
   ];
 
   return (
-    <div className="flex flex-col items-center max-w-md mx-auto space-y-4">
+    <div className="flex flex-col items-center max-w-md mx-auto space-y-3.5 select-none">
       {/* Header Info */}
-      <div className="w-full flex items-center justify-between px-2 text-stone-600 dark:text-stone-300">
+      <div className="w-full flex items-center justify-between px-2 text-stone-700 dark:text-stone-300">
         <span className="text-sm font-black bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-3 py-1 rounded-xl border border-amber-200 dark:border-amber-800">
           Categoria: {puzzle.category} • Etapa {levelNumber}
         </span>
@@ -119,7 +119,7 @@ export function WordDiscoveryEngine({ levelNumber, locale = 'pt-BR', onComplete,
         </span>
       </div>
 
-      {/* Flower Garden Animation Area (Sem nenhuma violência!) */}
+      {/* Flower Garden Animation Area */}
       <div className="w-full bg-gradient-to-b from-sky-50 via-emerald-50/50 to-amber-50/40 dark:from-stone-900 dark:via-stone-800 dark:to-stone-900 border-2 border-emerald-300 dark:border-emerald-800 p-5 rounded-3xl flex flex-col items-center justify-center text-center shadow-xs space-y-2">
         <div className="text-6xl sm:text-7xl animate-pulse">
           {isCompleted ? '🌸 💐 🌻' : flowerStages[flowerIdx]}
@@ -137,7 +137,7 @@ export function WordDiscoveryEngine({ levelNumber, locale = 'pt-BR', onComplete,
         )}
       </div>
 
-      {/* Secret Word Tiles */}
+      {/* Secret Word Tiles (hidden by default) */}
       <div className="flex flex-wrap items-center justify-center gap-2 py-2">
         {puzzle.word.split('').map((ch, idx) => {
           const isRevealed = guessedLetters.has(ch) || isCompleted || isGameOver;
@@ -193,29 +193,29 @@ export function WordDiscoveryEngine({ levelNumber, locale = 'pt-BR', onComplete,
         <Button
           type="button"
           onClick={handleHintClick}
+          disabled={isCompleted || isGameOver}
           variant="outline"
-          className="flex-1 h-12 rounded-xl text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-50 font-bold gap-2 text-sm"
+          className="flex-1 h-12 rounded-xl text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-50 font-bold gap-2 text-sm"
         >
-          <Lightbulb className="h-5 w-5" /> Ver Dica Especial
+          <Lightbulb className="h-5 w-5" /> Dica e Letra Livre
         </Button>
       </div>
 
-      {/* Non-humiliating Game Over banner */}
+      {/* Game Over Encouragement */}
       {isGameOver && (
-        <div className="w-full bg-amber-50 dark:bg-stone-900 border-3 border-amber-400 p-4 rounded-3xl text-center space-y-3 shadow-md animate-in fade-in">
-          <p className="text-2xl">🌱</p>
-          <h3 className="text-lg font-black text-stone-900 dark:text-stone-100">
-            Você chegou bem perto! Quer tentar de novo?
-          </h3>
-          <p className="text-xs font-semibold text-stone-600 dark:text-stone-400">
-            A palavra era: <strong className="text-amber-700 dark:text-amber-400 font-black">{puzzle.word}</strong>
+        <div className="w-full bg-amber-50 dark:bg-stone-800 border-2 border-amber-400 p-4 rounded-3xl text-center space-y-2 animate-in zoom-in-95">
+          <p className="text-lg font-black text-amber-900 dark:text-amber-200">
+            Você chegou perto!
+          </p>
+          <p className="text-xs text-stone-600 dark:text-stone-300 font-semibold">
+            A palavra era: <span className="font-black text-emerald-600">{puzzle.word}</span>
           </p>
           <Button
             type="button"
             onClick={restartCurrentLevel}
-            className="w-full h-12 bg-amber-600 hover:bg-amber-700 text-white font-black text-sm rounded-xl shadow-xs"
+            className="w-full h-12 bg-amber-600 hover:bg-amber-700 text-white font-black text-sm rounded-xl gap-2"
           >
-            <RotateCcw className="h-4 w-4 mr-2" /> Tentar Novamente com Calma
+            <RotateCcw className="h-4 w-4" /> Vamos tentar novamente?
           </Button>
         </div>
       )}
@@ -229,10 +229,10 @@ export function WordDiscoveryEngine({ levelNumber, locale = 'pt-BR', onComplete,
             ))}
           </div>
           <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-100">
-            Palavra Revelada com Sucesso! 🌸
+            Parabéns! Você Descobriu! 🎉
           </h3>
           <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-200">
-            Muito bem! A flor do jardim se abriu inteira para você.
+            A palavra era <span className="font-black">{puzzle.word}</span>. Que jardim florido e belo!
           </p>
           {onNextLevel && (
             <Button

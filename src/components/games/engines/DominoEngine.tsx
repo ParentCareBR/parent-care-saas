@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Sparkles, RotateCcw, Lightbulb, UserCheck, Bot } from 'lucide-react';
+import { Sparkles, RotateCcw, Lightbulb, Bot } from 'lucide-react';
 
 interface DominoTile {
   id: string;
@@ -28,8 +28,8 @@ function generateDominoSet(): DominoTile[] {
   return tiles;
 }
 
-// Render domino dots
-function renderDots(num: number) {
+// Render domino dots with crisp high-contrast black pips
+function renderDots(num: number, size: 'sm' | 'md' = 'sm') {
   const dotPatterns: Record<number, string[]> = {
     0: [],
     1: ['col-start-2 row-start-2'],
@@ -41,11 +41,13 @@ function renderDots(num: number) {
   };
 
   const dots = dotPatterns[num] || [];
+  const boxDim = size === 'sm' ? 'w-5 h-5 sm:w-6 sm:h-6 p-0.5' : 'w-7 h-7 sm:w-8 sm:h-8 p-1';
+  const pipDim = size === 'sm' ? 'w-1 h-1 sm:w-1.5 sm:h-1.5' : 'w-1.5 h-1.5 sm:w-2 sm:h-2';
 
   return (
-    <div className="grid grid-cols-3 grid-rows-3 w-7 h-7 sm:w-8 sm:h-8 p-1">
+    <div className={`grid grid-cols-3 grid-rows-3 ${boxDim}`}>
       {dots.map((pos, idx) => (
-        <span key={idx} className={`w-1.5 h-1.5 sm:w-2 sm:h-2 bg-stone-900 dark:bg-stone-100 rounded-full ${pos}`} />
+        <span key={idx} className={`${pipDim} bg-stone-900 rounded-full ${pos}`} />
       ))}
     </div>
   );
@@ -56,14 +58,15 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
   const [botHand, setBotHand] = useState<DominoTile[]>([]);
   const [boneyard, setBoneyard] = useState<DominoTile[]>([]);
   const [boardChain, setBoardChain] = useState<DominoTile[]>([]);
-  const [selectedTile, setSelectedTile] = useState<DominoTile | null>(null);
   const [turn, setTurn] = useState<'player' | 'bot'>('player');
   const [moves, setMoves] = useState(0);
   const [hintsUsed, setHintsUsed] = useState(0);
-  const [message, setMessage] = useState('Sua vez! Toque em uma peça compatível.');
+  const [message, setMessage] = useState('Sua vez! Toque em uma peça com borda verde para jogar.');
   const [isCompleted, setIsCompleted] = useState(false);
   const [earnedStars, setEarnedStars] = useState(3);
   const [botName] = useState(() => (levelNumber % 2 === 0 ? 'Dona Rosa' : 'Seu José'));
+
+  const boardRef = useRef<HTMLDivElement>(null);
 
   // Start round
   useEffect(() => {
@@ -76,19 +79,17 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
     const bHand = fullDeck.slice(7, 14);
     const yard = fullDeck.slice(14);
 
-    // Initial tile on board (highest double or first)
     const firstTile = yard.pop() || { id: 'first', left: 3, right: 3 };
 
     setPlayerHand(pHand);
     setBotHand(bHand);
     setBoneyard(yard);
     setBoardChain([firstTile]);
-    setSelectedTile(null);
     setTurn('player');
     setMoves(0);
     setHintsUsed(0);
     setIsCompleted(false);
-    setMessage(`Jogo iniciado com [${firstTile.left}|${firstTile.right}]. Sua vez!`);
+    setMessage(`Jogo aberto na mesa com [${firstTile.left} | ${firstTile.right}]. Sua vez!`);
   };
 
   const leftEnd = boardChain.length > 0 ? boardChain[0].left : null;
@@ -104,6 +105,13 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
     }
   }, [turn, isCompleted, boardChain, botHand, boneyard]);
 
+  // Scroll table into view smoothly when new tiles are added
+  useEffect(() => {
+    if (boardRef.current) {
+      boardRef.current.scrollTop = boardRef.current.scrollHeight;
+    }
+  }, [boardChain.length]);
+
   const canPlayTile = (t: DominoTile) => {
     if (leftEnd === null || rightEnd === null) return true;
     return t.left === leftEnd || t.right === leftEnd || t.left === rightEnd || t.right === rightEnd;
@@ -112,11 +120,10 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
   const handleTileSelect = (tile: DominoTile) => {
     if (turn !== 'player' || isCompleted) return;
     if (!canPlayTile(tile)) {
-      setMessage('Esta peça não combina com as pontas da mesa.');
+      setMessage(`Esta peça [${tile.left}|${tile.right}] não encaixa nas pontas (${leftEnd} ou ${rightEnd}).`);
       return;
     }
 
-    // Play tile to left or right end
     playPlayerTile(tile);
   };
 
@@ -147,12 +154,11 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
       }
 
       setTurn('bot');
-      setMessage(`${botName} está pensando na jogada...`);
+      setMessage(`${botName} está jogando...`);
     }
   };
 
   const handleBotMove = () => {
-    // Find bot playable tile
     const playable = botHand.find(t => canPlayTile(t));
 
     if (playable) {
@@ -178,19 +184,16 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
       }
 
       setTurn('player');
-      setMessage(`${botName} jogou [${playable.left}|${playable.right}]. Sua vez!`);
+      setMessage(`${botName} jogou [${playable.left}|${playable.right}]. Pontas agora: [${newChain[0].left}] e [${newChain[newChain.length - 1].right}].`);
     } else if (boneyard.length > 0) {
-      // Bot buys
       const [drawn, ...rest] = boneyard;
       setBoneyard(rest);
       setBotHand([...botHand, drawn]);
       setMessage(`${botName} comprou uma peça do monte.`);
-      // Retry or pass
       setTurn('bot');
     } else {
-      // Bot passes
       setTurn('player');
-      setMessage(`${botName} não tem jogada e passou a vez. Sua vez!`);
+      setMessage(`${botName} não tem peça e passou a vez. Sua vez!`);
     }
   };
 
@@ -213,11 +216,11 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
     const won = winner === 'player';
     const stars = won ? (hintsUsed === 0 ? 3 : 2) : 1;
     setEarnedStars(stars);
-    setMessage(won ? 'Parabéns! Você bateu o dominó e venceu a partida!' : `${botName} bateu o dominó desta vez. Bom jogo!`);
+    setMessage(won ? 'Parabéns! Você bateu o dominó e venceu!' : `${botName} bateu o dominó. Bom jogo!`);
 
     onComplete({
       stars,
-      score: won ? 350 + (boneyard.length * 10) : 100,
+      score: won ? 400 + (boneyard.length * 10) : 120,
       moves: moves + 1,
       hints: hintsUsed,
     });
@@ -227,82 +230,110 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
     setHintsUsed(h => h + 1);
     const playable = playerHand.find(t => canPlayTile(t));
     if (playable) {
-      setMessage(`Dica: A peça [${playable.left}|${playable.right}] pode ser jogada na mesa.`);
+      setMessage(`Dica: A peça [${playable.left}|${playable.right}] combina com uma das pontas da mesa.`);
     } else if (boneyard.length > 0) {
-      setMessage('Dica: Compre uma peça no monte para continuar.');
+      setMessage('Dica: Não há peças que combinam. Compre do monte.');
     } else {
       setMessage('Dica: Não há peças no monte, passe a vez.');
     }
   };
 
   return (
-    <div className="space-y-4">
-      {/* Opponent Info */}
+    <div className="space-y-3.5 select-none">
+      {/* Opponent Info & Open Ends */}
       <div className="flex items-center justify-between bg-stone-100 dark:bg-stone-800 p-3 rounded-2xl border border-stone-200 dark:border-stone-700">
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-700">
             <Bot className="h-5 w-5" />
           </div>
           <div>
-            <p className="font-bold text-sm text-stone-800 dark:text-stone-200">{botName}</p>
-            <p className="text-xs text-stone-500 font-semibold">{botHand.length} peças na mão</p>
+            <p className="font-black text-sm text-stone-900 dark:text-stone-100">{botName}</p>
+            <p className="text-xs text-stone-500 font-bold">{botHand.length} peças na mão</p>
           </div>
         </div>
 
         <div className="text-right">
-          <p className="text-xs text-stone-500 font-bold">Monte restante</p>
-          <p className="text-base font-black text-amber-700 dark:text-amber-400">{boneyard.length} peças</p>
+          <span className="text-[11px] font-bold text-stone-500 uppercase block">Pontas da Mesa</span>
+          <div className="inline-flex items-center gap-1.5 mt-0.5">
+            <span className="px-2.5 py-0.5 bg-amber-400 text-stone-900 font-black rounded-lg text-sm">
+              {leftEnd !== null ? leftEnd : '-'}
+            </span>
+            <span className="text-xs text-stone-400 font-bold">e</span>
+            <span className="px-2.5 py-0.5 bg-amber-400 text-stone-900 font-black rounded-lg text-sm">
+              {rightEnd !== null ? rightEnd : '-'}
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Message Banner */}
-      <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-3 rounded-2xl text-center">
-        <p className="font-bold text-sm text-amber-900 dark:text-amber-200">{message}</p>
+      <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-2.5 rounded-2xl text-center">
+        <p className="font-bold text-xs sm:text-sm text-amber-900 dark:text-amber-200">{message}</p>
       </div>
 
-      {/* Domino Table Board */}
-      <div className="bg-emerald-900/90 rounded-3xl p-4 sm:p-5 border-4 border-amber-800 min-h-[160px] flex items-center justify-center shadow-inner overflow-x-auto">
-        <div className="flex items-center gap-1.5 py-2">
-          {boardChain.map((tile, idx) => (
-            <div
-              key={tile.id || idx}
-              className="bg-stone-50 dark:bg-stone-900 border-2 border-stone-800 rounded-xl p-1 flex items-center shadow-md shrink-0"
-            >
-              {renderDots(tile.left)}
-              <div className="w-[1.5px] h-6 bg-stone-400 mx-0.5" />
-              {renderDots(tile.right)}
-            </div>
-          ))}
+      {/* Domino Table Board (wrapping flex layout so all stones stay visible) */}
+      <div
+        ref={boardRef}
+        className="bg-emerald-900 rounded-3xl p-3 sm:p-4 border-4 border-emerald-950 min-h-[170px] max-h-[260px] overflow-y-auto shadow-inner"
+      >
+        <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-300/70 text-center mb-2">
+          Mesa de Jogo ({boardChain.length} peças jogadas)
+        </p>
+
+        {/* Tiles wrap into organized rows so the entire chain is visible */}
+        <div className="flex flex-wrap items-center justify-center gap-1.5">
+          {boardChain.map((tile, idx) => {
+            const isFirst = idx === 0;
+            const isLast = idx === boardChain.length - 1;
+
+            return (
+              <div
+                key={tile.id || idx}
+                className={`bg-white border-2 rounded-xl p-0.5 flex items-center shadow-md transition-all ${
+                  isFirst || isLast
+                    ? 'border-amber-400 ring-2 ring-amber-300'
+                    : 'border-stone-400'
+                }`}
+                title={`Peça [${tile.left}|${tile.right}]`}
+              >
+                {renderDots(tile.left, 'sm')}
+                <div className="w-[1.5px] h-5 bg-stone-300 mx-0.5" />
+                {renderDots(tile.right, 'sm')}
+              </div>
+            );
+          })}
         </div>
       </div>
 
       {/* Player's Hand */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="font-bold text-sm text-stone-700 dark:text-stone-300">
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between px-1">
+          <p className="font-black text-sm text-stone-800 dark:text-stone-200">
             Suas Peças ({playerHand.length}):
           </p>
-          <span className="text-xs text-stone-500 font-semibold">Toque para jogar</span>
+          <span className="text-xs text-stone-500 font-bold">Borda verde = compatível</span>
         </div>
 
-        <div className="flex flex-wrap gap-2 justify-center bg-stone-100 dark:bg-stone-800/60 p-3 rounded-2xl min-h-[90px]">
+        <div className="flex flex-wrap gap-2 justify-center bg-stone-100 dark:bg-stone-800/60 p-3 rounded-2xl min-h-[85px] border border-stone-200 dark:border-stone-700">
           {playerHand.map(tile => {
             const playable = canPlayTile(tile);
+            const isMyTurn = turn === 'player' && !isCompleted;
+
             return (
               <button
                 key={tile.id}
                 type="button"
                 onClick={() => handleTileSelect(tile)}
-                disabled={turn !== 'player' || !playable || isCompleted}
-                className={`bg-white dark:bg-stone-900 border-2 rounded-xl p-1.5 flex items-center shadow-md transition-all active:scale-95 ${
-                  playable && turn === 'player'
-                    ? 'border-emerald-500 ring-2 ring-emerald-300 dark:ring-emerald-700 cursor-pointer'
-                    : 'border-stone-300 opacity-60'
+                disabled={!isMyTurn || !playable}
+                className={`bg-white border-2 rounded-2xl p-1.5 flex items-center shadow-md transition-all active:scale-95 ${
+                  playable && isMyTurn
+                    ? 'border-emerald-500 ring-3 ring-emerald-300 cursor-pointer scale-105'
+                    : 'border-stone-300 opacity-60 cursor-not-allowed'
                 }`}
               >
-                {renderDots(tile.left)}
-                <div className="w-[1.5px] h-6 bg-stone-400 mx-0.5" />
-                {renderDots(tile.right)}
+                {renderDots(tile.left, 'md')}
+                <div className="w-[1.5px] h-6 bg-stone-300 mx-1" />
+                {renderDots(tile.right, 'md')}
               </button>
             );
           })}
@@ -315,7 +346,7 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
           type="button"
           onClick={handleDrawTile}
           disabled={turn !== 'player' || boneyard.length === 0 || isCompleted}
-          className="h-12 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs sm:text-sm rounded-xl"
+          className="h-12 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs sm:text-sm rounded-xl"
         >
           Comprar ({boneyard.length})
         </Button>

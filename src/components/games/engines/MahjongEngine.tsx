@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Lightbulb, RotateCcw, Sparkles } from 'lucide-react';
+import { Lightbulb, RotateCcw, Sparkles, Lock } from 'lucide-react';
 
 interface MahjongTile {
   id: string;
@@ -22,14 +22,14 @@ interface MahjongEngineProps {
 }
 
 const TILE_SYMBOLS = [
-  { id: 'flor', symbol: '🌸', name: 'Flor' },
-  { id: 'bambu', symbol: '🎋', name: 'Bambu' },
-  { id: 'dragao', symbol: '🐉', name: 'Dragão' },
-  { id: 'sol', symbol: '☀️', name: 'Sol' },
-  { id: 'lanterna', symbol: '🏮', name: 'Lanterna' },
-  { id: 'moeda', symbol: '🪙', name: 'Moeda' },
-  { id: 'borboleta', symbol: '🦋', name: 'Borboleta' },
-  { id: 'peixe', symbol: '🐟', name: 'Peixe' },
+  { id: 'flor', symbol: '🌸', name: 'Flor', color: '#db2777' },
+  { id: 'bambu', symbol: '🎋', name: 'Bambu', color: '#16a34a' },
+  { id: 'dragao', symbol: '🐉', name: 'Dragão', color: '#dc2626' },
+  { id: 'sol', symbol: '☀️', name: 'Sol', color: '#d97706' },
+  { id: 'lanterna', symbol: '🏮', name: 'Lanterna', color: '#ea580c' },
+  { id: 'moeda', symbol: '🪙', name: 'Moeda', color: '#ca8a04' },
+  { id: 'borboleta', symbol: '🦋', name: 'Borboleta', color: '#2563eb' },
+  { id: 'peixe', symbol: '🐟', name: 'Peixe', color: '#0891b2' },
 ];
 
 export function MahjongEngine({ levelNumber, onComplete, onNextLevel }: MahjongEngineProps) {
@@ -40,18 +40,23 @@ export function MahjongEngine({ levelNumber, onComplete, onNextLevel }: MahjongE
   const [hintsUsed, setHintsUsed] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
 
-  // Setup layout (simple 4x4 or pyramid)
+  // Layout configuration:
+  // Level 1-3: 12 tiles (6 pairs, 3x4 grid)
+  // Level 4+: 16 tiles (8 pairs, 4x4 grid)
+  const cols = 4;
+  const rows = levelNumber <= 3 ? 3 : 4;
+  const totalTiles = rows * cols;
+
   useEffect(() => {
     initLayout();
   }, [levelNumber]);
 
   const initLayout = () => {
-    const totalPairs = levelNumber <= 3 ? 6 : 8;
+    const totalPairs = totalTiles / 2;
     const selectedTypes = TILE_SYMBOLS.slice(0, totalPairs);
 
     const tileBag: { typeId: string; symbol: string; name: string }[] = [];
     selectedTypes.forEach(t => {
-      // 2 or 4 of each
       tileBag.push(
         { typeId: t.id, symbol: t.symbol, name: t.name },
         { typeId: t.id, symbol: t.symbol, name: t.name }
@@ -59,55 +64,23 @@ export function MahjongEngine({ levelNumber, onComplete, onNextLevel }: MahjongE
     });
     tileBag.sort(() => Math.random() - 0.5);
 
-    // Arrange in a pleasant 4x4 or 4x3 grid with central layer
     const generated: MahjongTile[] = [];
-    let bagIdx = 0;
+    let idx = 0;
 
-    // Base layer (4x3 = 12 tiles)
-    for (let r = 0; r < 3; r++) {
-      for (let c = 0; c < 4; c++) {
-        if (bagIdx < tileBag.length) {
-          const item = tileBag[bagIdx++];
-          generated.push({
-            id: `tile-${r}-${c}-0`,
-            typeId: item.typeId,
-            symbol: item.symbol,
-            name: item.name,
-            layer: 0,
-            row: r,
-            col: c,
-            isRemoved: false,
-          });
-        }
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const item = tileBag[idx++];
+        generated.push({
+          id: `tile-${r}-${c}`,
+          typeId: item.typeId,
+          symbol: item.symbol,
+          name: item.name,
+          layer: 0,
+          row: r,
+          col: c,
+          isRemoved: false,
+        });
       }
-    }
-
-    // Top layer (center 2 tiles if available)
-    if (bagIdx < tileBag.length) {
-      const item1 = tileBag[bagIdx++];
-      generated.push({
-        id: `tile-top-1`,
-        typeId: item1.typeId,
-        symbol: item1.symbol,
-        name: item1.name,
-        layer: 1,
-        row: 1,
-        col: 1.5,
-        isRemoved: false,
-      });
-    }
-    if (bagIdx < tileBag.length) {
-      const item2 = tileBag[bagIdx++];
-      generated.push({
-        id: `tile-top-2`,
-        typeId: item2.typeId,
-        symbol: item2.symbol,
-        name: item2.name,
-        layer: 1,
-        row: 1,
-        col: 2.5,
-        isRemoved: false,
-      });
     }
 
     setTiles(generated);
@@ -118,33 +91,28 @@ export function MahjongEngine({ levelNumber, onComplete, onNextLevel }: MahjongE
     setIsCompleted(false);
   };
 
-  // A tile is free if either its left or right is not occupied by another active tile in the same layer,
-  // and no tile is directly above it in layer 1.
+  // In Mahjong, a tile is free if its left OR right side has no adjacent active tile.
+  // Edge tiles (col 0 or col cols-1) are always free on that side!
   const isTileFree = (t: MahjongTile, currentTiles: MahjongTile[]): boolean => {
     if (t.isRemoved) return false;
 
-    // Check if covered from above
-    if (t.layer === 0) {
-      const coveredByTop = currentTiles.some(
-        other => !other.isRemoved && other.layer === 1 && Math.abs(other.row - t.row) <= 0.6 && Math.abs(other.col - t.col) <= 0.6
-      );
-      if (coveredByTop) return false;
-    }
-
-    // Check left and right neighbor
+    // Check left neighbor
     const hasLeft = currentTiles.some(
-      other => !other.isRemoved && other.layer === t.layer && other.row === t.row && other.col === t.col - 1
+      other => !other.isRemoved && other.row === t.row && other.col === t.col - 1
     );
+    // Check right neighbor
     const hasRight = currentTiles.some(
-      other => !other.isRemoved && other.layer === t.layer && other.row === t.row && other.col === t.col + 1
+      other => !other.isRemoved && other.row === t.row && other.col === t.col + 1
     );
 
+    // If either side is open, it's free to match!
     return !hasLeft || !hasRight;
   };
 
   const handleTileClick = (t: MahjongTile) => {
     if (isCompleted || t.isRemoved) return;
-    if (!isTileFree(t, tiles)) return;
+    const free = isTileFree(t, tiles);
+    if (!free) return;
 
     if (!selectedTile) {
       setSelectedTile(t);
@@ -156,7 +124,7 @@ export function MahjongEngine({ levelNumber, onComplete, onNextLevel }: MahjongE
       }
 
       if (selectedTile.typeId === t.typeId) {
-        // Matched!
+        // Matched pair!
         const nextTiles = tiles.map(tile =>
           tile.id === selectedTile.id || tile.id === t.id ? { ...tile, isRemoved: true } : tile
         );
@@ -171,25 +139,26 @@ export function MahjongEngine({ levelNumber, onComplete, onNextLevel }: MahjongE
           const stars = hintsUsed === 0 ? 3 : hintsUsed <= 2 ? 2 : 1;
           onComplete({
             stars,
-            score: 400 + (totalPairsRemaining * 20),
+            score: 500,
             moves: moves + 1,
             hints: hintsUsed,
           });
         }
       } else {
-        // Mismatch: switch selection to the new free tile
+        // Different tile: switch selection
         setSelectedTile(t);
       }
     }
   };
 
-  const totalPairsRemaining = Math.floor(tiles.filter(t => !t.isRemoved).length / 2);
+  const remainingTiles = tiles.filter(t => !t.isRemoved);
+  const remainingPairs = Math.floor(remainingTiles.length / 2);
 
   const handleHint = () => {
     setHintsUsed(h => h + 1);
     const activeTiles = tiles.filter(t => !t.isRemoved && isTileFree(t, tiles));
 
-    // Find any matching pair among active free tiles
+    // Find any matching pair among free tiles
     for (let i = 0; i < activeTiles.length; i++) {
       for (let j = i + 1; j < activeTiles.length; j++) {
         if (activeTiles[i].typeId === activeTiles[j].typeId) {
@@ -198,11 +167,16 @@ export function MahjongEngine({ levelNumber, onComplete, onNextLevel }: MahjongE
         }
       }
     }
+
+    // If no free pairs exist, auto-shuffle
+    handleShuffle();
   };
 
   const handleShuffle = () => {
     const unremoved = tiles.filter(t => !t.isRemoved);
-    const symbols = unremoved.map(t => ({ typeId: t.typeId, symbol: t.symbol, name: t.name })).sort(() => Math.random() - 0.5);
+    const symbols = unremoved
+      .map(t => ({ typeId: t.typeId, symbol: t.symbol, name: t.name }))
+      .sort(() => Math.random() - 0.5);
 
     let idx = 0;
     const shuffled = tiles.map(t => {
@@ -219,80 +193,110 @@ export function MahjongEngine({ levelNumber, onComplete, onNextLevel }: MahjongE
   };
 
   return (
-    <div className="space-y-4">
-      {/* Pairs Left Indicator */}
+    <div className="space-y-3.5 select-none max-w-md mx-auto">
+      {/* Header Info */}
       <div className="flex items-center justify-between bg-stone-100 dark:bg-stone-800 p-3 rounded-2xl border border-stone-200 dark:border-stone-700">
         <div>
-          <span className="text-xs font-bold text-stone-500 uppercase">Pares Restantes:</span>
+          <span className="text-xs font-bold text-stone-500 uppercase">Pares Restantes</span>
           <p className="font-black text-lg text-emerald-600 dark:text-emerald-400">
-            {totalPairsRemaining} pares
+            {remainingPairs} {remainingPairs === 1 ? 'par' : 'pares'}
           </p>
         </div>
-        <span className="text-xs font-semibold text-stone-500">
-          Combine duas peças livres iguais
-        </span>
-      </div>
-
-      {/* Mahjong Board */}
-      <div className="bg-emerald-900/90 rounded-3xl p-4 sm:p-6 border-4 border-emerald-950 min-h-[260px] flex items-center justify-center shadow-inner relative">
-        <div className="grid grid-cols-4 gap-2 sm:gap-3 max-w-sm w-full mx-auto">
-          {tiles
-            .filter(t => t.layer === 0)
-            .map(tile => {
-              const free = isTileFree(tile, tiles);
-              const isSelected = selectedTile?.id === tile.id;
-              const isHinted = hintPair.includes(tile.id);
-
-              if (tile.isRemoved) {
-                return (
-                  <div
-                    key={tile.id}
-                    className="aspect-square opacity-0 pointer-events-none"
-                  />
-                );
-              }
-
-              return (
-                <button
-                  key={tile.id}
-                  type="button"
-                  onClick={() => handleTileClick(tile)}
-                  disabled={!free || isCompleted}
-                  className={`aspect-[3/4] rounded-2xl flex flex-col items-center justify-center p-1 border-3 shadow-lg transition-all active:scale-95 ${
-                    free
-                      ? 'bg-amber-50 dark:bg-stone-100 text-stone-900 border-amber-200 hover:border-amber-400 cursor-pointer shadow-stone-950/40'
-                      : 'bg-stone-300 dark:bg-stone-700 text-stone-400 border-stone-400 opacity-50 cursor-not-allowed'
-                  } ${isSelected ? 'ring-4 ring-indigo-500 border-indigo-400 scale-105 z-10' : ''} ${
-                    isHinted ? 'ring-4 ring-amber-400 animate-bounce' : ''
-                  }`}
-                >
-                  <span className="text-3xl sm:text-4xl">{tile.symbol}</span>
-                  <span className="text-[10px] font-black uppercase text-stone-600 mt-1">
-                    {tile.name}
-                  </span>
-                </button>
-              );
-            })}
+        <div className="text-right">
+          <span className="text-xs font-bold text-stone-500">Regra Simples:</span>
+          <p className="text-xs font-bold text-stone-700 dark:text-stone-300">
+            Lado esquerdo ou direito livre
+          </p>
         </div>
       </div>
+
+      {/* Mahjong Playing Table */}
+      <div className="bg-emerald-900 rounded-3xl p-3 sm:p-5 border-4 border-emerald-950 min-h-[300px] flex items-center justify-center shadow-xl relative">
+        <div
+          className="grid gap-2 sm:gap-2.5 w-full max-w-[360px] mx-auto"
+          style={{
+            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+          }}
+        >
+          {tiles.map(tile => {
+            if (tile.isRemoved) {
+              return (
+                <div
+                  key={tile.id}
+                  className="aspect-[3/4] opacity-0 pointer-events-none"
+                />
+              );
+            }
+
+            const free = isTileFree(tile, tiles);
+            const isSelected = selectedTile?.id === tile.id;
+            const isHinted = hintPair.includes(tile.id);
+
+            return (
+              <button
+                key={tile.id}
+                type="button"
+                onClick={() => handleTileClick(tile)}
+                disabled={!free || isCompleted}
+                className={`
+                  aspect-[3/4] rounded-2xl flex flex-col items-center justify-between p-1.5 sm:p-2
+                  transition-all shadow-md active:scale-95 relative
+                  ${free
+                    ? 'bg-amber-50 hover:bg-white text-stone-900 border-2 border-amber-200 shadow-stone-900/50 cursor-pointer'
+                    : 'bg-stone-200 dark:bg-stone-800 text-stone-400 border-2 border-stone-300 dark:border-stone-700 cursor-not-allowed opacity-60'
+                  }
+                  ${isSelected ? 'ring-4 ring-indigo-500 border-indigo-400 scale-105 z-10 bg-white' : ''}
+                  ${isHinted ? 'ring-4 ring-amber-400 animate-bounce bg-amber-100 z-10' : ''}
+                `}
+                style={{
+                  boxShadow: free ? '0 4px 0 #d97706, 0 6px 12px rgba(0,0,0,0.3)' : undefined,
+                }}
+              >
+                {/* Tile Symbol (Large & Clear) */}
+                <span className="text-3xl sm:text-4xl mt-1 leading-none drop-shadow-xs">
+                  {tile.symbol}
+                </span>
+
+                {/* Tile Name Label */}
+                <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-tight text-stone-800 dark:text-stone-300">
+                  {tile.name}
+                </span>
+
+                {/* Lock indicator if not free */}
+                {!free && (
+                  <div className="absolute top-1 right-1 bg-stone-400/30 rounded-full p-0.5">
+                    <Lock className="h-3 w-3 text-stone-500" />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <p className="text-center text-xs text-stone-500 font-semibold">
+        Peças com sombra amarela estão livres para jogar. Toque em duas iguais!
+      </p>
 
       {/* Bottom Controls */}
       <div className="flex gap-2">
         <Button
           type="button"
           onClick={handleHint}
+          disabled={isCompleted}
           variant="outline"
           className="flex-1 h-12 border-amber-300 text-amber-800 dark:text-amber-300 font-bold text-sm rounded-xl gap-2"
         >
-          <Lightbulb className="h-4 w-4" /> Dica
+          <Lightbulb className="h-4 w-4" /> Dica de Par
         </Button>
         <Button
           type="button"
           onClick={handleShuffle}
+          disabled={isCompleted}
           variant="outline"
           className="flex-1 h-12 border-stone-300 font-bold text-sm rounded-xl gap-2"
         >
-          <RotateCcw className="h-4 w-4" /> Embaralhar Peças
+          <RotateCcw className="h-4 w-4" /> Embaralhar
         </Button>
       </div>
 

@@ -7,8 +7,10 @@ import { Lightbulb, CheckCircle2, RotateCcw, Sparkles } from 'lucide-react';
 interface DifferenceSpot {
   id: string;
   name: string;
-  xPercent: number; // 0 to 100% of image width
-  yPercent: number; // 0 to 100% of image height
+  xPercent: number; // 0 to 100%
+  yPercent: number; // 0 to 100%
+  itemA: string;
+  itemB: string;
 }
 
 interface DifferencesEngineProps {
@@ -21,28 +23,52 @@ const DIFFERENCE_LEVELS = [
   {
     title: 'Aconchego na Sala de Chá',
     sceneEmoji: '🫖',
+    bgA: 'from-amber-100 via-stone-100 to-amber-200 dark:from-stone-800 dark:to-stone-900',
+    bgB: 'from-amber-100 via-stone-100 to-amber-200 dark:from-stone-800 dark:to-stone-900',
+    decor: [
+      { emoji: '🪑', x: 15, y: 70 },
+      { emoji: '🫖', x: 45, y: 50 },
+      { emoji: '🛋️', x: 80, y: 65 },
+      { emoji: '🪴', x: 15, y: 25 },
+    ],
     spots: [
-      { id: 'spot-1', name: 'Xícara de chá', xPercent: 25, yPercent: 40 },
-      { id: 'spot-2', name: 'Gatinho dormindo', xPercent: 75, yPercent: 65 },
-      { id: 'spot-3', name: 'Quadro na parede', xPercent: 50, yPercent: 20 },
+      { id: 'spot-1', name: 'Xícara de chá', xPercent: 32, yPercent: 48, itemA: '☕', itemB: '🥛' },
+      { id: 'spot-2', name: 'Quadro da parede', xPercent: 52, yPercent: 20, itemA: '🖼️', itemB: '🪞' },
+      { id: 'spot-3', name: 'Animalzinho no tapete', xPercent: 78, yPercent: 78, itemA: '🐱', itemB: '🐶' },
     ],
   },
   {
     title: 'Manhã no Jardim Florido',
     sceneEmoji: '🌸',
+    bgA: 'from-emerald-100 via-teal-50 to-emerald-200 dark:from-stone-800 dark:to-stone-900',
+    bgB: 'from-emerald-100 via-teal-50 to-emerald-200 dark:from-stone-800 dark:to-stone-900',
+    decor: [
+      { emoji: '🌳', x: 15, y: 35 },
+      { emoji: '🌷', x: 45, y: 75 },
+      { emoji: '🌻', x: 85, y: 70 },
+      { emoji: '☀️', x: 85, y: 18 },
+    ],
     spots: [
-      { id: 'spot-1', name: 'Borboleta azul', xPercent: 30, yPercent: 25 },
-      { id: 'spot-2', name: 'Regador vermelho', xPercent: 70, yPercent: 70 },
-      { id: 'spot-3', name: 'Passarinho no galho', xPercent: 55, yPercent: 35 },
+      { id: 'spot-1', name: 'Borboleta', xPercent: 30, yPercent: 20, itemA: '🦋', itemB: '🐝' },
+      { id: 'spot-2', name: 'Regador de plantas', xPercent: 65, yPercent: 68, itemA: '🪴', itemB: '🪣' },
+      { id: 'spot-3', name: 'Pássaro cantor', xPercent: 50, yPercent: 32, itemA: '🕊️', itemB: '🦜' },
     ],
   },
   {
     title: 'Passeio à Beira-Mar',
     sceneEmoji: '⛵',
+    bgA: 'from-sky-100 via-amber-50 to-sky-200 dark:from-stone-800 dark:to-stone-900',
+    bgB: 'from-sky-100 via-amber-50 to-sky-200 dark:from-stone-800 dark:to-stone-900',
+    decor: [
+      { emoji: '🌊', x: 20, y: 75 },
+      { emoji: '🏖️', x: 75, y: 75 },
+      { emoji: '☁️', x: 25, y: 18 },
+      { emoji: '☀️', x: 80, y: 15 },
+    ],
     spots: [
-      { id: 'spot-1', name: 'Barco a vela', xPercent: 35, yPercent: 30 },
-      { id: 'spot-2', name: 'Concha dourada', xPercent: 60, yPercent: 75 },
-      { id: 'spot-3', name: 'Guarda-sol listrado', xPercent: 80, yPercent: 45 },
+      { id: 'spot-1', name: 'Barco no mar', xPercent: 40, yPercent: 35, itemA: '⛵', itemB: '🚤' },
+      { id: 'spot-2', name: 'Concha na areia', xPercent: 60, yPercent: 78, itemA: '🐚', itemB: '⭐' },
+      { id: 'spot-3', name: 'Guarda-sol', xPercent: 82, yPercent: 48, itemA: '⛱️', itemB: '🌴' },
     ],
   },
 ];
@@ -52,12 +78,14 @@ export function DifferencesEngine({ levelNumber, onComplete, onNextLevel }: Diff
   const [foundSpots, setFoundSpots] = useState<string[]>([]);
   const [hintsUsed, setHintsUsed] = useState(0);
   const [hintSpot, setHintSpot] = useState<string | null>(null);
+  const [message, setMessage] = useState('Compare as duas imagens e toque onde houver uma diferença.');
   const [isCompleted, setIsCompleted] = useState(false);
 
   useEffect(() => {
     setFoundSpots([]);
     setHintsUsed(0);
     setHintSpot(null);
+    setMessage('Compare as duas imagens e toque onde houver uma diferença.');
     setIsCompleted(false);
   }, [levelNumber]);
 
@@ -67,13 +95,14 @@ export function DifferencesEngine({ levelNumber, onComplete, onNextLevel }: Diff
     const nextFound = [...foundSpots, spot.id];
     setFoundSpots(nextFound);
     setHintSpot(null);
+    setMessage(`Diferença encontrada: ${spot.name}!`);
 
     if (nextFound.length === currentLevel.spots.length) {
       setIsCompleted(true);
       const stars = hintsUsed === 0 ? 3 : hintsUsed <= 1 ? 2 : 1;
       onComplete({
         stars,
-        score: 350 + (nextFound.length * 50),
+        score: 400 + (nextFound.length * 50),
         moves: nextFound.length + hintsUsed,
         hints: hintsUsed,
       });
@@ -86,16 +115,72 @@ export function DifferencesEngine({ levelNumber, onComplete, onNextLevel }: Diff
     const unfound = currentLevel.spots.find(s => !foundSpots.includes(s.id));
     if (unfound) {
       setHintSpot(unfound.id);
+      setMessage(`Dica: Repare com atenção no(a) ${unfound.name}!`);
     }
   };
 
+  const renderScene = (isSceneB: boolean) => (
+    <div
+      className={`relative aspect-[16/9] w-full rounded-3xl p-3 border-3 shadow-md overflow-hidden bg-gradient-to-br ${
+        isSceneB ? currentLevel.bgB : currentLevel.bgA
+      } ${isSceneB ? 'border-amber-400 dark:border-amber-700' : 'border-stone-300 dark:border-stone-700'}`}
+    >
+      {/* Scene Header Tag */}
+      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/80 dark:bg-stone-900/80 text-stone-800 dark:text-stone-200">
+        {isSceneB ? 'Imagem B (com diferenças)' : 'Imagem A (original)'}
+      </span>
+
+      {/* Decorative scenery items */}
+      {currentLevel.decor.map((d, idx) => (
+        <span
+          key={idx}
+          className="absolute text-2xl sm:text-3xl select-none opacity-85 pointer-events-none"
+          style={{ left: `${d.x}%`, top: `${d.y}%` }}
+        >
+          {d.emoji}
+        </span>
+      ))}
+
+      {/* Interactive difference spots */}
+      {currentLevel.spots.map(spot => {
+        const isFound = foundSpots.includes(spot.id);
+        const isHinted = hintSpot === spot.id;
+        const currentEmoji = isSceneB ? spot.itemB : spot.itemA;
+
+        return (
+          <button
+            key={spot.id}
+            type="button"
+            onClick={() => handleSpotClick(spot)}
+            className={`absolute -ml-6 -mt-6 w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-95 ${
+              isFound
+                ? 'ring-4 ring-emerald-500 bg-emerald-300/30 shadow-md scale-110'
+                : isHinted
+                ? 'ring-4 ring-amber-400 bg-amber-300/40 animate-bounce'
+                : 'hover:scale-105'
+            }`}
+            style={{ left: `${spot.xPercent}%`, top: `${spot.yPercent}%` }}
+            title={spot.name}
+          >
+            <span className="text-3xl select-none drop-shadow-xs">{currentEmoji}</span>
+            {isFound && (
+              <span className="absolute -top-1 -right-1 bg-emerald-600 text-white rounded-full p-0.5 shadow-xs">
+                <CheckCircle2 className="h-4 w-4" />
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5 select-none max-w-md mx-auto">
       {/* Title & Progress */}
       <div className="flex items-center justify-between bg-stone-100 dark:bg-stone-800 p-3 rounded-2xl border border-stone-200 dark:border-stone-700">
         <div>
-          <h4 className="font-bold text-sm text-stone-900 dark:text-stone-100">{currentLevel.title}</h4>
-          <p className="text-xs text-stone-500 font-semibold">
+          <h4 className="font-black text-sm text-stone-900 dark:text-stone-100">{currentLevel.title}</h4>
+          <p className="text-xs text-stone-500 font-bold">
             {foundSpots.length} de {currentLevel.spots.length} diferenças encontradas
           </p>
         </div>
@@ -103,7 +188,7 @@ export function DifferencesEngine({ levelNumber, onComplete, onNextLevel }: Diff
           {currentLevel.spots.map(s => (
             <span
               key={s.id}
-              className={`text-lg transition-transform ${
+              className={`text-xl transition-transform ${
                 foundSpots.includes(s.id) ? 'scale-110' : 'opacity-30'
               }`}
             >
@@ -113,79 +198,15 @@ export function DifferencesEngine({ levelNumber, onComplete, onNextLevel }: Diff
         </div>
       </div>
 
-      {/* Difference Scenes Container */}
-      <div className="space-y-3">
-        {/* Scene 1 (Original) */}
-        <div className="relative aspect-[16/10] bg-gradient-to-br from-amber-100 via-orange-50 to-amber-200 dark:from-stone-800 dark:to-stone-900 rounded-3xl p-4 border-3 border-amber-300 dark:border-amber-800 shadow-md flex flex-col justify-between overflow-hidden">
-          <div className="flex justify-between items-center text-xs font-bold text-amber-900 dark:text-amber-200">
-            <span>Cena A (Original)</span>
-            <span className="text-2xl">{currentLevel.sceneEmoji}</span>
-          </div>
+      {/* Message Banner */}
+      <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 p-2.5 rounded-2xl text-center">
+        <p className="font-bold text-xs sm:text-sm text-amber-900 dark:text-amber-200">{message}</p>
+      </div>
 
-          <div className="flex items-center justify-center h-full text-stone-400 text-sm font-semibold select-none">
-            Observe com atenção os detalhes da imagem
-          </div>
-
-          {/* Interactive targets overlay */}
-          {currentLevel.spots.map(spot => {
-            const isFound = foundSpots.includes(spot.id);
-            const isHinted = hintSpot === spot.id;
-
-            return (
-              <button
-                key={spot.id}
-                type="button"
-                onClick={() => handleSpotClick(spot)}
-                className={`absolute w-12 h-12 -ml-6 -mt-6 rounded-full transition-all flex items-center justify-center ${
-                  isFound
-                    ? 'border-4 border-emerald-500 bg-emerald-400/20 shadow-md'
-                    : isHinted
-                    ? 'border-4 border-amber-400 bg-amber-400/20 animate-ping'
-                    : 'hover:bg-amber-500/10'
-                }`}
-                style={{ left: `${spot.xPercent}%`, top: `${spot.yPercent}%` }}
-              >
-                {isFound && <CheckCircle2 className="h-6 w-6 text-emerald-600" />}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Scene 2 (Modified) */}
-        <div className="relative aspect-[16/10] bg-gradient-to-br from-orange-100 via-amber-50 to-orange-200 dark:from-stone-800 dark:to-stone-900 rounded-3xl p-4 border-3 border-orange-300 dark:border-orange-800 shadow-md flex flex-col justify-between overflow-hidden">
-          <div className="flex justify-between items-center text-xs font-bold text-orange-900 dark:text-orange-200">
-            <span>Cena B (Com Diferenças)</span>
-            <span className="text-2xl">{currentLevel.sceneEmoji}</span>
-          </div>
-
-          <div className="flex items-center justify-center h-full text-stone-400 text-sm font-semibold select-none">
-            Toque onde houver algo diferente
-          </div>
-
-          {/* Interactive targets overlay */}
-          {currentLevel.spots.map(spot => {
-            const isFound = foundSpots.includes(spot.id);
-            const isHinted = hintSpot === spot.id;
-
-            return (
-              <button
-                key={spot.id}
-                type="button"
-                onClick={() => handleSpotClick(spot)}
-                className={`absolute w-12 h-12 -ml-6 -mt-6 rounded-full transition-all flex items-center justify-center ${
-                  isFound
-                    ? 'border-4 border-emerald-500 bg-emerald-400/20 shadow-md'
-                    : isHinted
-                    ? 'border-4 border-amber-400 bg-amber-400/20 animate-ping'
-                    : 'hover:bg-orange-500/10'
-                }`}
-                style={{ left: `${spot.xPercent}%`, top: `${spot.yPercent}%` }}
-              >
-                {isFound && <CheckCircle2 className="h-6 w-6 text-emerald-600" />}
-              </button>
-            );
-          })}
-        </div>
+      {/* Scene A and Scene B */}
+      <div className="space-y-2.5">
+        {renderScene(false)}
+        {renderScene(true)}
       </div>
 
       {/* Controls */}

@@ -10,32 +10,39 @@ interface JigsawEngineProps {
   onNextLevel?: () => void;
 }
 
-// Beautiful nature scenes
-const PUZZLE_IMAGES = [
+const PUZZLE_LEVELS = [
   {
-    title: 'Jardim de Rosas',
-    url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop&q=80',
+    title: 'Jardim de Girassóis',
+    emoji: '🌻',
+    gradient: 'from-amber-200 via-yellow-100 to-amber-300',
+    piecesLabels: ['Sol Brilhante ☀️', 'Girassol Alto 🌻', 'Borboleta 🦋', 'Jardim Florido 🌷'],
   },
   {
-    title: 'Pôr do Sol na Praia',
-    url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop&q=80',
+    title: 'Tarde na Praia Calma',
+    emoji: '🏖️',
+    gradient: 'from-sky-200 via-amber-100 to-sky-300',
+    piecesLabels: ['Céu Azul ☁️', 'Sol de Verão ☀️', 'Mar Calmo 🌊', 'Areia Dourada 🏖️'],
   },
   {
-    title: 'Montanhas Tranquilas',
-    url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&auto=format&fit=crop&q=80',
+    title: 'Aconchego na Lareira',
+    emoji: '🪵',
+    gradient: 'from-orange-200 via-amber-100 to-stone-200',
+    piecesLabels: ['Lareira Quente 🔥', 'Café Quentinho ☕', 'Poltrona Macia 🛋️', 'Gatinho Ronronando 🐱'],
   },
   {
-    title: 'Campos de Lavanda',
-    url: 'https://images.unsplash.com/photo-1528722828814-77b9b83aafb2?w=600&auto=format&fit=crop&q=80',
+    title: 'Montanhas e Pinheiros',
+    emoji: '🏔️',
+    gradient: 'from-emerald-200 via-teal-100 to-emerald-300',
+    piecesLabels: ['Picos Nevados 🏔️', 'Águia no Céu 🦅', 'Pinheiros Verdes 🌲', 'Lago Cristalino 💧'],
   },
 ];
 
 export function JigsawEngine({ levelNumber, onComplete, onNextLevel }: JigsawEngineProps) {
-  // 2x2 for levels 1-5, 3x3 for level 6+
-  const gridSize = levelNumber <= 5 ? 2 : 3;
-  const totalPieces = gridSize * gridSize;
+  // 2x2 = 4 pieces for smooth, accessible, relaxing experience for seniors
+  const gridSize = 2;
+  const totalPieces = 4;
 
-  const currentImage = PUZZLE_IMAGES[(levelNumber - 1) % PUZZLE_IMAGES.length];
+  const currentLevel = PUZZLE_LEVELS[(levelNumber - 1) % PUZZLE_LEVELS.length];
 
   const [pieces, setPieces] = useState<number[]>([]);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
@@ -49,8 +56,7 @@ export function JigsawEngine({ levelNumber, onComplete, onNextLevel }: JigsawEng
   }, [levelNumber]);
 
   const initPuzzle = () => {
-    // Shuffled pieces ensuring it is not already solved
-    let initial = Array.from({ length: totalPieces }, (_, i) => i);
+    let initial = [0, 1, 2, 3];
     let isSolved = true;
     while (isSolved) {
       initial = [...initial].sort(() => Math.random() - 0.5);
@@ -87,7 +93,7 @@ export function JigsawEngine({ levelNumber, onComplete, onNextLevel }: JigsawEng
           const stars = hintsUsed === 0 ? 3 : hintsUsed <= 2 ? 2 : 1;
           onComplete({
             stars,
-            score: Math.max(200, 600 - moves * 10 - hintsUsed * 30),
+            score: Math.max(200, 500 - moves * 10 - hintsUsed * 25),
             moves: moves + 1,
             hints: hintsUsed,
           });
@@ -101,7 +107,6 @@ export function JigsawEngine({ levelNumber, onComplete, onNextLevel }: JigsawEng
     if (isCompleted) return;
     setHintsUsed(h => h + 1);
 
-    // Find the first misplaced piece and swap it to its rightful place
     for (let targetIdx = 0; targetIdx < totalPieces; targetIdx++) {
       if (pieces[targetIdx] !== targetIdx) {
         const currentPosOfTarget = pieces.indexOf(targetIdx);
@@ -110,18 +115,32 @@ export function JigsawEngine({ levelNumber, onComplete, onNextLevel }: JigsawEng
         nextPieces[targetIdx] = nextPieces[currentPosOfTarget];
         nextPieces[currentPosOfTarget] = temp;
         setPieces(nextPieces);
+
+        // Check if solved
+        if (nextPieces.every((val, idx) => val === idx)) {
+          setIsCompleted(true);
+          onComplete({
+            stars: 2,
+            score: 300,
+            moves: moves + 1,
+            hints: hintsUsed + 1,
+          });
+        }
         break;
       }
     }
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5 select-none max-w-md mx-auto">
       {/* Header Info */}
       <div className="flex items-center justify-between bg-stone-100 dark:bg-stone-800 p-3 rounded-2xl border border-stone-200 dark:border-stone-700">
         <div>
-          <h4 className="font-bold text-sm text-stone-900 dark:text-stone-100">{currentImage.title}</h4>
-          <p className="text-xs text-stone-500 font-semibold">{gridSize}x{gridSize} peças • Toque para trocar</p>
+          <h4 className="font-black text-sm text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+            <span>{currentLevel.emoji}</span>
+            <span>{currentLevel.title}</span>
+          </h4>
+          <p className="text-xs text-stone-500 font-bold">Toque em duas peças para trocar de lugar</p>
         </div>
         <Button
           type="button"
@@ -129,62 +148,58 @@ export function JigsawEngine({ levelNumber, onComplete, onNextLevel }: JigsawEng
           variant="outline"
           className="h-10 text-xs font-bold rounded-xl gap-1.5"
         >
-          <Eye className="h-4 w-4" /> {showPreview ? 'Ocultar Foto' : 'Ver Foto'}
+          <Eye className="h-4 w-4" /> {showPreview ? 'Ocultar Guia' : 'Ver Guia'}
         </Button>
       </div>
 
-      {/* Image Preview if requested */}
+      {/* Guide Preview */}
       {showPreview && (
-        <div className="bg-stone-900/90 p-3 rounded-2xl text-center space-y-2 animate-in fade-in">
-          <img
-            src={currentImage.url}
-            alt={currentImage.title}
-            className="w-full max-h-48 object-cover rounded-xl mx-auto shadow-md"
-          />
-          <p className="text-xs text-stone-300 font-semibold">Imagem original de referência</p>
+        <div className="bg-stone-100 dark:bg-stone-800 p-3 rounded-2xl border-2 border-dashed border-indigo-300 dark:border-indigo-700 text-center space-y-2 animate-in fade-in">
+          <p className="text-xs font-black uppercase text-indigo-700 dark:text-indigo-300">Ordem Correta das 4 Peças:</p>
+          <div className="grid grid-cols-2 gap-2 max-w-[240px] mx-auto">
+            {currentLevel.piecesLabels.map((label, idx) => (
+              <div key={idx} className="p-2 rounded-xl bg-white dark:bg-stone-900 border border-stone-300 text-xs font-black">
+                {idx + 1}. {label}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Jigsaw Grid */}
-      <div className="max-w-[340px] sm:max-w-[380px] mx-auto aspect-square bg-stone-200 dark:bg-stone-800 rounded-3xl p-2 shadow-inner border-4 border-stone-300 dark:border-stone-700">
-        <div
-          className="grid gap-1.5 w-full h-full rounded-2xl overflow-hidden"
-          style={{
-            gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
-            gridTemplateRows: `repeat(${gridSize}, 1fr)`,
-          }}
-        >
-          {pieces.map((pieceOriginalIdx, currentIdx) => {
-            const isCorrect = pieceOriginalIdx === currentIdx;
+      {/* Jigsaw 2x2 Grid */}
+      <div className="max-w-[320px] sm:max-w-[340px] mx-auto aspect-square bg-stone-100 dark:bg-stone-900 rounded-3xl p-3 border-4 border-stone-300 dark:border-stone-700 shadow-xl">
+        <div className="grid grid-cols-2 grid-rows-2 gap-2.5 w-full h-full">
+          {pieces.map((pieceVal, currentIdx) => {
+            const isCorrect = pieceVal === currentIdx;
             const isSelected = selectedIdx === currentIdx;
-
-            // Compute background position
-            const col = pieceOriginalIdx % gridSize;
-            const row = Math.floor(pieceOriginalIdx / gridSize);
-            const xPercent = (col / (gridSize - 1)) * 100;
-            const yPercent = (row / (gridSize - 1)) * 100;
+            const label = currentLevel.piecesLabels[pieceVal];
 
             return (
               <button
                 key={currentIdx}
                 type="button"
                 onClick={() => handlePieceClick(currentIdx)}
-                className={`relative w-full h-full rounded-xl overflow-hidden border-2 transition-all active:scale-95 shadow-xs ${
+                className={`relative w-full h-full rounded-2xl p-2 flex flex-col items-center justify-between transition-all active:scale-95 shadow-md border-3 bg-gradient-to-br ${
+                  currentLevel.gradient
+                } ${
                   isSelected
-                    ? 'ring-4 ring-amber-400 border-white scale-105 z-10'
+                    ? 'ring-4 ring-indigo-500 border-indigo-400 scale-105 z-10'
                     : isCorrect
-                    ? 'border-emerald-400'
-                    : 'border-white/60'
+                    ? 'border-emerald-500 ring-2 ring-emerald-300'
+                    : 'border-stone-300 hover:border-amber-400'
                 }`}
-                style={{
-                  backgroundImage: `url(${currentImage.url})`,
-                  backgroundSize: `${gridSize * 100}% ${gridSize * 100}%`,
-                  backgroundPosition: `${xPercent}% ${yPercent}%`,
-                }}
               >
+                <span className="self-start text-[11px] font-black px-2 py-0.5 rounded-full bg-white/90 text-stone-900 shadow-xs">
+                  Peça {pieceVal + 1}
+                </span>
+
+                <span className="text-sm sm:text-base font-black text-stone-900 text-center drop-shadow-xs px-1">
+                  {label}
+                </span>
+
                 {isCorrect && (
-                  <span className="absolute bottom-1 right-1 bg-emerald-600/90 text-white rounded-full p-0.5 shadow-xs">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span className="self-end bg-emerald-600 text-white rounded-full p-0.5 shadow-xs">
+                    <CheckCircle2 className="h-4 w-4" />
                   </span>
                 )}
               </button>
@@ -193,11 +208,16 @@ export function JigsawEngine({ levelNumber, onComplete, onNextLevel }: JigsawEng
         </div>
       </div>
 
+      <p className="text-center text-xs text-stone-500 font-semibold">
+        Peças com borda verde já estão no lugar certo!
+      </p>
+
       {/* Controls */}
       <div className="flex gap-2">
         <Button
           type="button"
           onClick={handleHint}
+          disabled={isCompleted}
           variant="outline"
           className="flex-1 h-12 border-amber-300 text-amber-800 dark:text-amber-300 font-bold text-sm rounded-xl gap-2"
         >
@@ -206,6 +226,7 @@ export function JigsawEngine({ levelNumber, onComplete, onNextLevel }: JigsawEng
         <Button
           type="button"
           onClick={initPuzzle}
+          disabled={isCompleted}
           variant="outline"
           className="flex-1 h-12 border-stone-300 font-bold text-sm rounded-xl gap-2"
         >

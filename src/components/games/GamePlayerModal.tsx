@@ -209,6 +209,7 @@ export function GamePlayerModal({
           <>
             {gameId === 'paciencia' && (
               <SolitaireEngine
+                key={`paciencia-${levelNumber}`}
                 variant="klondike"
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
@@ -217,6 +218,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'freecell' && (
               <SolitaireEngine
+                key={`freecell-${levelNumber}`}
                 variant="freecell"
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
@@ -225,6 +227,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'spider' && (
               <SolitaireEngine
+                key={`spider-${levelNumber}`}
                 variant="spider"
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
@@ -233,6 +236,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'domino' && (
               <DominoEngine
+                key={`domino-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
                 onNextLevel={handleNextLevel}
@@ -240,6 +244,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'sudoku' && (
               <SudokuEngine
+                key={`sudoku-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
                 onNextLevel={handleNextLevel}
@@ -247,6 +252,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'caca_palavras' && (
               <WordSearchEngine
+                key={`caca_palavras-${levelNumber}`}
                 levelNumber={levelNumber}
                 locale={locale}
                 onComplete={handleGameComplete}
@@ -255,6 +261,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'mahjong' && (
               <MahjongEngine
+                key={`mahjong-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
                 onNextLevel={handleNextLevel}
@@ -262,6 +269,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'memoria' && (
               <MemoryEngine
+                key={`memoria-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
                 onNextLevel={handleNextLevel}
@@ -269,6 +277,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'palavras_cruzadas' && (
               <CrosswordsEngine
+                key={`palavras_cruzadas-${levelNumber}`}
                 levelNumber={levelNumber}
                 locale={locale}
                 onComplete={handleGameComplete}
@@ -277,6 +286,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'quebra_cabeca' && (
               <JigsawEngine
+                key={`quebra_cabeca-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
                 onNextLevel={handleNextLevel}
@@ -284,6 +294,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'damas' && (
               <CheckersEngine
+                key={`damas-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
                 onNextLevel={handleNextLevel}
@@ -291,6 +302,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'memorias_familia' && (
               <FamilyMemoriesEngine
+                key={`memorias_familia-${levelNumber}`}
                 levelNumber={levelNumber}
                 caredPersonId={caredPersonId}
                 onComplete={handleGameComplete}
@@ -299,6 +311,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'combine_tres' && (
               <MatchThreeEngine
+                key={`combine_tres-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
                 onNextLevel={handleNextLevel}
@@ -306,6 +319,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'encontre_diferencas' && (
               <DifferencesEngine
+                key={`encontre_diferencas-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
                 onNextLevel={handleNextLevel}
@@ -313,6 +327,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'perguntas_respostas' && (
               <TriviaEngine
+                key={`perguntas_respostas-${levelNumber}`}
                 levelNumber={levelNumber}
                 locale={locale}
                 onComplete={handleGameComplete}
@@ -321,6 +336,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'objetos_escondidos' && (
               <HiddenObjectsEngine
+                key={`objetos_escondidos-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
                 onNextLevel={handleNextLevel}
@@ -328,6 +344,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'unir_numeros' && (
               <NumberMergeEngine
+                key={`unir_numeros-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
                 onNextLevel={handleNextLevel}
@@ -335,6 +352,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'blocos' && (
               <BlockPuzzleEngine
+                key={`blocos-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
                 onNextLevel={handleNextLevel}
@@ -342,6 +360,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'bolhas' && (
               <BubblePopEngine
+                key={`bolhas-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
                 onNextLevel={handleNextLevel}
@@ -349,6 +368,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'formar_palavras' && (
               <WordAnagramEngine
+                key={`formar_palavras-${levelNumber}`}
                 levelNumber={levelNumber}
                 locale={locale}
                 onComplete={handleGameComplete}
@@ -357,6 +377,7 @@ export function GamePlayerModal({
             )}
             {gameId === 'descubra_palavra' && (
               <WordDiscoveryEngine
+                key={`descubra_palavra-${levelNumber}`}
                 levelNumber={levelNumber}
                 locale={locale}
                 onComplete={handleGameComplete}
