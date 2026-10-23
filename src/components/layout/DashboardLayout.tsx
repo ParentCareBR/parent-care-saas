@@ -42,6 +42,8 @@ import {
   BarChart3,
   CheckCircle2,
   Phone,
+  Home,
+  LayoutGrid,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -651,11 +653,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </main>
 
         {/* ─── MOBILE BOTTOM NAV BAR (ESTILO NAVEGAÇÃO MODELO) ─────────────── */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0C1728] backdrop-blur-md border-t-2 border-stone-200 dark:border-[#1E3A5F] px-3 pt-1.5 pb-2 flex items-center justify-around z-40 shadow-lg">
-          {/* 1. Hoje */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#0C1728] backdrop-blur-md border-t-2 border-stone-200 dark:border-[#1E3A5F] px-2 pt-1.5 pb-2 flex items-center justify-around z-40 shadow-lg">
+          {/* 1. Início */}
           <Link
             href={`/${locale}/dashboard`}
-            className="flex flex-col items-center gap-0.5 min-w-[54px] group"
+            className="flex flex-col items-center gap-0.5 min-w-[50px] group"
           >
             <div
               className={cn(
@@ -665,7 +667,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   : 'text-stone-600 dark:text-slate-200'
               )}
             >
-              <LayoutDashboard className="h-5 w-5" />
+              <Home className="h-5 w-5" />
             </div>
             <span
               className={cn(
@@ -675,14 +677,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   : 'text-stone-700 dark:text-slate-200'
               )}
             >
-              Hoje
+              Início
             </span>
           </Link>
 
           {/* 2. Agenda */}
           <Link
             href={`/${locale}/dashboard/appointments`}
-            className="flex flex-col items-center gap-0.5 min-w-[54px] group"
+            className="flex flex-col items-center gap-0.5 min-w-[50px] group"
           >
             <div
               className={cn(
@@ -706,45 +708,77 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </span>
           </Link>
 
-          {/* 3. Atividades */}
+          {/* 3. Medicamentos */}
           <Link
-            href={`/${locale}/dashboard/activities`}
-            className="flex flex-col items-center gap-0.5 min-w-[54px] group"
+            href={`/${locale}/dashboard/medications`}
+            className="flex flex-col items-center gap-0.5 min-w-[50px] group"
           >
             <div
               className={cn(
                 'w-10 h-8 flex items-center justify-center rounded-xl transition-all',
-                pathname.includes('/activities')
+                pathname.includes('/medications')
                   ? 'bg-[#0F4C3A] text-white shadow-sm'
                   : 'text-stone-600 dark:text-slate-200'
               )}
             >
-              <Activity className="h-5 w-5" />
+              <Pill className="h-5 w-5" />
             </div>
             <span
               className={cn(
                 'text-[11px] font-bold',
-                pathname.includes('/activities')
+                pathname.includes('/medications')
                   ? 'text-[#0F4C3A] dark:text-emerald-400'
                   : 'text-stone-700 dark:text-slate-200'
               )}
             >
-              Atividades
+              Remédios
             </span>
           </Link>
 
-          {/* 4. Mais (Hub de Cards) */}
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="flex flex-col items-center gap-0.5 min-w-[54px] group"
+          {/* 4. Nina IA */}
+          <Link
+            href={`/${locale}/dashboard/nina`}
+            className="flex flex-col items-center gap-0.5 min-w-[50px] group"
           >
-            <div className="w-10 h-8 flex items-center justify-center rounded-xl text-stone-600 dark:text-slate-200 group-active:scale-95 transition-all">
-              <Menu className="h-5 w-5" />
+            <div
+              className={cn(
+                'w-10 h-8 flex items-center justify-center rounded-xl transition-all',
+                pathname.includes('/nina')
+                  ? 'bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-sm'
+                  : 'text-stone-600 dark:text-slate-200'
+              )}
+            >
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <span
+              className={cn(
+                'text-[11px] font-bold',
+                pathname.includes('/nina')
+                  ? 'text-sky-600 dark:text-sky-400 font-extrabold'
+                  : 'text-stone-700 dark:text-slate-200'
+              )}
+            >
+              Nina IA
+            </span>
+          </Link>
+
+          {/* 5. Todos os Cards / Início */}
+          <Link
+            href={`/${locale}/dashboard`}
+            className="flex flex-col items-center gap-0.5 min-w-[50px] group"
+          >
+            <div
+              className={cn(
+                'w-10 h-8 flex items-center justify-center rounded-xl text-stone-600 dark:text-slate-200 group-active:scale-95 transition-all',
+                pathname === `/${locale}/dashboard` ? 'bg-stone-100 dark:bg-stone-800' : ''
+              )}
+            >
+              <LayoutGrid className="h-5 w-5" />
             </div>
             <span className="text-[11px] font-bold text-stone-700 dark:text-slate-200">
-              Mais
+              Cards
             </span>
-          </button>
+          </Link>
         </nav>
 
         {/* Global Floating Action Button */}
