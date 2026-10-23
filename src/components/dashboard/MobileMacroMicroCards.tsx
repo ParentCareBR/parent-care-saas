@@ -327,8 +327,8 @@ export function MobileMacroMicroCards({
         )}
       </div>
 
-      {/* ─── GRID DE 3 COLUNAS COM TODOS OS CARDS COLORIDOS DA IMAGEM ─────────── */}
-      <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+      {/* ─── GRID DE CARDS COLORIDOS (RESPONSIVO PARA CELULAR E COMPUTADOR) ──── */}
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2.5 sm:gap-3 md:gap-4">
         {visibleCards.map((card) => {
           const Icon = card.icon;
 
@@ -339,21 +339,21 @@ export function MobileMacroMicroCards({
                 type="button"
                 onClick={card.onClick}
                 className={cn(
-                  'aspect-square rounded-3xl p-2.5 sm:p-3 flex flex-col items-center justify-center text-center shadow-md active:scale-95 transition-all text-white select-none relative group overflow-hidden',
+                  'aspect-square rounded-3xl p-2.5 sm:p-3 md:p-4 flex flex-col items-center justify-center text-center shadow-md hover:shadow-xl active:scale-95 hover:-translate-y-1 transition-all text-white select-none relative group overflow-hidden border border-white/20',
                   card.bgColor
                 )}
               >
                 {/* Subtle sheen highlight */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-white/10 pointer-events-none rounded-3xl" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/15 to-white/15 pointer-events-none rounded-3xl" />
                 
-                <Icon className="h-7 w-7 sm:h-8 sm:w-8 text-white drop-shadow-xs group-hover:scale-105 transition-transform" />
+                <Icon className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 text-white drop-shadow-xs group-hover:scale-110 transition-transform" />
                 
-                <span className="text-[11px] sm:text-xs font-black text-white leading-tight mt-2 drop-shadow-xs truncate max-w-full px-1">
+                <span className="text-[11px] sm:text-xs md:text-sm font-black text-white leading-tight mt-2 drop-shadow-xs truncate max-w-full px-1">
                   {card.title}
                 </span>
 
                 {card.badge && (
-                  <span className="mt-1 px-1.5 py-0.5 rounded-full bg-black/25 backdrop-blur-xs text-[9px] font-extrabold text-white leading-none shadow-2xs">
+                  <span className="mt-1 px-1.5 py-0.5 rounded-full bg-black/30 backdrop-blur-xs text-[9px] sm:text-[10px] font-extrabold text-white leading-none shadow-2xs">
                     {card.badge}
                   </span>
                 )}
@@ -368,21 +368,21 @@ export function MobileMacroMicroCards({
               target={card.isExternal ? '_blank' : undefined}
               rel={card.isExternal ? 'noopener noreferrer' : undefined}
               className={cn(
-                'aspect-square rounded-3xl p-2.5 sm:p-3 flex flex-col items-center justify-center text-center shadow-md active:scale-95 transition-all text-white select-none relative group overflow-hidden',
+                'aspect-square rounded-3xl p-2.5 sm:p-3 md:p-4 flex flex-col items-center justify-center text-center shadow-md hover:shadow-xl active:scale-95 hover:-translate-y-1 transition-all text-white select-none relative group overflow-hidden border border-white/20',
                 card.bgColor
               )}
             >
               {/* Subtle sheen highlight */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-white/10 pointer-events-none rounded-3xl" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/15 to-white/15 pointer-events-none rounded-3xl" />
               
-              <Icon className="h-7 w-7 sm:h-8 sm:w-8 text-white drop-shadow-xs group-hover:scale-105 transition-transform" />
+              <Icon className="h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 text-white drop-shadow-xs group-hover:scale-110 transition-transform" />
               
-              <span className="text-[11px] sm:text-xs font-black text-white leading-tight mt-2 drop-shadow-xs truncate max-w-full px-1">
+              <span className="text-[11px] sm:text-xs md:text-sm font-black text-white leading-tight mt-2 drop-shadow-xs truncate max-w-full px-1">
                 {card.title}
               </span>
 
               {card.badge && (
-                <span className="mt-1 px-1.5 py-0.5 rounded-full bg-black/25 backdrop-blur-xs text-[9px] font-extrabold text-white leading-none shadow-2xs">
+                <span className="mt-1 px-1.5 py-0.5 rounded-full bg-black/30 backdrop-blur-xs text-[9px] sm:text-[10px] font-extrabold text-white leading-none shadow-2xs">
                   {card.badge}
                 </span>
               )}

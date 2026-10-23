@@ -811,7 +811,19 @@ export default function DashboardOverviewPage() {
           </div>
         </div>
 
-        {/* ─── 2. LINHA DE 4 CARDS KPI COLORIDOS & INTERATIVOS ───────────────────── */}
+        {/* ─── 2. CENTRAL DE CARDS NO COMPUTADOR (TODOS OS RECURSOS DIRETOS) ──── */}
+        <MobileMacroMicroCards
+          locale={locale}
+          selectedPerson={selectedPerson}
+          caredPeople={caredPeople}
+          medsData={medsData}
+          hydration={hydration}
+          userName={userName || 'Cuidador'}
+          onQuickLogWater={handleQuickLogWater}
+          onOpenVitalsModal={() => setVitalsModalOpen(true)}
+        />
+
+        {/* ─── 3. LINHA DE 4 CARDS KPI COLORIDOS & INTERATIVOS ───────────────────── */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           
           {/* Card 1: Medicamentos */}

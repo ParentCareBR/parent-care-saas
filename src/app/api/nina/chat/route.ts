@@ -248,22 +248,38 @@ CONTEXTO ATUAL DO SISTEMA:
 ${liveContext}
 `;
 
-    // ── 3. Call Gemini with fallback chain ────────────────────────────────────
+    // ── 3. Call Gemini with sanitized history and fallback chain ─────────────
     const genAI = new GoogleGenerativeAI(API_KEY);
     let reply = '';
     let lastError: any = null;
 
-    const history = messages.slice(0, -1).map((m: any) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }));
+    // Gemini SDK requires history to:
+    // 1. Start with role 'user' (never 'model')
+    // 2. Alternate between 'user' and 'model'
+    const sanitizedHistory: { role: 'user' | 'model'; parts: { text: string }[] }[] = [];
+    for (const m of messages.slice(0, -1)) {
+      const role: 'user' | 'model' = m.role === 'assistant' ? 'model' : 'user';
+      if (sanitizedHistory.length === 0) {
+        if (role === 'user') {
+          sanitizedHistory.push({ role, parts: [{ text: m.content }] });
+        }
+        // If the first message in state was an assistant greeting, omit from history
+      } else {
+        const lastRole = sanitizedHistory[sanitizedHistory.length - 1].role;
+        if (role !== lastRole) {
+          sanitizedHistory.push({ role, parts: [{ text: m.content }] });
+        } else {
+          sanitizedHistory[sanitizedHistory.length - 1].parts[0].text += `\n${m.content}`;
+        }
+      }
+    }
 
     const lastUserMessage = messages[messages.length - 1].content;
 
     for (const modelName of CANDIDATE_MODELS) {
       try {
         const model = genAI.getGenerativeModel({ model: modelName, systemInstruction });
-        const chat = model.startChat({ history });
+        const chat = model.startChat({ history: sanitizedHistory });
         const result = await chat.sendMessage(lastUserMessage);
         const text = result.response.text();
         if (text) {

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
@@ -277,66 +277,50 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="flex h-screen bg-[#F8F9FA] dark:bg-[#081220] overflow-hidden text-stone-900 dark:text-[#F1F5F9] font-sans antialiased">
 
-      {/* ─── DESKTOP LEFT SIDEBAR (INSPIRADO EM LAYOUTS MODELO) ─────────────── */}
-      <aside className="w-64 bg-white dark:bg-[#0C1728] border-r border-[#E5E7EB] dark:border-[#1E293B] flex-col hidden md:flex shrink-0 z-20 shadow-2xs">
-        
-        {/* LOGO & BRAND */}
-        <div className="px-5 py-4 border-b border-[#F1F5F9] dark:border-[#1E293B]">
+      {/* ─── DESKTOP LEFT SIDEBAR — SLIM ─────────────────────────────────────── */}
+      <aside className="w-56 bg-white dark:bg-[#0C1728] border-r border-[#E5E7EB] dark:border-[#1E293B] flex-col hidden md:flex shrink-0 z-20 shadow-2xs">
+
+        {/* LOGO */}
+        <div className="px-4 py-4 border-b border-[#F1F5F9] dark:border-[#1E293B]">
           <Link href={`/${locale}/dashboard`} className="flex items-center gap-2.5 group">
             <div className="w-9 h-9 rounded-xl bg-[#0F4C3A]/10 dark:bg-emerald-500/20 border border-[#0F4C3A]/20 dark:border-emerald-500/40 flex items-center justify-center text-[#0F4C3A] dark:text-emerald-400 group-hover:scale-105 transition-transform shadow-2xs">
               <Heart className="h-5 w-5 fill-[#0F4C3A] dark:fill-emerald-400" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h1 className="text-base font-black text-stone-900 dark:text-white tracking-tight leading-none">
-                  Parent Care
-                </h1>
-                <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_#10B981] animate-pulse" title="Sistema Online" />
+                <h1 className="text-base font-black text-stone-900 dark:text-white tracking-tight leading-none">Parent Care</h1>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_#10B981] animate-pulse" />
               </div>
-              <p className="text-[10px] text-stone-400 dark:text-slate-400 font-medium leading-none mt-1">
-                Gestão de Vida & Cuidado
-              </p>
+              <p className="text-[10px] text-stone-400 dark:text-slate-400 font-medium leading-none mt-1">Gestão de Vida & Cuidado</p>
             </div>
           </Link>
         </div>
 
-        {/* CARD ACOMPANHANDO (SELETOR DE PESSOA) */}
-        <div className="p-3 border-b border-[#F1F5F9] dark:border-[#1E293B] bg-[#FAFBF9] dark:bg-[#0E1A2C] space-y-2">
+        {/* PESSOA CUIDADA */}
+        <div className="p-3 border-b border-[#F1F5F9] dark:border-[#1E293B] space-y-2">
           <div className="flex items-center justify-between px-1">
-            <span className="text-[10px] text-stone-400 dark:text-slate-400 uppercase tracking-wider font-extrabold">
-              Acompanhando
-            </span>
-            <Link
-              href={`/${locale}/dashboard/cared-people/new`}
-              className="text-[11px] text-[#0F4C3A] dark:text-emerald-400 hover:underline flex items-center gap-0.5 font-bold"
-              title="Cadastrar nova pessoa cuidada"
-            >
-              + Novo
-            </Link>
+            <span className="text-[10px] text-stone-400 dark:text-slate-400 uppercase tracking-wider font-extrabold">Acompanhando</span>
+            <Link href={`/${locale}/dashboard/cared-people/new`} className="text-[11px] text-[#0F4C3A] dark:text-emerald-400 hover:underline font-bold">+ Novo</Link>
           </div>
-
           <CaredPersonSelector />
-
           {selectedPerson && (
             <div className="flex items-center gap-1.5 pt-0.5">
               <Link
                 href={`/${locale}/care/${selectedPerson.id}`}
                 target="_blank"
-                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/30 text-[#0F4C3A] dark:text-emerald-300 text-[11px] font-bold transition shadow-2xs"
-                title="Abrir tela simplificada para o idoso"
+                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/30 text-[#0F4C3A] dark:text-emerald-300 text-[11px] font-bold transition"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span>Modo Idoso</span>
                 <ExternalLink className="h-3 w-3" />
               </Link>
               <a
-                href={selectedPerson?.phone || selectedPerson?.whatsapp_phone 
-                  ? `https://wa.me/${(selectedPerson.whatsapp_phone || selectedPerson.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`Olá ${selectedPerson.full_name.split(' ')[0]}, tudo bem? Como você está hoje?`)}`
+                href={selectedPerson?.phone || selectedPerson?.whatsapp_phone
+                  ? `https://wa.me/${(selectedPerson.whatsapp_phone || selectedPerson.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(`Olá ${selectedPerson.full_name.split(' ')[0]}, tudo bem?`)}`
                   : 'https://web.whatsapp.com'}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700/60 text-[#128C7E] dark:text-[#25D366] text-[11px] font-bold transition shadow-2xs"
-                title="Conversar direto no WhatsApp"
+                className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700/60 text-[#128C7E] dark:text-[#25D366] text-[11px] font-bold transition"
               >
                 <MessageSquare className="h-3 w-3 text-[#25D366]" />
                 <span>WhatsApp</span>
@@ -345,133 +329,67 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           )}
         </div>
 
-        {/* NAVIGATION LINKS */}
-        <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto scrollbar-thin">
-          {navSections.map(({ key, section }) => {
-            const Icon = section.icon;
-            const isDirectActive = section.exact
-              ? pathname === section.href
-              : section.href && (pathname === section.href || (section.href !== `/${locale}/dashboard` && pathname.startsWith(section.href)));
-            
-            const hasSubItems = section.subItems && section.subItems.length > 0;
-            const isSubActive = hasSubItems && section.subItems!.some(sub => pathname === sub.href || pathname.startsWith(`${sub.href}/`));
-            const isExpanded = expandedSections[key] || isSubActive;
-
-            // Direct link (like "Hoje")
-            if (!hasSubItems) {
-              return (
-                <Link
-                  key={key}
-                  href={section.href || `/${locale}/dashboard`}
-                  className={cn(
-                    'flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all group',
-                    isDirectActive
-                      ? 'bg-[#0F4C3A] text-white shadow-xs'
-                      : 'text-stone-700 dark:text-slate-300 hover:bg-[#F3F4F6] dark:hover:bg-[#16253C] hover:text-stone-900 dark:hover:text-white'
-                  )}
-                >
-                  <Icon className={cn('h-4 w-4 shrink-0', isDirectActive ? 'text-white' : 'text-stone-500 dark:text-slate-400 group-hover:text-stone-900 dark:group-hover:text-white')} />
-                  <span>{section.title}</span>
-                </Link>
-              );
-            }
-
-            // Expandable item (like "Atividades", "Cuidados", "Organização", "Equipe")
+        {/* QUICK NAV — just the most important direct links */}
+        <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
+          {[
+            { href: `/${locale}/dashboard`, label: 'Início', Icon: Home, exact: true },
+            { href: `/${locale}/dashboard/appointments`, label: 'Agenda', Icon: Calendar },
+            { href: `/${locale}/dashboard/medications`, label: 'Remédios', Icon: Pill },
+            { href: `/${locale}/dashboard/meals`, label: 'Alimentação', Icon: Utensils },
+            { href: `/${locale}/dashboard/tasks`, label: 'Tarefas', Icon: ClipboardList },
+            { href: `/${locale}/dashboard/nina`, label: 'Nina IA', Icon: Sparkles },
+            { href: `/${locale}/dashboard/history`, label: 'Histórico', Icon: BarChart3 },
+            { href: `/${locale}/dashboard/family`, label: 'Família', Icon: Users },
+            { href: `/${locale}/dashboard/shopping`, label: 'Compras', Icon: ShoppingCart },
+            { href: `/${locale}/dashboard/expenses`, label: 'Despesas', Icon: Receipt },
+            { href: `/${locale}/dashboard/handovers`, label: 'Passagem de Turno', Icon: ArrowLeftRight },
+            { href: `/${locale}/dashboard/reports`, label: 'Relatórios', Icon: CheckCircle2 },
+            { href: `/${locale}/dashboard/activities`, label: 'Atividades', Icon: Activity },
+            { href: `/${locale}/dashboard/home-safety`, label: 'Segurança', Icon: ShieldCheck },
+            { href: `/${locale}/dashboard/memories`, label: 'Memórias', Icon: Heart },
+          ].map(({ href, label, Icon, exact }) => {
+            const isActive = exact ? pathname === href : pathname.startsWith(href) && href !== `/${locale}/dashboard`;
+            const isHome = exact && pathname === href;
+            const active = isHome || isActive;
             return (
-              <div key={key} className="space-y-0.5">
-                <button
-                  type="button"
-                  onClick={() => toggleSection(key)}
-                  className={cn(
-                    'w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-sm font-semibold transition-all group',
-                    isSubActive
-                      ? 'text-[#0F4C3A] dark:text-emerald-400 font-bold bg-[#0F4C3A]/5 dark:bg-emerald-500/10'
-                      : 'text-stone-700 dark:text-slate-300 hover:bg-[#F3F4F6] dark:hover:bg-[#16253C] hover:text-stone-900 dark:hover:text-white'
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon className={cn('h-4 w-4 shrink-0', isSubActive ? 'text-[#0F4C3A] dark:text-emerald-400' : 'text-stone-500 dark:text-slate-400')} />
-                    <span>{section.title}</span>
-                  </div>
-                  <ChevronDown
-                    className={cn(
-                      'h-3.5 w-3.5 text-stone-400 transition-transform duration-200',
-                      isExpanded ? 'rotate-180' : ''
-                    )}
-                  />
-                </button>
-
-                {/* Sub items */}
-                {isExpanded && (
-                  <div className="pl-9 pr-1 py-1 space-y-0.5 border-l-2 border-stone-200 dark:border-stone-700 ml-5 my-0.5">
-                    {section.subItems!.map((sub) => {
-                      const isActive = pathname === sub.href || pathname.startsWith(`${sub.href}/`);
-                      return (
-                        <Link
-                          key={sub.name}
-                          href={sub.href}
-                          className={cn(
-                            'block px-2.5 py-1.5 rounded-lg text-xs transition-all',
-                            isActive
-                              ? 'bg-[#0F4C3A]/10 dark:bg-emerald-500/20 text-[#0F4C3A] dark:text-emerald-300 font-bold'
-                              : 'text-stone-600 dark:text-slate-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-white/5 font-medium'
-                          )}
-                        >
-                          {sub.name}
-                        </Link>
-                      );
-                    })}
-                  </div>
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all group',
+                  active
+                    ? href.includes('/nina')
+                      ? 'bg-gradient-to-r from-sky-500/15 to-indigo-600/15 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
+                      : 'bg-[#0F4C3A]/8 dark:bg-emerald-500/10 text-[#0F4C3A] dark:text-emerald-300 border border-[#0F4C3A]/15 dark:border-emerald-500/20 font-bold'
+                    : 'text-stone-600 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-white/5 hover:text-stone-900 dark:hover:text-white'
                 )}
-              </div>
+              >
+                <Icon className={cn('h-4 w-4 shrink-0', active ? (href.includes('/nina') ? 'text-indigo-600 dark:text-indigo-400' : 'text-[#0F4C3A] dark:text-emerald-400') : 'text-stone-400 dark:text-slate-500 group-hover:text-stone-700 dark:group-hover:text-white')} />
+                <span className="truncate">{label}</span>
+              </Link>
             );
           })}
 
-          <div className="pt-3 pb-1 border-t border-stone-100 dark:border-[#1E293B] my-2" />
-
-          {/* Secondary links */}
-          <Link
-            href={`/${locale}/dashboard/settings/monitoring`}
-            className={cn(
-              'flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-semibold text-stone-600 dark:text-slate-400 hover:bg-[#F3F4F6] dark:hover:bg-[#16253C] hover:text-stone-900 dark:hover:text-white transition-all',
-              pathname.includes('/settings/monitoring') ? 'bg-stone-200/70 dark:bg-stone-800 text-stone-900 dark:text-white font-bold' : ''
-            )}
-          >
-            <Sliders className="h-4 w-4 text-stone-400 shrink-0" />
-            <span>Personalizar menu</span>
-          </Link>
-
-          <Link
-            href={`/${locale}/dashboard/settings/subscription`}
-            className={cn(
-              'flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-semibold transition-all group',
-              pathname.includes('/subscription')
-                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold'
-                : 'text-stone-600 dark:text-slate-400 hover:bg-[#F3F4F6] dark:hover:bg-[#16253C] hover:text-stone-900 dark:hover:text-white'
-            )}
-          >
-            <div className="flex items-center gap-3">
-              <Sparkles className="h-4 w-4 text-amber-500 shrink-0" />
-              <span>Plano & Assinatura</span>
-            </div>
-            <span className="text-[10px] font-bold uppercase text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-900/50">
-              SaaS
-            </span>
-          </Link>
-
-          <Link
-            href={`/${locale}/dashboard/settings`}
-            className={cn(
-              'flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-semibold text-stone-600 dark:text-slate-400 hover:bg-[#F3F4F6] dark:hover:bg-[#16253C] hover:text-stone-900 dark:hover:text-white transition-all',
-              pathname === `/${locale}/dashboard/settings` ? 'bg-stone-200/70 dark:bg-stone-800 text-stone-900 dark:text-white font-bold' : ''
-            )}
-          >
-            <Settings className="h-4 w-4 text-stone-400 shrink-0" />
-            <span>Configurações</span>
-          </Link>
+          <div className="pt-2 mt-2 border-t border-stone-100 dark:border-[#1E293B] space-y-1">
+            <Link href={`/${locale}/dashboard/settings/monitoring`} className={cn('flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all text-stone-500 dark:text-slate-500 hover:bg-stone-100 dark:hover:bg-white/5 hover:text-stone-900 dark:hover:text-white', pathname.includes('/settings/monitoring') ? 'font-bold text-stone-900 dark:text-white' : '')}>
+              <Sliders className="h-4 w-4 text-stone-400 shrink-0" />
+              <span>Personalizar</span>
+            </Link>
+            <Link href={`/${locale}/dashboard/settings/subscription`} className={cn('flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all group', pathname.includes('/subscription') ? 'text-amber-700 dark:text-amber-400' : 'text-stone-500 dark:text-slate-500 hover:bg-stone-100 dark:hover:bg-white/5 hover:text-stone-900 dark:hover:text-white')}>
+              <div className="flex items-center gap-3">
+                <Sparkles className="h-4 w-4 text-amber-500 shrink-0" />
+                <span>Assinatura</span>
+              </div>
+              <span className="text-[9px] font-bold uppercase text-amber-600 bg-amber-50 dark:bg-amber-950/50 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-900/50">SaaS</span>
+            </Link>
+            <Link href={`/${locale}/dashboard/settings`} className={cn('flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all text-stone-500 dark:text-slate-500 hover:bg-stone-100 dark:hover:bg-white/5 hover:text-stone-900 dark:hover:text-white', pathname === `/${locale}/dashboard/settings` ? 'font-bold text-stone-900 dark:text-white' : '')}>
+              <Settings className="h-4 w-4 text-stone-400 shrink-0" />
+              <span>Configurações</span>
+            </Link>
+          </div>
         </nav>
 
-        {/* SIDEBAR FOOTER (USER PROFILE) */}
+        {/* USER FOOTER */}
         <div className="p-3 border-t border-[#F1F5F9] dark:border-[#1E293B] bg-[#FAFBF9] dark:bg-[#0A1424] relative" ref={userMenuRef}>
           <button
             type="button"
@@ -479,41 +397,25 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-stone-100 dark:hover:bg-white/5 transition-all text-left"
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-[#0F4C3A] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+              <div className="w-8 h-8 rounded-full bg-[#0F4C3A] text-white flex items-center justify-center font-bold text-xs shrink-0">
                 {user?.email?.charAt(0).toUpperCase() || 'U'}
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-stone-900 dark:text-white truncate leading-tight">
                   {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuário'}
                 </p>
-                <p className="text-[10px] text-stone-400 dark:text-slate-400 leading-tight">
-                  Familiar / Cuidador
-                </p>
+                <p className="text-[10px] text-stone-400 dark:text-slate-400 leading-tight">Familiar / Cuidador</p>
               </div>
             </div>
             <ChevronDown className={cn('h-3.5 w-3.5 text-stone-400 transition-transform', userMenuOpen ? 'rotate-180' : '')} />
           </button>
-
-          {/* User Popover Menu */}
           {userMenuOpen && (
             <div className="absolute bottom-full left-3 right-3 mb-2 bg-white dark:bg-[#0E1A2C] border border-stone-200 dark:border-[#1E293B] rounded-2xl shadow-xl p-1.5 space-y-0.5 z-50">
-              <Link
-                href={`/${locale}/dashboard/settings`}
-                onClick={() => setUserMenuOpen(false)}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-stone-700 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-white/5"
-              >
-                <Settings className="h-3.5 w-3.5 text-stone-400" />
-                <span>Minha Conta</span>
+              <Link href={`/${locale}/dashboard/settings`} onClick={() => setUserMenuOpen(false)} className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-stone-700 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-white/5">
+                <Settings className="h-3.5 w-3.5 text-stone-400" /><span>Minha Conta</span>
               </Link>
-              <button
-                onClick={() => {
-                  setUserMenuOpen(false);
-                  signOut();
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-              >
-                <LogOut className="h-3.5 w-3.5 text-rose-500" />
-                <span>Sair</span>
+              <button onClick={() => { setUserMenuOpen(false); signOut(); }} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20">
+                <LogOut className="h-3.5 w-3.5 text-rose-500" /><span>Sair</span>
               </button>
             </div>
           )}
