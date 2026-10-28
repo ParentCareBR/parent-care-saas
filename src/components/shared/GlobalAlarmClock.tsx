@@ -79,18 +79,10 @@ function playAlarmBeep(ctx: AudioContext) {
   }
 }
 
+import { speakPleasantVoice } from '@/lib/audio/voice-synthesizer';
+
 function speakVoicePrompt(text: string, locale: string = 'pt-BR') {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-  try {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = locale === 'pt-BR' ? 'pt-BR' : 'pt-BR';
-    utterance.rate = 0.95;
-    utterance.pitch = 1.05;
-    window.speechSynthesis.speak(utterance);
-  } catch (err) {
-    console.warn('[GlobalAlarmClock] Speech warning:', err);
-  }
+  speakPleasantVoice(text, { locale });
 }
 
 export function GlobalAlarmClock({ locale = 'pt-BR' }: { locale?: string }) {

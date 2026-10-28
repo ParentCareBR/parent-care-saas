@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Heart, Droplet, Utensils, Pill, BellRing, CheckCircle2, Volume2, Sparkles, Smartphone } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { speakPleasantVoice } from '@/lib/audio/voice-synthesizer';
 
 export function InteractiveElderSimulator({ locale = 'pt-BR' }: { locale?: string }) {
   const [activeMessage, setActiveMessage] = useState<string | null>(null);
@@ -36,16 +37,7 @@ export function InteractiveElderSimulator({ locale = 'pt-BR' }: { locale?: strin
   };
 
   const speakText = (text: string) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    try {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = locale === 'en' ? 'en-US' : 'pt-BR';
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
-    } catch {
-      // Speech fallback
-    }
+    speakPleasantVoice(text, { locale: locale === 'en' ? 'en-US' : 'pt-BR' });
   };
 
   const handleAction = (id: string, speech: string, familyNotice: string) => {

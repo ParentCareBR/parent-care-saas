@@ -22,6 +22,8 @@ import { getDateFnsLocale, getSpeechSynthesisLang, getCareTexts, getFinanceTexts
 import { useTheme } from '@/contexts/ThemeContext';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { ElderlyLanguageSwitcher } from '@/components/shared/ElderlyLanguageSwitcher';
+import { speakPleasantVoice, stopVoiceSpeech } from '@/lib/audio/voice-synthesizer';
+import { VoiceSettingsModal } from '@/components/shared/VoiceSettingsModal';
 
 // ── Shared Audio Engine (Web Audio API Synthesizer) ──
 let globalAudioCtx: AudioContext | null = null;
@@ -97,17 +99,7 @@ function playSuccessChime() {
 }
 
 function speakReminder(text: string, rawLocale: string = 'pt-BR') {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-  try {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = getSpeechSynthesisLang(rawLocale);
-    utterance.rate = 0.88;
-    utterance.pitch = 1.05;
-    window.speechSynthesis.speak(utterance);
-  } catch (err) {
-    console.warn('Speech error:', err);
-  }
+  speakPleasantVoice(text, { locale: rawLocale });
 }
 
 interface AgendaEvent {
@@ -179,6 +171,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [nextAppointmentData, setNextAppointmentData] = useState<any>(null);
   const [alarmModalOpen, setAlarmModalOpen] = useState(false);
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
   const [alarmDismissedId, setAlarmDismissedId] = useState<string | null>(null);
   const [snoozeUntil, setSnoozeUntil] = useState<Date | null>(null);
 
@@ -1221,6 +1214,14 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               className='w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 flex items-center justify-center transition active:scale-90 shadow-xs'
             >
               <Volume2 className='h-5 w-5' />
+            </button>
+            <button
+              type="button"
+              onClick={() => setVoiceModalOpen(true)}
+              title="Ajustar Tom de Voz da IA (Vozes Agradáveis)"
+              className='w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 flex items-center justify-center text-lg transition active:scale-90 shadow-xs'
+            >
+              🎙️
             </button>
             <ThemeToggle className='w-10 h-10' />
             <button
@@ -2378,6 +2379,13 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
           </div>
         </div>
       )}
+
+      {/* ── MODAL: VOZES AGRADÁVEIS DE IA ── */}
+      <VoiceSettingsModal
+        open={voiceModalOpen}
+        onOpenChange={setVoiceModalOpen}
+        locale={params.locale}
+      />
 
     </div>
   );

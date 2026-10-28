@@ -10,11 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Settings, User, Lock, Bell, CreditCard, Sun, Moon, Send, MessageCircle } from 'lucide-react';
+import { Settings, User, Lock, Bell, CreditCard, Sun, Moon, Send, MessageCircle, Volume2, Play, Square, Sparkles, Sliders } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
+import { VOICE_PERSONAS, VoicePersona, speakPleasantVoice, stopVoiceSpeech, saveVoicePreferences } from '@/lib/audio/voice-synthesizer';
 
 export default function SettingsPage() {
   const params = useParams();
@@ -46,6 +47,20 @@ export default function SettingsPage() {
   });
   const [testPhone, setTestPhone] = useState('');
   const [sendingTestWa, setSendingTestWa] = useState(false);
+
+  // Voice preference state
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string>('nina_warm');
+  const [voiceSpeed, setVoiceSpeed] = useState<number>(0.96);
+  const [playingPersonaId, setPlayingPersonaId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedPersona = localStorage.getItem('parentcare_preferred_voice_persona');
+      if (savedPersona) setSelectedPersonaId(savedPersona);
+      const savedSpeed = localStorage.getItem('parentcare_preferred_voice_speed');
+      if (savedSpeed) setVoiceSpeed(parseFloat(savedSpeed));
+    }
+  }, []);
 
   useEffect(() => {
     if (profile) {
@@ -171,6 +186,9 @@ export default function SettingsPage() {
             </TabsTrigger>
             <TabsTrigger value="appearance" className="rounded-lg gap-2 text-xs sm:text-sm">
               <Sun className="h-4 w-4" /> Aparência
+            </TabsTrigger>
+            <TabsTrigger value="voice" className="rounded-lg gap-2 text-xs sm:text-sm">
+              <Volume2 className="h-4 w-4" /> Voz da IA
             </TabsTrigger>
             <TabsTrigger value="billing" className="rounded-lg gap-2 text-xs sm:text-sm">
               <CreditCard className="h-4 w-4" /> Assinatura
@@ -436,6 +454,148 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 <LanguageSwitcher />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB: VOZ DA IA */}
+        <TabsContent value="voice">
+          <Card className="rounded-2xl border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
+            <CardHeader>
+              <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                <Volume2 className="h-6 w-6" />
+                <CardTitle className="text-lg text-stone-900 dark:text-stone-100">Vozes Agradáveis de IA</CardTitle>
+              </div>
+              <CardDescription className="text-stone-500 dark:text-stone-400">
+                Escolha o tom de voz da Nina IA e das leituras de agenda e remédios. Priorizamos vozes neurais e humanas para conforto do idoso e da família.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 gap-3.5">
+                {VOICE_PERSONAS.map((persona) => {
+                  const isSelected = selectedPersonaId === persona.id;
+                  const isPlaying = playingPersonaId === persona.id;
+
+                  return (
+                    <div
+                      key={persona.id}
+                      onClick={() => {
+                        setSelectedPersonaId(persona.id);
+                        setVoiceSpeed(persona.preferredRate);
+                        saveVoicePreferences(persona.id, undefined, persona.preferredRate);
+                        toast({ title: 'Voz Selecionada!', description: `${persona.name} agora é a voz ativa.` });
+                      }}
+                      className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+                        isSelected
+                          ? 'border-indigo-600 bg-indigo-50/70 dark:bg-indigo-950/40 shadow-sm ring-2 ring-indigo-500/20'
+                          : 'border-stone-200 dark:border-stone-800 hover:border-stone-300 bg-white dark:bg-stone-800/40'
+                      }`}
+                    >
+                      <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                        <div
+                          className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0 ${
+                            isSelected
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300'
+                          }`}
+                        >
+                          {persona.gender === 'female' ? '🌸' : persona.gender === 'male' ? '👨‍⚕️' : '🌿'}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-black text-stone-900 dark:text-stone-100">
+                              {persona.name}
+                            </h4>
+                            {isSelected && (
+                              <span className="text-[10px] font-black uppercase tracking-wider bg-indigo-600 text-white px-2 py-0.5 rounded-full">
+                                Ativa
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-stone-600 dark:text-stone-400 mt-0.5 leading-snug">
+                            {persona.description}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Botão Ouvir Demonstração */}
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (isPlaying) {
+                            stopVoiceSpeech();
+                            setPlayingPersonaId(null);
+                          } else {
+                            stopVoiceSpeech();
+                            setPlayingPersonaId(persona.id);
+                            await speakPleasantVoice(persona.previewText, {
+                              locale,
+                              personaId: persona.id,
+                              onEnd: () => setPlayingPersonaId(null),
+                              onError: () => setPlayingPersonaId(null),
+                            });
+                          }
+                        }}
+                        className={`h-10 px-4 rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition active:scale-95 ${
+                          isPlaying
+                            ? 'bg-rose-600 text-white shadow-xs'
+                            : 'bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-200'
+                        }`}
+                      >
+                        {isPlaying ? (
+                          <>
+                            <Square className="h-4 w-4 fill-white" />
+                            <span>Parar</span>
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4 fill-current" />
+                            <span>Ouvir Teste</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Ajuste de Ritmo */}
+              <div className="bg-stone-50 dark:bg-stone-800/60 p-4 rounded-2xl border border-stone-200 dark:border-stone-700 space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-bold text-stone-700 dark:text-stone-300">
+                  <span className="flex items-center gap-1.5">
+                    <Sliders className="h-4 w-4 text-indigo-600" />
+                    Ritmo e Cadência da Fala
+                  </span>
+                  <span className="text-indigo-600 dark:text-indigo-400 font-black">
+                    {voiceSpeed <= 0.88 ? 'Mais Pausada (Recomendada para Idosos)' : voiceSpeed >= 1.05 ? 'Rápida' : 'Natural (Equilibrada)'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {[
+                    { label: 'Pausada', val: 0.88 },
+                    { label: 'Natural', val: 0.96 },
+                    { label: 'Fluida', val: 1.05 },
+                  ].map((btn) => (
+                    <button
+                      key={btn.label}
+                      type="button"
+                      onClick={() => {
+                        setVoiceSpeed(btn.val);
+                        saveVoicePreferences(selectedPersonaId, undefined, btn.val);
+                        toast({ title: 'Ritmo atualizado', description: `Velocidade definida para ${btn.label.toLowerCase()}.` });
+                      }}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
+                        Math.abs(voiceSpeed - btn.val) < 0.04
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                          : 'bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-400 border-stone-200 dark:border-stone-700 hover:border-stone-400'
+                      }`}
+                    >
+                      {btn.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>

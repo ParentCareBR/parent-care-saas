@@ -16,10 +16,13 @@ import {
   Lightbulb,
   ShieldCheck,
   Square,
+  Sliders,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { speakPleasantVoice, stopVoiceSpeech } from '@/lib/audio/voice-synthesizer';
+import { VoiceSettingsModal } from '@/components/shared/VoiceSettingsModal';
 
 export interface NinaAIChatbotProps {
   caredPersonId?: string;
@@ -47,42 +50,15 @@ const SUGGESTED_QUESTIONS = [
 ];
 
 // ─── Speech Synthesis helpers ─────────────────────────────────────────────────
-function cleanForSpeech(text: string): string {
-  return text
-    .replace(/[*#_`~]/g, '')
-    .replace(/\[.*?\]/g, '')
-    .replace(/https?:\/\/\S+/g, '')
-    .replace(/[\uD800-\uDFFF]/g, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-}
-
 function speakText(text: string, onEnd?: () => void) {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-  try {
-    window.speechSynthesis.cancel();
-    const clean = cleanForSpeech(text);
-    if (!clean) return;
-    const utterance = new SpeechSynthesisUtterance(clean);
-    utterance.lang = 'pt-BR';
-    utterance.rate = 0.92;
-    utterance.pitch = 1.05;
-    utterance.volume = 1;
-    // Prefer a Portuguese voice if available
-    const voices = window.speechSynthesis.getVoices();
-    const ptVoice = voices.find(v => v.lang.startsWith('pt'));
-    if (ptVoice) utterance.voice = ptVoice;
-    if (onEnd) utterance.onend = onEnd;
-    window.speechSynthesis.speak(utterance);
-  } catch (err) {
-    console.warn('Speech synthesis error:', err);
-  }
+  speakPleasantVoice(text, {
+    locale: 'pt-BR',
+    onEnd,
+  });
 }
 
 function stopSpeech() {
-  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
-  }
+  stopVoiceSpeech();
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -106,6 +82,7 @@ export function NinaAIChatbot({
   const [loading, setLoading] = useState(false);
   // autoVoice: Nina responde automaticamente em áudio
   const [autoVoice, setAutoVoice] = useState(true);
+  const [voiceModalOpen, setVoiceModalOpen] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [chatStarted, setChatStarted] = useState(!inline);
@@ -360,6 +337,17 @@ export function NinaAIChatbot({
         </div>
 
         <div className="flex items-center gap-1.5">
+          {/* Voice settings */}
+          <button
+            type="button"
+            onClick={() => setVoiceModalOpen(true)}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white/15 hover:bg-white/25 text-white transition-all"
+            title="Escolher Voz Agradável da IA"
+          >
+            <Sliders className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Voz</span>
+          </button>
+
           {/* Auto-voz toggle */}
           <button
             type="button"
@@ -558,6 +546,13 @@ export function NinaAIChatbot({
           <Send className="h-4 w-4" />
         </Button>
       </form>
+
+      {/* Voice Selection Modal */}
+      <VoiceSettingsModal
+        open={voiceModalOpen}
+        onOpenChange={setVoiceModalOpen}
+        locale="pt-BR"
+      />
     </div>
   );
 }
