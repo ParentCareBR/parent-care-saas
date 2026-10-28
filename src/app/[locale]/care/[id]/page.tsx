@@ -1564,8 +1564,9 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               userName={personInfo.name}
               isCareMode={true}
               onQuickLogWater={handleDrinkWater}
-              onNavigateTab={(tab) => {
+              onNavigateTab={(tab, filter) => {
                 triggerHaptic(20);
+                if (filter) setRoutineFilter(filter);
                 setActiveTab(tab);
               }}
               onOpenNina={() => {

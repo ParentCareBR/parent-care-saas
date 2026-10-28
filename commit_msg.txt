@@ -1,1 +1,1 @@
-feat(care): exibe 24 cards coloridos na tela do idoso igual ao dashboard do anfitriao
+fix(care): cada card navega para sua secao especifica com filtro correto

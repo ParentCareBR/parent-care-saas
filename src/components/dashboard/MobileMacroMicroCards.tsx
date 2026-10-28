@@ -41,7 +41,7 @@ export interface MobileMacroMicroCardsProps {
   onQuickLogWater?: () => void;
   onOpenVitalsModal?: () => void;
   isCareMode?: boolean;
-  onNavigateTab?: (tab: 'home' | 'routine' | 'games' | 'actions' | 'finances') => void;
+  onNavigateTab?: (tab: 'home' | 'routine' | 'games' | 'actions' | 'finances', filter?: 'all' | 'medication' | 'meal' | 'appointment' | 'task') => void;
   onOpenNina?: () => void;
   onOpenEmergency?: () => void;
   onRequestCall?: () => void;
@@ -83,54 +83,54 @@ export function MobileMacroMicroCards({
 
   // ── Grid of 24 Cards strictly matching the 3-column layout in the user's reference image ──
   const allCards: GridCardItem[] = useMemo(() => [
-    // 1. Agenda
+    // 1. Agenda → Rotina (todos os eventos com data)
     {
       id: 'agenda',
       title: tDash.cards.agenda.title,
       icon: Calendar,
       href: isCareMode ? '' : `/${locale}/dashboard/appointments`,
-      onClick: isCareMode ? () => onNavigateTab?.('routine') : undefined,
+      onClick: isCareMode ? () => onNavigateTab?.('routine', 'all') : undefined,
       bgColor: 'bg-[#22C55E] hover:bg-[#16A34A]',
     },
-    // 2. Medicamentos
+    // 2. Medicamentos → Rotina filtrada por medicamento
     {
       id: 'medicamentos',
       title: tDash.cards.medications.title,
       icon: Pill,
       href: isCareMode ? '' : `/${locale}/dashboard/medications`,
-      onClick: isCareMode ? () => onNavigateTab?.('routine') : undefined,
+      onClick: isCareMode ? () => onNavigateTab?.('routine', 'medication') : undefined,
       bgColor: 'bg-[#06B6D4] hover:bg-[#0891B2]',
       badge: medsData.total > 0 ? `${medsData.taken}/${medsData.total}` : undefined,
     },
-    // 3. Alimentação
+    // 3. Alimentação → Ação direta (log refeição, sem navegar)
     {
       id: 'alimentacao',
       title: tDash.cards.meals.title,
       icon: Utensils,
       href: isCareMode ? '' : `/${locale}/dashboard/meals`,
-      onClick: isCareMode ? (onLogMeal || (() => onNavigateTab?.('routine'))) : undefined,
+      onClick: isCareMode ? onLogMeal : undefined,
       bgColor: 'bg-[#F97316] hover:bg-[#EA580C]',
     },
 
-    // 4. Consultas
+    // 4. Consultas → Rotina filtrada por consulta/appointment
     {
       id: 'consultas',
       title: tDash.cards.appointments.title,
       icon: Stethoscope,
       href: isCareMode ? '' : `/${locale}/dashboard/appointments`,
-      onClick: isCareMode ? () => onNavigateTab?.('routine') : undefined,
+      onClick: isCareMode ? () => onNavigateTab?.('routine', 'appointment') : undefined,
       bgColor: 'bg-[#0284C7] hover:bg-[#0369A1]',
     },
-    // 5. Atividades
+    // 5. Atividades → Rotina filtrada por tarefa/atividade
     {
       id: 'atividades',
       title: tDash.cards.activities.title,
       icon: Activity,
       href: isCareMode ? '' : `/${locale}/dashboard/activities`,
-      onClick: isCareMode ? () => onNavigateTab?.('routine') : undefined,
+      onClick: isCareMode ? () => onNavigateTab?.('routine', 'task') : undefined,
       bgColor: 'bg-[#A855F7] hover:bg-[#9333EA]',
     },
-    // 6. Sinais Vitais
+    // 6. Sinais Vitais → Modal de sinais (sem data, dado pontual)
     {
       id: 'sinais-vitais',
       title: tDash.cards.vitals.title,
@@ -140,7 +140,7 @@ export function MobileMacroMicroCards({
       onClick: onOpenVitalsModal || (isCareMode ? () => onNavigateTab?.('actions') : undefined),
     },
 
-    // 7. Hidratação
+    // 7. Hidratação → Ação direta (log água, sem navegar)
     {
       id: 'hidratacao',
       title: tDash.cards.hydration.title,
@@ -150,7 +150,7 @@ export function MobileMacroMicroCards({
       bgColor: 'bg-[#0D9488] hover:bg-[#0F766E]',
       badge: tDash.cards.hydration.badge(hydration.cups),
     },
-    // 8. Jogos Cognitivos
+    // 8. Jogos Cognitivos → Aba Jogos
     {
       id: 'jogos',
       title: tDash.cards.games.title,
@@ -160,17 +160,17 @@ export function MobileMacroMicroCards({
       bgColor: 'bg-[#EC4899] hover:bg-[#DB2777]',
       badge: tDash.cards.games.badge,
     },
-    // 9. Tarefas
+    // 9. Tarefas → Rotina filtrada por tarefa
     {
       id: 'tarefas',
       title: tDash.cards.tasks.title,
       icon: ClipboardList,
       href: isCareMode ? '' : `/${locale}/dashboard/tasks`,
-      onClick: isCareMode ? () => onNavigateTab?.('routine') : undefined,
+      onClick: isCareMode ? () => onNavigateTab?.('routine', 'task') : undefined,
       bgColor: 'bg-[#38BDF8] hover:bg-[#0284C7]',
     },
 
-    // 10. Nina IA
+    // 10. Nina IA → Modal da Nina
     {
       id: 'nina-ia',
       title: tDash.cards.nina.title,
@@ -180,7 +180,7 @@ export function MobileMacroMicroCards({
       bgColor: 'bg-[#6366F1] hover:bg-[#4F46E5]',
       badge: tDash.cards.nina.badge,
     },
-    // 11. Despesas
+    // 11. Despesas → Aba Finanças
     {
       id: 'despesas',
       title: tDash.cards.expenses.title,
@@ -189,7 +189,7 @@ export function MobileMacroMicroCards({
       onClick: isCareMode ? () => onNavigateTab?.('finances') : undefined,
       bgColor: 'bg-[#10B981] hover:bg-[#059669]',
     },
-    // 12. Compras
+    // 12. Compras → Aba Ações (dado sem data)
     {
       id: 'compras',
       title: tDash.cards.shopping.title,
@@ -199,7 +199,7 @@ export function MobileMacroMicroCards({
       bgColor: 'bg-[#D97706] hover:bg-[#B45309]',
     },
 
-    // 13. Plantão
+    // 13. Plantão → Aba Ações (dado sem data)
     {
       id: 'plantao',
       title: tDash.cards.handovers.title,
@@ -208,7 +208,7 @@ export function MobileMacroMicroCards({
       onClick: isCareMode ? () => onNavigateTab?.('actions') : undefined,
       bgColor: 'bg-gradient-to-br from-indigo-500 to-purple-600',
     },
-    // 14. Modo Idoso
+    // 14. Modo Idoso → badge "Você está aqui" (sem navegar)
     {
       id: 'modo-idoso',
       title: tDash.cards.elderlyMode.title,
@@ -218,7 +218,7 @@ export function MobileMacroMicroCards({
       isExternal: !isCareMode,
       badge: isCareMode ? 'Você está aqui' : tDash.cards.elderlyMode.badge,
     },
-    // 15. Família
+    // 15. Família → Solicitar ligação (ação direta)
     {
       id: 'familia',
       title: tDash.cards.family.title,
@@ -228,7 +228,7 @@ export function MobileMacroMicroCards({
       bgColor: 'bg-gradient-to-br from-pink-400 to-rose-500',
     },
 
-    // 16. Idosos
+    // 16. Idosos → badge com nome (informativo)
     {
       id: 'idosos',
       title: tDash.cards.caredPeople.title,
@@ -237,7 +237,7 @@ export function MobileMacroMicroCards({
       bgColor: 'bg-[#15803D] hover:bg-[#166534]',
       badge: isCareMode ? firstName : undefined,
     },
-    // 17. Relatórios
+    // 17. Relatórios → Aba Ações (dado sem data)
     {
       id: 'relatorios',
       title: tDash.cards.reports.title,
@@ -246,17 +246,17 @@ export function MobileMacroMicroCards({
       onClick: isCareMode ? () => onNavigateTab?.('actions') : undefined,
       bgColor: 'bg-[#7C3AED] hover:bg-[#6D28D9]',
     },
-    // 18. Histórico
+    // 18. Histórico → Rotina (todos, com data)
     {
       id: 'historico',
       title: tDash.cards.history.title,
       icon: Clock,
       href: isCareMode ? '' : `/${locale}/dashboard/history`,
-      onClick: isCareMode ? () => onNavigateTab?.('routine') : undefined,
+      onClick: isCareMode ? () => onNavigateTab?.('routine', 'all') : undefined,
       bgColor: 'bg-[#BE185D] hover:bg-[#9D174D]',
     },
 
-    // 19. Segurança
+    // 19. Segurança → Modal de emergência (ação direta)
     {
       id: 'seguranca',
       title: tDash.cards.safety.title,
@@ -265,7 +265,7 @@ export function MobileMacroMicroCards({
       onClick: isCareMode ? onOpenEmergency : undefined,
       bgColor: 'bg-[#0F766E] hover:bg-[#115E59]',
     },
-    // 20. Memórias
+    // 20. Memórias → Aba Ações (dado sem data)
     {
       id: 'memorias',
       title: tDash.cards.memories.title,
@@ -274,16 +274,17 @@ export function MobileMacroMicroCards({
       onClick: isCareMode ? () => onNavigateTab?.('actions') : undefined,
       bgColor: 'bg-gradient-to-br from-rose-500 to-pink-600',
     },
-    // 21. Ajustes
+    // 21. Ajustes → Aba Ações
     {
       id: 'configuracoes',
       title: tDash.cards.settings.title,
       icon: Sliders,
       href: isCareMode ? '' : `/${locale}/dashboard/settings`,
+      onClick: isCareMode ? () => onNavigateTab?.('actions') : undefined,
       bgColor: 'bg-[#475569] hover:bg-[#334155]',
     },
 
-    // 22. WhatsApp
+    // 22. WhatsApp → Solicitar ligação (ação direta)
     {
       id: 'whatsapp',
       title: tDash.cards.whatsapp.title,
@@ -295,7 +296,7 @@ export function MobileMacroMicroCards({
       bgColor: 'bg-[#25D366] hover:bg-[#20BA5C]',
       isExternal: Boolean(personPhone),
     },
-    // 23. SOS / Ajuda
+    // 23. SOS / Ajuda → Modal de emergência (ação direta)
     {
       id: 'sos',
       title: tDash.cards.sos.title,
@@ -305,13 +306,13 @@ export function MobileMacroMicroCards({
       bgColor: 'bg-[#DC2626] hover:bg-[#B91C1C]',
       badge: tDash.cards.sos.badge,
     },
-    // 24. Prescrições
+    // 24. Prescrições → Rotina filtrada por medicamento
     {
       id: 'prescricoes',
       title: tDash.cards.prescriptions.title,
       icon: Pill,
       href: isCareMode ? '' : `/${locale}/dashboard/medications`,
-      onClick: isCareMode ? () => onNavigateTab?.('routine') : undefined,
+      onClick: isCareMode ? () => onNavigateTab?.('routine', 'medication') : undefined,
       bgColor: 'bg-[#4338CA] hover:bg-[#3730A3]',
     },
   ], [
