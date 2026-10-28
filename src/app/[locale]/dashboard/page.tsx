@@ -850,7 +850,7 @@ export default function DashboardOverviewPage() {
               <div className="min-w-0">
                 <p className="text-[10px] text-purple-200 font-bold uppercase tracking-wider">Cognitivo & Jogos</p>
                 <p className="text-sm font-black text-white truncate">
-                  7 Jogos com Níveis
+                  21 Jogos com Níveis
                 </p>
               </div>
             </div>
@@ -986,7 +986,7 @@ export default function DashboardOverviewPage() {
                   Cérebro Ativo
                 </span>
                 <h3 className="text-2xl font-black text-stone-900 dark:text-white mt-1">
-                  7 Jogos
+                  21 Jogos
                 </h3>
                 <p className="text-xs text-stone-500 dark:text-stone-400 font-medium mt-0.5">
                   Forca, Palavras, Memória...
@@ -1145,7 +1145,7 @@ export default function DashboardOverviewPage() {
                       Estímulo Cognitivo
                     </span>
                     <h3 className="text-lg font-black text-white mt-1">
-                      7 Jogos Cognitivos com Fases & Dificuldade
+                      21 Jogos Cognitivos com Fases & Dificuldade
                     </h3>
                     <p className="text-xs text-purple-200/80 mt-0.5">
                       Jogo da Forca dinâmico, Caça-Palavras com vocabulário infinito, Memória e Sudoku adaptativo.

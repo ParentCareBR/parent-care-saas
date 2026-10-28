@@ -1,1 +1,1 @@
-fix: alimentacao vai para rotina/meal, hidratacao para acoes, badge jogos 21, historico jogos via admin client
+fix(dashboard): atualizar contagem de jogos para 21 no header e cards do anfitriao
