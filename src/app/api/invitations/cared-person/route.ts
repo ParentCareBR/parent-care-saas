@@ -121,10 +121,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Build the invitation URL
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
-      ?? process.env.NEXT_PUBLIC_APP_URL
-      ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://parentcare-pink.vercel.app');
+    // Build the invitation URL based on actual incoming request origin
+    const origin = req.headers.get('origin');
+    const forwardedHost = req.headers.get('x-forwarded-host');
+    const host = req.headers.get('host');
+    const proto = req.headers.get('x-forwarded-proto') || 'https';
+
+    let baseUrl = origin;
+    if (!baseUrl && (forwardedHost || host)) {
+      baseUrl = `${proto}://${forwardedHost || host}`;
+    }
+    if (!baseUrl || baseUrl.includes('parentcare.co')) {
+      baseUrl = 'https://parentcare-pink.vercel.app';
+    }
     const inviteUrl = `${baseUrl}/${preferredLanguage}/auth/accept-invitation/${invitation.token}`;
 
     // Record audit

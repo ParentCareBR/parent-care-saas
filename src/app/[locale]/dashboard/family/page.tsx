@@ -218,7 +218,14 @@ export default function FamilyPage() {
         return;
       }
 
-      setGeneratedInvite(data.invitation);
+      const resolvedInviteUrl = (typeof window !== 'undefined' && data.invitation?.token)
+        ? `${window.location.origin}/${seniorForm.language || 'pt-BR'}/auth/accept-invitation/${data.invitation.token}`
+        : (data.invitation?.inviteUrl || '');
+
+      setGeneratedInvite({
+        ...data.invitation,
+        inviteUrl: resolvedInviteUrl,
+      });
       toast({
         title: '✓ Convite criado com sucesso!',
         description: 'Copie o link abaixo e compartilhe com o idoso ou familiar.',
