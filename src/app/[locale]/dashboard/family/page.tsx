@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Users, UserPlus, Mail, Shield, Share2, Check, Copy, AlertCircle,
-  ExternalLink, ShieldCheck, ShieldAlert, FileText, Heart, Globe, KeyRound
+  ExternalLink, ShieldCheck, ShieldAlert, FileText, Heart, Globe, KeyRound,
+  CheckCircle2, Sparkles
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -91,18 +92,10 @@ export default function FamilyPage() {
     setLoading(true);
 
     try {
-      const [membersRes, caredRes, entRes] = await Promise.all([
-        supabase
-          .from('organization_members')
-          .select(`
-            id, user_id, role, status, invited_email, created_at,
-            users (full_name, email, avatar_url)
-          `)
-          .eq('organization_id', currentOrganizationId),
-        supabase
-          .from('cared_people')
-          .select('*')
-          .eq('organization_id', currentOrganizationId),
+      const [membersApiRes, entRes] = await Promise.all([
+        fetch(`/api/organizations/members?organizationId=${currentOrganizationId}`)
+          .then((r) => r.json())
+          .catch(() => null),
         supabase
           .from('organization_entitlements')
           .select('*')
@@ -110,15 +103,39 @@ export default function FamilyPage() {
           .maybeSingle(),
       ]);
 
-      if (membersRes.data) setMembers(membersRes.data);
-      if (caredRes.data) {
-        setCaredPeople(caredRes.data);
-        if (caredRes.data.length > 0 && !seniorForm.caredPersonId) {
-          setSeniorForm((prev) => ({ ...prev, caredPersonId: caredRes.data[0].id }));
+      if (membersApiRes?.success) {
+        if (membersApiRes.members) setMembers(membersApiRes.members);
+        if (membersApiRes.caredPeople) {
+          setCaredPeople(membersApiRes.caredPeople);
+          if (membersApiRes.caredPeople.length > 0 && !seniorForm.caredPersonId) {
+            setSeniorForm((prev) => ({ ...prev, caredPersonId: membersApiRes.caredPeople[0].id }));
+          }
+        }
+      } else {
+        const [membersRes, caredRes] = await Promise.all([
+          supabase
+            .from('organization_members')
+            .select(`
+              id, user_id, role, status, invited_email, created_at,
+              users (full_name, email, avatar_url)
+            `)
+            .eq('organization_id', currentOrganizationId),
+          supabase
+            .from('cared_people')
+            .select('*')
+            .eq('organization_id', currentOrganizationId),
+        ]);
+
+        if (membersRes.data) setMembers(membersRes.data as any);
+        if (caredRes.data) {
+          setCaredPeople(caredRes.data);
+          if (caredRes.data.length > 0 && !seniorForm.caredPersonId) {
+            setSeniorForm((prev) => ({ ...prev, caredPersonId: caredRes.data[0].id }));
+          }
         }
       }
 
-      if (entRes.data) {
+      if (entRes?.data) {
         const entData = entRes.data;
         const used = entData.active_members_count + entData.reserved_invites_count;
         setEntitlements({
@@ -143,6 +160,13 @@ export default function FamilyPage() {
   const effectiveCaredPeople = (caredPeople && caredPeople.length > 0)
     ? caredPeople
     : (contextCaredPeople || []);
+
+  const openSeniorInviteForPerson = (personId: string) => {
+    setSeniorForm((prev) => ({ ...prev, caredPersonId: personId }));
+    setGeneratedInvite(null);
+    setSeniorInviteError(null);
+    setSeniorInviteOpen(true);
+  };
 
   useEffect(() => {
     if (effectiveCaredPeople.length > 0 && !seniorForm.caredPersonId) {
@@ -264,21 +288,21 @@ export default function FamilyPage() {
     setTimeout(() => setCopied(false), 3000);
   };
 
-  const getRoleLabel = (role: string) => {
+  const getRoleLabel = (role: string, isOwner?: boolean) => {
+    if (isOwner || role === 'owner') return 'Proprietário (Anfitrião)';
     switch (role) {
-      case 'owner': return 'Proprietário';
       case 'admin': return 'Coadministrador';
       case 'caregiver': return 'Cuidador Profissional';
       case 'cared_person': return 'Pessoa Cuidada (Conta Própria)';
-      case 'professional': return 'Profissional Convidado';
+      case 'professional': return 'Profissional de Saúde';
       case 'emergency_contact': return 'Contato de Emergência';
-      default: return 'Filho ou Irmão';
+      default: return 'Familiar / Colaborador';
     }
   };
 
-  const getRoleBadgeColor = (role: string) => {
+  const getRoleBadgeColor = (role: string, isOwner?: boolean) => {
+    if (isOwner || role === 'owner') return 'bg-purple-100 text-purple-800 border-purple-300 font-bold';
     switch (role) {
-      case 'owner': return 'bg-purple-50 text-purple-700 border-purple-200';
       case 'admin': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'caregiver': return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'cared_person': return 'bg-amber-50 text-amber-800 border-amber-300';
@@ -288,6 +312,7 @@ export default function FamilyPage() {
   };
 
   const seatsFull = entitlements ? !entitlements.canInvite : false;
+  const caregiversAndManagers = members.filter((m) => m.role !== 'cared_person');
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 overflow-x-hidden w-full">
@@ -640,45 +665,214 @@ export default function FamilyPage() {
         </Card>
       )}
 
-      {/* Members Grid / List */}
-      <Card className="rounded-2xl border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900">
-        <CardHeader>
-          <CardTitle className="text-lg text-stone-900 dark:text-stone-100">
-            Membros da Família ({members.length || 1})
+      {/* 1. IDOSOS / PESSOAS CUIDADAS */}
+      <Card className="rounded-2xl border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-sm overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-b border-stone-100 dark:border-stone-800/60 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-lg font-black text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <Heart className="h-5 w-5 text-amber-500 fill-amber-500" />
+                Pessoas Cuidadas — Idosos ({effectiveCaredPeople.length})
+              </CardTitle>
+              <CardDescription className="text-stone-500 dark:text-stone-400 text-xs sm:text-sm mt-0.5">
+                Idosos sob cuidado e status de liberação da conta individual para rotina e jogos.
+              </CardDescription>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (effectiveCaredPeople.length > 0) {
+                  openSeniorInviteForPerson(effectiveCaredPeople[0].id);
+                } else {
+                  router.push(`/${locale}/dashboard/cared-people/new`);
+                }
+              }}
+              className="rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs gap-1.5 h-9 shrink-0 shadow-sm"
+            >
+              <Heart className="h-3.5 w-3.5 fill-white" />
+              Liberar Conta de Idoso
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-4 pb-2">
+          {loading ? (
+            <div className="py-10 flex justify-center">
+              <div className="animate-spin h-7 w-7 border-3 border-amber-500 border-t-transparent rounded-full" />
+            </div>
+          ) : effectiveCaredPeople.length === 0 ? (
+            <div className="py-8 text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+                <Heart className="h-6 w-6" />
+              </div>
+              <p className="text-sm font-semibold text-stone-800 dark:text-stone-200">Nenhum idoso cadastrado ainda.</p>
+              <Button
+                size="sm"
+                onClick={() => router.push(`/${locale}/dashboard/cared-people/new`)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold"
+              >
+                Cadastrar Pessoa Cuidada
+              </Button>
+            </div>
+          ) : (
+            <div className="divide-y divide-stone-100 dark:divide-stone-800">
+              {effectiveCaredPeople.map((person: any) => {
+                const name = person.preferred_name || person.full_name || 'Pessoa Cuidada';
+                const hasAccount = Boolean(person.hasAccount || person.user_id);
+                const isPending = Boolean(!hasAccount && (person.isInvitePending || person.latestInvite?.status === 'pending'));
+                const latestInvite = person.latestInvite;
+                const inviteUrl = (typeof window !== 'undefined' && latestInvite?.token)
+                  ? `${window.location.origin}/${latestInvite.preferred_language || 'pt-BR'}/auth/accept-invitation/${latestInvite.token}`
+                  : '';
+
+                return (
+                  <div key={person.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start sm:items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-200 text-amber-900 font-black flex items-center justify-center text-lg border-2 border-amber-200 shrink-0 shadow-sm">
+                        {name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-bold text-stone-900 dark:text-stone-100 text-sm sm:text-base">{name}</p>
+                          {hasAccount ? (
+                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[11px] font-bold gap-1">
+                              <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                              Conta Própria Ativa
+                            </Badge>
+                          ) : isPending ? (
+                            <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[11px] font-bold gap-1">
+                              <Sparkles className="h-3 w-3 text-amber-600" />
+                              Acesso Liberado (Convite Pendente)
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-stone-50 text-stone-600 border-stone-200 text-[11px] font-medium">
+                              Sem Conta Vinculada
+                            </Badge>
+                          )}
+                        </div>
+
+                        {hasAccount ? (
+                          <p className="text-xs text-stone-500 dark:text-stone-400">
+                            Login individual ativo{person.linkedUser?.email ? ` (${person.linkedUser.email})` : ''}.
+                          </p>
+                        ) : isPending ? (
+                          <div className="space-y-1.5 pt-0.5">
+                            <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">
+                              {latestInvite?.invited_email ? `Convite enviado para ${latestInvite.invited_email}` : 'Convite gerado por link individual'}.
+                            </p>
+                            {inviteUrl && (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(inviteUrl);
+                                    toast({ title: 'Link copiado!', description: 'Envie para o idoso ou familiar.' });
+                                  }}
+                                  className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-200"
+                                >
+                                  <Copy className="h-3 w-3" /> Copiar Link
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const msg = `Olá ${name}! Criei seu acesso pessoal no Parent Care: ${inviteUrl}`;
+                                    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                                  }}
+                                  className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-200"
+                                >
+                                  <Share2 className="h-3 w-3" /> WhatsApp
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-stone-500 dark:text-stone-400">
+                            Ainda não possui login próprio. Clique em "Liberar Conta" para criar o acesso dele.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => router.push(`/${locale}/care/${person.id}`)}
+                        className="rounded-xl text-xs font-bold h-9 border-stone-200"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                        Ver Tela do Idoso
+                      </Button>
+
+                      {!hasAccount && (
+                        <Button
+                          size="sm"
+                          onClick={() => openSeniorInviteForPerson(person.id)}
+                          className="rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs h-9 shadow-sm gap-1"
+                        >
+                          <KeyRound className="h-3.5 w-3.5" />
+                          {isPending ? 'Gerar Novo Link' : 'Liberar Conta'}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 2. PESSOAS QUE CUIDAM E LIBERAM (ANFITRIÃO & EQUIPE) */}
+      <Card className="rounded-2xl border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-sm overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border-b border-stone-100 dark:border-stone-800/60 pb-4">
+          <CardTitle className="text-lg font-black text-stone-900 dark:text-stone-100 flex items-center gap-2">
+            <Shield className="h-5 w-5 text-emerald-600" />
+            Círculo de Cuidado — Quem Cuida e Libera ({caregiversAndManagers.length || 1})
           </CardTitle>
-          <CardDescription className="text-stone-500 dark:text-stone-400">
-            Pessoas com acesso autorizado aos cuidados, histórico e rotinas.
+          <CardDescription className="text-stone-500 dark:text-stone-400 text-xs sm:text-sm mt-0.5">
+            Anfitrião, familiares e cuidadores autorizados a gerenciar, liberar acessos e registrar cuidados.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4 pb-2">
           {loading ? (
-            <div className="py-12 flex justify-center">
-              <div className="animate-spin h-8 w-8 border-4 border-emerald-600 border-t-transparent rounded-full" />
+            <div className="py-10 flex justify-center">
+              <div className="animate-spin h-7 w-7 border-3 border-emerald-600 border-t-transparent rounded-full" />
             </div>
-          ) : members.length > 0 ? (
+          ) : caregiversAndManagers.length > 0 ? (
             <div className="divide-y divide-stone-100 dark:divide-stone-800">
-              {members.map((member) => {
-                const displayName = member.users?.full_name || member.invited_email || user?.email || 'Membro';
-                const displayEmail = member.users?.email || member.invited_email || user?.email;
+              {caregiversAndManagers.map((member: any) => {
+                const isOwner = member.isOwner || member.role === 'owner';
+                const displayName = member.users?.full_name || member.display_name || member.invited_email || (isOwner ? (user?.user_metadata?.full_name || user?.email) : 'Membro');
+                const displayEmail = member.users?.email || member.invited_email || (isOwner ? user?.email : '');
+
                 return (
                   <div key={member.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3.5">
-                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-100 to-teal-200 text-emerald-800 font-bold flex items-center justify-center text-base border">
+                      <div className={`w-11 h-11 rounded-full font-bold flex items-center justify-center text-base border shrink-0 ${isOwner ? 'bg-purple-100 text-purple-800 border-purple-200' : 'bg-gradient-to-br from-emerald-100 to-teal-200 text-emerald-800'}`}>
                         {displayName.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <p className="font-semibold text-stone-900 dark:text-stone-100 text-sm">{displayName}</p>
-                        <p className="text-xs text-stone-500 dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
-                          <Mail className="h-3 w-3" />
-                          {displayEmail}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-stone-900 dark:text-stone-100 text-sm">{displayName}</p>
+                          {isOwner && (
+                            <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-[10px] font-bold">
+                              Anfitrião
+                            </Badge>
+                          )}
+                        </div>
+                        {displayEmail && (
+                          <p className="text-xs text-stone-500 dark:text-stone-400 flex items-center gap-1.5 mt-0.5">
+                            <Mail className="h-3 w-3" />
+                            {displayEmail}
+                          </p>
+                        )}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <Badge variant="outline" className={`text-xs font-medium ${getRoleBadgeColor(member.role)}`}>
+                      <Badge variant="outline" className={`text-xs font-medium ${getRoleBadgeColor(member.role, isOwner)}`}>
                         <Shield className="h-3 w-3 mr-1" />
-                        {getRoleLabel(member.role)}
+                        {getRoleLabel(member.role, isOwner)}
                       </Badge>
 
                       {member.status === 'invited' ? (
@@ -698,7 +892,7 @@ export default function FamilyPage() {
           ) : (
             <div className="py-4 flex items-center justify-between">
               <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-base">
+                <div className="w-11 h-11 rounded-full bg-purple-100 text-purple-800 font-bold flex items-center justify-center text-base border border-purple-200">
                   {user?.email?.charAt(0).toUpperCase() || 'U'}
                 </div>
                 <div>
@@ -706,8 +900,8 @@ export default function FamilyPage() {
                   <p className="text-xs text-stone-500 dark:text-slate-400">{user?.email}</p>
                 </div>
               </div>
-              <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                Proprietário
+              <Badge className="bg-purple-100 text-purple-800 border-purple-300 font-bold">
+                Proprietário (Anfitrião)
               </Badge>
             </div>
           )}

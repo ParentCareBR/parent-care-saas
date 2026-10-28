@@ -139,41 +139,55 @@ export async function POST(
     let userId: string;
     let isNewUser = false;
 
-    if (existingUser) {
-      // User already logged in — just link them
+    const targetEmail = (invitation.invited_email || body.email || '').trim().toLowerCase();
+    const isHostSession = existingUser && (existingUser.id === invitation.invited_by || existingUser.email?.toLowerCase() !== targetEmail);
+
+    // Only link existing user if they are NOT the inviter/host testing and email matches
+    if (existingUser && !isHostSession && invitation.role !== 'cared_person') {
       userId = existingUser.id;
     } else {
-      // Must create new account
+      // Must create or find the target user for targetEmail
       if (!password || password.length < 8) {
         return NextResponse.json({ error: 'A senha deve ter pelo menos 8 caracteres.' }, { status: 400 });
       }
-      if (!invitation.invited_email && !body.email) {
+      if (!targetEmail) {
         return NextResponse.json({ error: 'E-mail é obrigatório para criar uma conta.' }, { status: 400 });
       }
 
-      const email = invitation.invited_email ?? body.email;
+      // Check if user with targetEmail already exists in auth
+      const { data: existingTargetUser } = await adminSupabase
+        .from('users')
+        .select('id')
+        .eq('email', targetEmail)
+        .maybeSingle();
 
-      const { data: newUser, error: createError } = await adminSupabase.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true, // Auto-confirm since they accepted via invitation
-        user_metadata: {
-          full_name: fullName ?? null,
-          preferred_language: language ?? invitation.preferred_language ?? 'pt-BR',
-          source: 'invitation',
-          invitation_id: invitation.id,
-        },
-      });
+      if (existingTargetUser) {
+        userId = existingTargetUser.id;
+        // Update password for the existing target user
+        await adminSupabase.auth.admin.updateUserById(userId, { password });
+      } else {
+        const { data: newUser, error: createError } = await adminSupabase.auth.admin.createUser({
+          email: targetEmail,
+          password,
+          email_confirm: true, // Auto-confirm since they accepted via invitation
+          user_metadata: {
+            full_name: fullName ?? null,
+            preferred_language: language ?? invitation.preferred_language ?? 'pt-BR',
+            source: 'invitation',
+            invitation_id: invitation.id,
+          },
+        });
 
-      if (createError || !newUser.user) {
-        return NextResponse.json(
-          { error: createError?.message ?? 'Erro ao criar conta.' },
-          { status: 500 }
-        );
+        if (createError || !newUser.user) {
+          return NextResponse.json(
+            { error: createError?.message ?? 'Erro ao criar conta.' },
+            { status: 500 }
+          );
+        }
+
+        userId = newUser.user.id;
+        isNewUser = true;
       }
-
-      userId = newUser.user.id;
-      isNewUser = true;
     }
 
     // 3. Ensure user record exists in public.users
@@ -181,21 +195,30 @@ export async function POST(
       .from('users')
       .upsert({
         id: userId,
-        email: invitation.invited_email ?? body.email ?? '',
+        email: targetEmail || invitation.invited_email || body.email || '',
         full_name: fullName ?? null,
         preferred_language: language ?? invitation.preferred_language ?? 'pt-BR',
         updated_at: new Date().toISOString(),
       }, { onConflict: 'id' });
 
-    // 4. Add to organization_members
+    // 4. Add to organization_members (protect existing owner role)
+    const { data: currentMember } = await adminSupabase
+      .from('organization_members')
+      .select('role')
+      .eq('organization_id', invitation.organization_id)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const roleToSet = currentMember?.role === 'owner' ? 'owner' : invitation.role;
+
     const { error: memberError } = await adminSupabase
       .from('organization_members')
       .upsert({
         organization_id: invitation.organization_id,
         user_id: userId,
-        role: invitation.role,
+        role: roleToSet,
         status: 'active',
-        invited_email: invitation.invited_email,
+        invited_email: targetEmail || invitation.invited_email,
         invited_at: invitation.created_at,
         joined_at: new Date().toISOString(),
         display_name: fullName ?? null,
