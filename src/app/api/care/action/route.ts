@@ -73,18 +73,42 @@ export async function POST(req: NextRequest) {
 
       case 'medication': {
         targetTable = 'medication_confirmations';
-        const { data: inserted } = await db
+        const confirmedAt = payload.confirmed_at || new Date().toISOString();
+        const noteStr = typeof payload.notes === 'string' ? payload.notes : JSON.stringify(payload.notes || {});
+
+        const { data: inserted, error: medErr } = await db
           .from('medication_confirmations')
           .insert({
             organization_id: orgId,
             cared_person_id: person.id,
             medication_id: payload.medication_id,
+            schedule_id: payload.schedule_id || null,
             confirmed_by: userId,
             status: payload.status || 'taken',
+            confirmed_at: confirmedAt,
+            notes: noteStr,
           })
           .select('id')
           .maybeSingle();
-        createdRecordId = inserted?.id || null;
+
+        if (medErr) {
+          console.warn('[care/action] medication_confirmations insert with notes failed, trying fallback:', medErr);
+          // Fallback if notes or schedule_id column has an unexpected type or constraint
+          const { data: fallbackInserted } = await db
+            .from('medication_confirmations')
+            .insert({
+              organization_id: orgId,
+              cared_person_id: person.id,
+              medication_id: payload.medication_id,
+              confirmed_by: userId,
+              status: payload.status || 'taken',
+            })
+            .select('id')
+            .maybeSingle();
+          createdRecordId = fallbackInserted?.id || null;
+        } else {
+          createdRecordId = inserted?.id || null;
+        }
 
         // Sync com medication_logs se a tabela existir
         try {
@@ -94,6 +118,19 @@ export async function POST(req: NextRequest) {
             taken_by: userId,
             status: 'taken',
             notes: message || 'Confirmado pelo idoso',
+            taken_at: confirmedAt,
+          });
+        } catch {}
+
+        // Registrar no histórico de cuidados (care_notes) com data e hora exatas
+        try {
+          const medCleanName = (message || 'Remédio').replace(/^Tomei\s*/i, '');
+          await db.from('care_notes').insert({
+            organization_id: orgId,
+            cared_person_id: person.id,
+            author_id: userId,
+            content: `✓ ${elderName} confirmou que tomou o remédio: ${medCleanName}`,
+            type: 'medication',
           });
         } catch {}
         break;

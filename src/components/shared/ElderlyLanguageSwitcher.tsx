@@ -22,25 +22,35 @@ interface ElderlyLanguageSwitcherProps {
   caredPersonId?: string;
   className?: string;
   compact?: boolean;
+  currentLocaleOverride?: string;
+  onSelectLanguage?: (newLocale: string) => void;
 }
 
 export function ElderlyLanguageSwitcher({
   caredPersonId,
   className = '',
   compact = false,
+  currentLocaleOverride,
+  onSelectLanguage,
 }: ElderlyLanguageSwitcherProps) {
   const pathname = usePathname() || '/';
   const [saving, setSaving] = useState(false);
 
-  // Extract current locale from pathname
+  // Extract current locale from pathname or override
   const segments = pathname.split('/').filter(Boolean);
   const firstSegment = segments[0] || '';
   const isFirstSegmentLocale = SENIOR_LANGUAGES.some((l) => l.code === firstSegment);
-  const currentLocale = isFirstSegmentLocale ? firstSegment : 'pt-BR';
+  const currentLocale = currentLocaleOverride || (isFirstSegmentLocale ? firstSegment : 'pt-BR');
   const currentLang = SENIOR_LANGUAGES.find((l) => l.code === currentLocale) || SENIOR_LANGUAGES[0];
 
   const handleSelectLanguage = async (newLocale: string) => {
     if (newLocale === currentLocale || saving) return;
+
+    if (onSelectLanguage) {
+      onSelectLanguage(newLocale);
+      return;
+    }
+
     setSaving(true);
 
     try {

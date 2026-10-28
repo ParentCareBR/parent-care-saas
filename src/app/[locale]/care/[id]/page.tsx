@@ -119,6 +119,7 @@ interface AgendaEvent {
   subtitle?: string;
   color: string;
   completed?: boolean;
+  schedId?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   raw?: any;
 }
@@ -196,7 +197,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     platformWhatsAppNumber: '15556657789', // default Meta test number
   });
 
-  const [lastAction, setLastAction] = useState<{ id: string; type: string; table: string } | null>(null);
+  const [lastAction, setLastAction] = useState<{ id: string; type: string; table: string; eventId?: string } | null>(null);
 
   // Financial state for senior self-management
   const [financeData, setFinanceData] = useState<{
@@ -384,7 +385,8 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
           hydroRes,
           humanNotesRes,
           financesRes,
-          lifeActsRes
+          lifeActsRes,
+          medConfirmationsRes
         ] = await Promise.all([
           // 1. Emergency phone
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -425,6 +427,9 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
           // 14. Life activities (física, aula, reabilitação, lazer)
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (supabase as any).from('life_activities').select('*').eq('cared_person_id', params.id).eq('is_active', true),
+          // 15. Medication confirmations for historical dose tracking
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any).from('medication_confirmations').select('id,medication_id,schedule_id,confirmed_at,created_at,status,notes').eq('cared_person_id', params.id).gte('created_at', dateFrom.toISOString()),
         ]);
 
         if (isCancelled) return;
@@ -513,19 +518,31 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
           });
         });
 
+        // 15. Historical medication confirmations
+        const medConfirmations: any[] = (medConfirmationsRes?.data as any[]) || [];
+
         // Medications
         allMeds.forEach((med: any) => {
           const schedules = med.medication_schedules || [];
           if (schedules.length === 0) {
             const d = new Date(); d.setHours(8, 0, 0, 0);
+            const dateStr = format(d, 'yyyy-MM-dd');
+            const eventId = 'med-' + med.id + '-notime';
+            const isConfirmed = medConfirmations.some((c: any) => {
+              if (c.medication_id !== med.id || c.status === 'missed') return false;
+              const confDateStr = format(new Date(c.confirmed_at || c.created_at), 'yyyy-MM-dd');
+              return confDateStr === dateStr;
+            });
+
             allEvents.push({
-              id: 'med-' + med.id + '-notime',
+              id: eventId,
               title: `${med.name} ${med.dosage || ''}${med.unit || ''}`.trim(),
-              subtitle: 'Medicamento agendado',
+              subtitle: isConfirmed ? '✓ Remédio tomado' : 'Medicamento agendado',
               time: '08:00',
               date: new Date(d),
               type: 'medication',
               color: 'green',
+              completed: isConfirmed,
               raw: med,
             });
           } else {
@@ -534,14 +551,50 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                 const d = new Date(); d.setDate(d.getDate() + i);
                 const pts = sched.time_of_day.split(':');
                 d.setHours(parseInt(pts[0]), parseInt(pts[1]), 0, 0);
+                const timeStr = sched.time_of_day.slice(0, 5);
+                const eventId = `med-${med.id}-${sched.id}-${i}`;
+                const dateStr = format(d, 'yyyy-MM-dd');
+
+                // Check if this exact dose was confirmed
+                const isConfirmed = medConfirmations.some((c: any) => {
+                  if (c.medication_id !== med.id || c.status === 'missed') return false;
+
+                  // Direct note match
+                  if (c.notes && typeof c.notes === 'string') {
+                    if (c.notes.includes(eventId)) return true;
+                    if (c.notes.includes(dateStr) && c.notes.includes(timeStr)) return true;
+                  }
+
+                  // Schedule ID and date match
+                  const confDate = new Date(c.confirmed_at || c.created_at);
+                  const confDateStr = format(confDate, 'yyyy-MM-dd');
+                  if (c.schedule_id && c.schedule_id === sched.id && confDateStr === dateStr) {
+                    return true;
+                  }
+
+                  // If no schedule_id on confirmation, match same day and close time
+                  if (!c.schedule_id && confDateStr === dateStr) {
+                    const confTimeStr = format(confDate, 'HH:mm');
+                    const [ch, cm] = confTimeStr.split(':').map(Number);
+                    const [sh, sm] = timeStr.split(':').map(Number);
+                    if (Math.abs((ch * 60 + cm) - (sh * 60 + sm)) <= 90) {
+                      return true;
+                    }
+                  }
+
+                  return false;
+                });
+
                 allEvents.push({
-                  id: `med-${med.id}-${sched.id}-${i}`,
+                  id: eventId,
                   title: `${med.name} ${med.dosage || ''}${med.unit || ''}`.trim(),
-                  subtitle: 'Horário do medicamento',
-                  time: sched.time_of_day.slice(0, 5),
+                  subtitle: isConfirmed ? '✓ Remédio tomado' : 'Horário do medicamento',
+                  time: timeStr,
                   date: new Date(d),
                   type: 'medication',
                   color: 'green',
+                  completed: isConfirmed,
+                  schedId: sched.id,
                   raw: med,
                 });
               }
@@ -749,7 +802,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
 
   // Generic check-in / action dispatcher
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleAction = async (type: string, message: string, dbTable: string, payloadData: any) => {
+  const handleAction = async (type: string, message: string, dbTable: string, payloadData: any, eventId?: string) => {
     setLoading(true);
     unlockAudioContext();
     playSuccessChime();
@@ -788,12 +841,47 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     }
 
     if (recordedId) {
-      setLastAction({ id: recordedId, type, table: targetTable });
+      setLastAction({ id: recordedId, type, table: targetTable, eventId });
     }
     setLoading(false);
     setSuccessMsg(tCare.actionNotified(message));
     speakReminder(`${message}! Sua família já sabe.`, params.locale);
     setTimeout(() => setSuccessMsg(''), 6000);
+  };
+
+  // Dedicated medication confirmation helper that immediately marks dose as completed,
+  // removes it from pending ("ATIVIDADE DO MOMENTO"), and persists with full date & time.
+  const confirmMedicationDose = async (targetEvent: AgendaEvent) => {
+    // 1. Immediately update UI state so it leaves "ATIVIDADE DO MOMENTO" and is marked done
+    setEvents(prev => prev.map(e => e.id === targetEvent.id ? { ...e, completed: true, subtitle: '✓ Remédio tomado' } : e));
+
+    const doseDateStr = format(targetEvent.date, 'yyyy-MM-dd');
+    const doseTimeStr = targetEvent.time || format(new Date(), 'HH:mm');
+    const doseNote = JSON.stringify({
+      doseDate: doseDateStr,
+      doseTime: doseTimeStr,
+      eventId: targetEvent.id,
+      medName: targetEvent.title,
+      schedId: targetEvent.schedId || null,
+    });
+
+    await handleAction(
+      'medication',
+      `Tomei ${targetEvent.title}`,
+      'medication_confirmations',
+      {
+        medication_id: targetEvent.raw?.id || personInfo.medicationId,
+        schedule_id: targetEvent.schedId || targetEvent.raw?.schedule_id || null,
+        confirmed_by: personInfo.userId,
+        status: 'taken',
+        confirmed_at: new Date().toISOString(),
+        notes: doseNote,
+        doseDate: doseDateStr,
+        doseTime: doseTimeStr,
+        eventId: targetEvent.id,
+      },
+      targetEvent.id
+    );
   };
 
   const undoLastAction = async () => {
@@ -805,6 +893,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
       });
     } catch {
       await supabase.from(lastAction.table).delete().eq('id', lastAction.id);
+    }
+    // Revert completed state on local event if applicable
+    if (lastAction.eventId) {
+      setEvents(prev => prev.map(e => e.id === lastAction.eventId ? { ...e, completed: false } : e));
     }
     setLoading(false);
     setLastAction(null);
@@ -1232,22 +1324,20 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     disabled={loading}
                     onClick={() => {
                       if (currentNowEvent.type === 'medication') {
-                        handleAction('medication', `Tomei ${currentNowEvent.title}`, 'medication_confirmations', {
-                          medication_id: currentNowEvent.raw?.id || personInfo.medicationId,
-                          confirmed_by: personInfo.userId,
-                          status: 'taken',
-                        });
+                        confirmMedicationDose(currentNowEvent);
                       } else if (currentNowEvent.type === 'meal') {
+                        setEvents(prev => prev.map(e => e.id === currentNowEvent.id ? { ...e, completed: true } : e));
                         handleAction('meal', `Já me alimentei: ${currentNowEvent.title}`, 'meals', {
                           meal_type: currentNowEvent.raw?.meal_type || 'other',
                           description: currentNowEvent.title,
                           logged_by: personInfo.userId,
-                        });
+                        }, currentNowEvent.id);
                       } else {
+                        setEvents(prev => prev.map(e => e.id === currentNowEvent.id ? { ...e, completed: true } : e));
                         handleAction('general', `Realizei: ${currentNowEvent.title}`, 'care_notes', {
                           content: `✓ Realizado por ${personInfo.name}: ${currentNowEvent.title}`,
                           type: 'general',
-                        });
+                        }, currentNowEvent.id);
                       }
                     }}
                     className='w-full h-15 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-2xl shadow-lg flex items-center justify-center gap-2.5 text-lg font-black transition-all active:scale-[0.98] border-b-4 border-emerald-800'
@@ -1370,22 +1460,20 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                           onClick={() => {
                             triggerHaptic(25);
                             if (ev.type === 'medication') {
-                              handleAction('medication', `Tomei ${ev.title}`, 'medication_confirmations', {
-                                medication_id: ev.raw?.id || personInfo.medicationId,
-                                confirmed_by: personInfo.userId,
-                                status: 'taken',
-                              });
+                              confirmMedicationDose(ev);
                             } else if (ev.type === 'meal') {
+                              setEvents(prev => prev.map(e => e.id === ev.id ? { ...e, completed: true } : e));
                               handleAction('meal', `Já me alimentei: ${ev.title}`, 'meals', {
                                 meal_type: ev.raw?.meal_type || 'other',
                                 description: ev.title,
                                 logged_by: personInfo.userId,
-                              });
+                              }, ev.id);
                             } else {
+                              setEvents(prev => prev.map(e => e.id === ev.id ? { ...e, completed: true } : e));
                               handleAction('general', `Realizado: ${ev.title}`, 'care_notes', {
                                 content: `✓ Realizado por ${personInfo.name}: ${ev.title}`,
                                 type: 'general',
-                              });
+                              }, ev.id);
                             }
                           }}
                           className='px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shrink-0 active:scale-95 shadow-xs flex items-center gap-1'
@@ -1807,12 +1895,20 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
 
               {/* 2. Tomei Remédio */}
               <button
-                disabled={loading || !personInfo.medicationId}
-                onClick={() => handleAction('medication', 'Medicamento tomado!', 'medication_confirmations', {
-                  medication_id: personInfo.medicationId,
-                  confirmed_by: personInfo.userId,
-                  status: 'taken',
-                })}
+                disabled={loading || (!personInfo.medicationId && todayEvents.filter(e => e.type === 'medication' && !e.completed).length === 0)}
+                onClick={() => {
+                  const targetMed = todayEvents.find(e => e.type === 'medication' && !e.completed) || (currentNowEvent?.type === 'medication' ? currentNowEvent : null);
+                  if (targetMed) {
+                    confirmMedicationDose(targetMed);
+                  } else {
+                    handleAction('medication', 'Medicamento tomado!', 'medication_confirmations', {
+                      medication_id: personInfo.medicationId,
+                      confirmed_by: personInfo.userId,
+                      status: 'taken',
+                      confirmed_at: new Date().toISOString(),
+                    });
+                  }
+                }}
                 className='bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 border-2 border-emerald-300 dark:border-emerald-800 p-4 rounded-3xl flex flex-col items-center gap-1.5 transition active:scale-95 text-center shadow-xs disabled:opacity-50'
               >
                 <div className='w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-900/60 flex items-center justify-center text-3xl'>
