@@ -102,13 +102,13 @@ export function MobileMacroMicroCards({
       bgColor: 'bg-[#06B6D4] hover:bg-[#0891B2]',
       badge: medsData.total > 0 ? `${medsData.taken}/${medsData.total}` : undefined,
     },
-    // 3. Alimentação → Ação direta (log refeição, sem navegar)
+    // 3. Alimentação → Rotina filtrada por refeição (as refeições têm horário agendado)
     {
       id: 'alimentacao',
       title: tDash.cards.meals.title,
       icon: Utensils,
       href: isCareMode ? '' : `/${locale}/dashboard/meals`,
-      onClick: isCareMode ? onLogMeal : undefined,
+      onClick: isCareMode ? () => onNavigateTab?.('routine', 'meal') : undefined,
       bgColor: 'bg-[#F97316] hover:bg-[#EA580C]',
     },
 
@@ -140,13 +140,13 @@ export function MobileMacroMicroCards({
       onClick: onOpenVitalsModal || (isCareMode ? () => onNavigateTab?.('actions') : undefined),
     },
 
-    // 7. Hidratação → Ação direta (log água, sem navegar)
+    // 7. Hidratação → Aba Ações para criar lembretes/avisos de hidratação
     {
       id: 'hidratacao',
       title: tDash.cards.hydration.title,
       icon: Droplet,
       href: isCareMode ? '' : `/${locale}/dashboard/meals`,
-      onClick: onQuickLogWater,
+      onClick: isCareMode ? () => onNavigateTab?.('actions') : onQuickLogWater,
       bgColor: 'bg-[#0D9488] hover:bg-[#0F766E]',
       badge: tDash.cards.hydration.badge(hydration.cups),
     },

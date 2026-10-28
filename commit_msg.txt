@@ -1,1 +1,1 @@
-fix(care): cada card navega para sua secao especifica com filtro correto
+fix: alimentacao vai para rotina/meal, hidratacao para acoes, badge jogos 21, historico jogos via admin client
