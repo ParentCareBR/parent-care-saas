@@ -1,1 +1,1 @@
-fix(dashboard): atualizar contagem de jogos para 21 no header e cards do anfitriao
+fix: permitir acesso publico a aceitacao de convite, link direto para planos no modal e botao de excluir idoso

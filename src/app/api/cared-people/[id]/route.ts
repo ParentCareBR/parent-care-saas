@@ -404,6 +404,12 @@ export async function DELETE(
       })
       .eq('id', id);
 
+    // Also cancel any pending invitations for this person
+    await dbClient
+      .from('care_invitations')
+      .update({ status: 'canceled' })
+      .eq('cared_person_id', id);
+
     return NextResponse.json({ success: true, message: 'Perfil arquivado com sucesso.' });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || 'Erro ao arquivar perfil.' }, { status: 500 });

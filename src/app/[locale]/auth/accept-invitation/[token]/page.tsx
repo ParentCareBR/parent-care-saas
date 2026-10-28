@@ -190,6 +190,13 @@ export default function AcceptInvitationPage() {
             </div>
           )}
 
+          {invitation?.invitedEmail && (
+            <div className="bg-stone-50 dark:bg-stone-800/80 p-3 rounded-2xl border border-stone-200 dark:border-stone-700 flex items-center justify-between text-xs">
+              <span className="text-stone-500 font-medium">E-mail de login da conta:</span>
+              <strong className="text-emerald-700 dark:text-emerald-400 font-bold">{invitation.invitedEmail}</strong>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* 1. Confirm identity */}
             <div className="space-y-1.5">

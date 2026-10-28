@@ -87,11 +87,12 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // 2. Fetch cared people
+    // 2. Fetch cared people (excluding archived/deleted)
     const { data: caredPeopleRaw } = await admin
       .from('cared_people')
       .select('*')
       .eq('organization_id', organizationId)
+      .is('archived_at', null)
       .order('created_at', { ascending: true });
 
     // Fetch user details for cared people who have linked accounts

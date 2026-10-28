@@ -189,7 +189,7 @@ export async function assertCanInviteMember(organizationId: string): Promise<voi
 
   if (!entitlements.canInvite) {
     throw new Error(
-      `Limite de assentos atingido (${entitlements.totalUsedSeats}/${entitlements.seatLimit}). Faça um upgrade no plano para convidar novos familiares.`
+      `Limite de membros da equipe atingido (${entitlements.totalUsedSeats}/${entitlements.seatLimit} pessoas no plano atual). Faça um upgrade no plano para convidar novos familiares e cuidadores.`
     );
   }
 }

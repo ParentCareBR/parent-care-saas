@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     const entitlements = await getOrganizationEntitlements(organizationId);
     if (!entitlements.canInvite) {
       return NextResponse.json({
-        error: `Limite de assentos atingido (${entitlements.totalUsedSeats}/${entitlements.seatLimit} assentos ocupados). Faça um upgrade no seu plano Paddle para convidar novos familiares.`,
+        error: `Limite de membros da equipe atingido (${entitlements.totalUsedSeats}/${entitlements.seatLimit} pessoas no plano atual). Faça um upgrade no seu plano para convidar novos familiares e cuidadores.`,
         limitReached: true,
         entitlements,
       }, { status: 403 });

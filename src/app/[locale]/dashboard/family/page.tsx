@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Users, UserPlus, Mail, Shield, Share2, Check, Copy, AlertCircle,
   ExternalLink, ShieldCheck, ShieldAlert, FileText, Heart, Globe, KeyRound,
-  CheckCircle2, Sparkles
+  CheckCircle2, Sparkles, Trash2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -84,6 +84,42 @@ export default function FamilyPage() {
   const [copied, setCopied] = useState(false);
   const [seniorCopied, setSeniorCopied] = useState(false);
 
+  // Exclusão de Idoso
+  const { refreshCaredPeople } = useCaredPerson();
+  const [deleteSeniorTarget, setDeleteSeniorTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deletingSenior, setDeletingSenior] = useState(false);
+
+  const confirmDeleteSenior = async () => {
+    if (!deleteSeniorTarget) return;
+    setDeletingSenior(true);
+    try {
+      const res = await fetch(`/api/cared-people/${deleteSeniorTarget.id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao excluir pessoa cuidada.');
+      }
+      toast({
+        title: '✓ Idoso excluído com sucesso',
+        description: `O cadastro de ${deleteSeniorTarget.name} foi removido.`,
+      });
+      setDeleteSeniorTarget(null);
+      await Promise.all([
+        fetchData(),
+        refreshCaredPeople ? refreshCaredPeople() : Promise.resolve(),
+      ]);
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao excluir',
+        description: err.message || 'Falha ao remover idoso.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingSenior(false);
+    }
+  };
+
   const fetchData = useCallback(async () => {
     if (!currentOrganizationId) {
       setLoading(false);
@@ -123,7 +159,8 @@ export default function FamilyPage() {
           supabase
             .from('cared_people')
             .select('*')
-            .eq('organization_id', currentOrganizationId),
+            .eq('organization_id', currentOrganizationId)
+            .is('archived_at', null),
         ]);
 
         if (membersRes.data) setMembers(membersRes.data as any);
@@ -201,7 +238,7 @@ export default function FamilyPage() {
 
       toast({
         title: '✓ Convite enviado!',
-        description: `Convite enviado para ${inviteForm.email}. 1 assento reservado.`,
+        description: `Convite enviado para ${inviteForm.email}. 1 vaga reservada no plano.`,
       });
       setInviteOpen(false);
       setInviteForm({ email: '', role: 'collaborator' });
@@ -489,8 +526,8 @@ export default function FamilyPage() {
                   if (seatsFull) {
                     e.preventDefault();
                     toast({
-                      title: 'Limite de assentos atingido',
-                      description: `O plano atual (${entitlements?.seatLimit} assentos) está cheio. Acesse Assinatura para adicionar mais.`,
+                      title: 'Limite do plano atingido',
+                      description: `Seu plano atual (${entitlements?.seatLimit} vagas) atingiu a capacidade máxima. Acesse a área de Planos para adicionar mais vagas.`,
                       variant: 'destructive',
                     });
                   }
@@ -507,8 +544,8 @@ export default function FamilyPage() {
                   <DialogDescription>
                     Envie um convite para colaborar nos cuidados da família.
                     {entitlements && (
-                      <span className="block mt-1 text-emerald-700 font-bold text-xs">
-                        Assentos disponíveis: {entitlements.availableSeats} de {entitlements.seatLimit}
+                      <span className="block mt-1 text-emerald-700 dark:text-emerald-400 font-bold text-xs">
+                        Vagas disponíveis para equipe: {entitlements.availableSeats} de {entitlements.seatLimit}
                       </span>
                     )}
                   </DialogDescription>
@@ -548,9 +585,21 @@ export default function FamilyPage() {
                   </div>
 
                   {inviteError && (
-                    <Alert variant="destructive" className="text-xs">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{inviteError}</AlertDescription>
+                    <Alert variant="destructive" className="text-xs space-y-2.5 rounded-2xl border-2">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                        <AlertDescription className="font-semibold leading-relaxed">
+                          {inviteError}
+                        </AlertDescription>
+                      </div>
+                      <div className="pt-1">
+                        <Link
+                          href={`/${locale}/dashboard/settings/subscription`}
+                          className="inline-flex items-center gap-1.5 font-black text-xs text-white bg-red-600 hover:bg-red-700 px-3.5 py-2 rounded-xl shadow-xs transition active:scale-95"
+                        >
+                          Ver Planos e Fazer Upgrade →
+                        </Link>
+                      </div>
                     </Alert>
                   )}
                 </div>
@@ -630,10 +679,10 @@ export default function FamilyPage() {
                 <Users className={`h-5 w-5 ${seatsFull ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`} />
                 <div>
                   <span className="font-bold text-stone-900 dark:text-stone-100 text-sm">
-                    {entitlements.totalUsedSeats} de {entitlements.seatLimit} assentos utilizados
+                    {entitlements.totalUsedSeats} de {entitlements.seatLimit} vagas ocupadas no plano
                   </span>
                   <div className="text-xs text-stone-500 dark:text-slate-400 mt-0.5">
-                    {entitlements.activeMembersCount} membro(s) ativo(s) + {entitlements.reservedInvitesCount} convite(s) pendente(s) • Acesso do idoso não consome assento
+                    {entitlements.activeMembersCount} membro(s) ativo(s) + {entitlements.reservedInvitesCount} convite(s) pendente(s) • Acesso do idoso é gratuito e ilimitado (não consome vaga)
                   </div>
                 </div>
               </div>
@@ -792,7 +841,7 @@ export default function FamilyPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0 self-end sm:self-center">
                       <Button
                         size="sm"
                         variant="outline"
@@ -813,6 +862,17 @@ export default function FamilyPage() {
                           {isPending ? 'Gerar Novo Link' : 'Liberar Conta'}
                         </Button>
                       )}
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setDeleteSeniorTarget({ id: person.id, name })}
+                        className="rounded-xl text-xs font-bold h-9 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:hover:bg-red-950/40"
+                        title="Excluir idoso"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        Excluir
+                      </Button>
                     </div>
                   </div>
                 );
@@ -907,6 +967,44 @@ export default function FamilyPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Modal de Confirmação de Exclusão do Idoso */}
+      <Dialog open={Boolean(deleteSeniorTarget)} onOpenChange={(open) => { if (!open) setDeleteSeniorTarget(null); }}>
+        <DialogContent className="sm:max-w-[420px] rounded-3xl p-6">
+          <DialogHeader>
+            <div className="w-12 h-12 rounded-2xl bg-red-100 dark:bg-red-950/60 text-red-600 flex items-center justify-center mx-auto mb-2">
+              <Trash2 className="h-6 w-6" />
+            </div>
+            <DialogTitle className="text-xl font-black text-center text-stone-900 dark:text-stone-100">
+              Excluir Pessoa Cuidada
+            </DialogTitle>
+            <DialogDescription className="text-center text-stone-600 dark:text-stone-300 text-sm mt-1">
+              Tem certeza de que deseja excluir o cadastro de <strong>{deleteSeniorTarget?.name}</strong>?
+              O perfil e quaisquer convites pendentes serão cancelados.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="mt-4 flex flex-col-reverse sm:flex-row gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deletingSenior}
+              onClick={() => setDeleteSeniorTarget(null)}
+              className="rounded-xl font-bold"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={deletingSenior}
+              onClick={confirmDeleteSenior}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl"
+            >
+              {deletingSenior ? 'Excluindo...' : 'Sim, Excluir Idoso'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

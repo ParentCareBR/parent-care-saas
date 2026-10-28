@@ -5,7 +5,18 @@ import { createServerClient } from '@supabase/ssr';
 
 const intlMiddleware = createMiddleware(routing);
 
-const PUBLIC_PATHS = ['/auth/login', '/auth/signup', '/auth/reset-password', '/auth/callback', '/api', '/legal', '/pricing'];
+const PUBLIC_PATHS = [
+  '/auth/login',
+  '/auth/signup',
+  '/auth/reset-password',
+  '/auth/callback',
+  '/auth/confirm',
+  '/auth/accept-invitation',
+  '/care/login',
+  '/api',
+  '/legal',
+  '/pricing',
+];
 
 function isPublicPath(pathname: string): boolean {
   // Check if first segment is a valid locale
