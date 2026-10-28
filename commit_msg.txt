@@ -1,1 +1,5 @@
-Sistema de vozes agradaveis e neurais de IA com seletor de personas e humanizacao de texto
+Atualiza email do administrador principal para jamessneves@gmail.com
+
+- Adiciona jamessneves@gmail.com como owner em admin_users (painel /admin)
+- Adiciona jamessneves@gmail.com como owner da organizacao ativa
+- Atualiza seed SQL da migracao para referenciar o email correto

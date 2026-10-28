@@ -239,5 +239,5 @@ CREATE POLICY "admin_coupons_all" ON public.admin_coupons FOR ALL USING (public.
 INSERT INTO public.admin_users (user_id, email, full_name, role)
 SELECT id, email, COALESCE(raw_user_meta_data->>'full_name', email), 'owner'
 FROM auth.users
-WHERE email = 'jamessneves2@gmail.com'
+WHERE email = 'jamessneves@gmail.com'
 ON CONFLICT (user_id) DO NOTHING;
