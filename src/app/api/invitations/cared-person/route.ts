@@ -111,14 +111,20 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (inviteError || !invitation) {
+      const msg = inviteError?.message ?? 'Erro ao criar convite.';
+      const friendlyMsg = msg.includes('care_invitations')
+        ? 'A tabela care_invitations não foi encontrada no banco. Por favor, execute a migração 20261028_fix_care_invitations.sql no SQL Editor do Supabase.'
+        : msg;
       return NextResponse.json(
-        { error: inviteError?.message ?? 'Erro ao criar convite.' },
+        { error: friendlyMsg },
         { status: 500 }
       );
     }
 
     // Build the invitation URL
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? `https://parentcare-pink.vercel.app`;
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
+      ?? process.env.NEXT_PUBLIC_APP_URL
+      ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://parentcare-pink.vercel.app');
     const inviteUrl = `${baseUrl}/${preferredLanguage}/auth/accept-invitation/${invitation.token}`;
 
     // Record audit
