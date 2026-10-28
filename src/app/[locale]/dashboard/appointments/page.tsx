@@ -919,15 +919,24 @@ export default function AppointmentsPage() {
             Conectar com Google Agenda
           </button>
 
+          <Button
+            size="sm"
+            className="bg-indigo-600 hover:bg-indigo-700 rounded-xl"
+            onClick={() => {
+              if (typeFilter !== 'all' && typeFilter !== 'routine') {
+                setNewItemType(typeFilter as NewItemType);
+              }
+              setModalOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" /> + Agendar
+          </Button>
+
           <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 rounded-xl">
-                <Plus className="h-4 w-4 mr-2" /> + Agendar
-              </Button>
-            </DialogTrigger>
           <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
-            {/* Tab selector */}
+            {/* Tab selector — only shown on "Todos" */}
             <DialogHeader>
+              {(typeFilter === 'all' || typeFilter === 'routine') && (
               <div className="grid grid-cols-2 sm:grid-cols-4 bg-stone-100 dark:bg-stone-800 rounded-xl p-1 gap-1 mb-2">
                 {[
                   { key: 'appointment', label: '🩺 Consulta' },
@@ -954,6 +963,7 @@ export default function AppointmentsPage() {
                   </button>
                 ))}
               </div>
+              )}
               <DialogTitle>
                 {newItemType === 'appointment' && '🩺 Novo Compromisso Médico'}
                 {newItemType === 'medication' && '💊 Cadastrar Medicamento'}
@@ -1340,7 +1350,13 @@ export default function AppointmentsPage() {
             <button
               key={type}
               type="button"
-              onClick={() => setTypeFilter(isActive ? 'all' : type)}
+              onClick={() => {
+                const next = isActive ? 'all' : type;
+                setTypeFilter(next);
+                if (next !== 'all' && next !== 'routine') {
+                  setNewItemType(next as NewItemType);
+                }
+              }}
               className={cn(
                 'shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-2xl border-2 transition-all',
                 isActive
@@ -1588,7 +1604,12 @@ export default function AppointmentsPage() {
               <Calendar className="h-10 w-10 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
               <p className="text-sm font-medium text-stone-600 dark:text-stone-400">Nenhum evento neste período.</p>
               <p className="text-xs text-stone-400 mt-1 mb-4">Navegue para outro período ou adicione um novo evento.</p>
-              <Button variant="outline" size="sm" onClick={() => setModalOpen(true)}
+              <Button variant="outline" size="sm" onClick={() => {
+                if (typeFilter !== 'all' && typeFilter !== 'routine') {
+                  setNewItemType(typeFilter as NewItemType);
+                }
+                setModalOpen(true);
+              }}
                 className="text-indigo-600 border-indigo-200 dark:text-indigo-400 dark:border-indigo-700">
                 + Agendar
               </Button>
