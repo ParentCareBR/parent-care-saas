@@ -1,7 +1,7 @@
 -- ============================================================
 -- Migration: 20261028_fix_care_invitations.sql
 -- Fix: Cria a tabela care_invitations e dependências do idoso (Opção C)
--- Idempotente: pode ser executada múltiplas vezes com total segurança.
+-- 100% idempotente e compatível com tabelas antigas existentes.
 -- ============================================================
 
 -- 1. Extensões essenciais
@@ -29,7 +29,7 @@ ALTER TABLE public.cared_people
   ADD COLUMN IF NOT EXISTS phone TEXT,
   ADD COLUMN IF NOT EXISTS whatsapp_phone TEXT;
 
--- 4. Garantir colunas em organization_members
+-- 4. Garantir colunas e roles em organization_members
 ALTER TABLE public.organization_members
   ADD COLUMN IF NOT EXISTS display_name TEXT,
   ADD COLUMN IF NOT EXISTS relationship TEXT,
@@ -40,39 +40,39 @@ ALTER TABLE public.organization_members
   ADD COLUMN IF NOT EXISTS suspension_reason TEXT,
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
--- Atualizar constraint de role em organization_members de forma segura
 DO $$
 BEGIN
   ALTER TABLE public.organization_members DROP CONSTRAINT IF EXISTS organization_members_role_check;
   ALTER TABLE public.organization_members ADD CONSTRAINT organization_members_role_check
     CHECK (role IN ('owner', 'admin', 'collaborator', 'caregiver', 'cared_person', 'professional', 'emergency_contact'));
-EXCEPTION WHEN OTHERS THEN
-  NULL;
+EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
--- 5. Criar tabela de auditoria se não existir
+-- 5. TABELA DE AUDITORIA: cria se não existir e garante todas as colunas
 CREATE TABLE IF NOT EXISTS public.audit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID REFERENCES public.organizations(id) ON DELETE SET NULL,
-  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  cared_person_id UUID REFERENCES public.cared_people(id) ON DELETE SET NULL,
-  module_code TEXT,
-  action TEXT NOT NULL,
-  table_name TEXT,
-  record_id UUID,
-  old_data JSONB DEFAULT '{}',
-  new_data JSONB DEFAULT '{}',
-  description TEXT,
-  is_critical BOOLEAN DEFAULT FALSE,
-  user_role TEXT,
-  user_display_name TEXT,
-  ip_address INET,
-  user_agent TEXT,
-  session_id TEXT,
-  device_info TEXT,
-  language_used TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE public.audit_logs
+  ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES public.organizations(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS cared_person_id UUID REFERENCES public.cared_people(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS module_code TEXT,
+  ADD COLUMN IF NOT EXISTS action TEXT NOT NULL DEFAULT 'action',
+  ADD COLUMN IF NOT EXISTS table_name TEXT,
+  ADD COLUMN IF NOT EXISTS record_id UUID,
+  ADD COLUMN IF NOT EXISTS old_data JSONB DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS new_data JSONB DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS description TEXT,
+  ADD COLUMN IF NOT EXISTS is_critical BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS user_role TEXT,
+  ADD COLUMN IF NOT EXISTS user_display_name TEXT,
+  ADD COLUMN IF NOT EXISTS ip_address INET,
+  ADD COLUMN IF NOT EXISTS user_agent TEXT,
+  ADD COLUMN IF NOT EXISTS session_id TEXT,
+  ADD COLUMN IF NOT EXISTS device_info TEXT,
+  ADD COLUMN IF NOT EXISTS language_used TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_al_org ON public.audit_logs(organization_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_al_cared ON public.audit_logs(cared_person_id, created_at DESC);
@@ -126,6 +126,19 @@ CREATE TABLE IF NOT EXISTS public.care_invitations (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Garantir colunas caso a tabela já tivesse sido criada pela metade
+ALTER TABLE public.care_invitations
+  ADD COLUMN IF NOT EXISTS cared_person_id UUID REFERENCES public.cared_people(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'cared_person',
+  ADD COLUMN IF NOT EXISTS invited_email TEXT,
+  ADD COLUMN IF NOT EXISTS invited_phone TEXT,
+  ADD COLUMN IF NOT EXISTS token TEXT UNIQUE,
+  ADD COLUMN IF NOT EXISTS token_expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '7 days'),
+  ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending',
+  ADD COLUMN IF NOT EXISTS preferred_language TEXT DEFAULT 'pt-BR',
+  ADD COLUMN IF NOT EXISTS message TEXT,
+  ADD COLUMN IF NOT EXISTS reserved_seat BOOLEAN DEFAULT FALSE;
+
 CREATE INDEX IF NOT EXISTS idx_ci_org ON public.care_invitations(organization_id);
 CREATE INDEX IF NOT EXISTS idx_ci_token ON public.care_invitations(token);
 CREATE INDEX IF NOT EXISTS idx_ci_email ON public.care_invitations(invited_email);
@@ -159,7 +172,7 @@ CREATE POLICY "ci_admin_all" ON public.care_invitations
 CREATE POLICY "ci_inviter_select" ON public.care_invitations
   FOR SELECT USING (invited_by = auth.uid());
 
--- 7. TABELA: user_cared_person_access (isolamento por idoso)
+-- 7. TABELA: user_cared_person_access (isolamento de acesso)
 CREATE TABLE IF NOT EXISTS public.user_cared_person_access (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
