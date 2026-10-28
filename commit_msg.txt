@@ -1,5 +1,9 @@
-Atualiza email do administrador principal para jamessneves@gmail.com
+Corrige card Consultas e 404 no card Idosos
 
-- Adiciona jamessneves@gmail.com como owner em admin_users (painel /admin)
-- Adiciona jamessneves@gmail.com como owner da organizacao ativa
-- Atualiza seed SQL da migracao para referenciar o email correto
+- Card "Consultas" agora direciona para /dashboard/consultas (pagina dedicada)
+- Nova pagina /dashboard/consultas com cadastro e listagem de consultas/exames
+- Campos: titulo, medico, especialidade, local, data/hora, observacoes, recorrencia
+- Acoes: agendar, editar, marcar como concluida, cancelar, excluir
+- Filtros: Proximas, Todas, Historico
+- Corrige 404 no card "Idosos": cria /dashboard/cared-people/page.tsx com lista de idosos cadastrados
+- Card Idosos exibe perfis com nome, idade, telefone e links para perfil e modo idoso

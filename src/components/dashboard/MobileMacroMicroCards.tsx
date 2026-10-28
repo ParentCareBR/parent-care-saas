@@ -112,12 +112,12 @@ export function MobileMacroMicroCards({
       bgColor: 'bg-[#F97316] hover:bg-[#EA580C]',
     },
 
-    // 4. Consultas → Rotina filtrada por consulta/appointment
+    // 4. Consultas → Página dedicada de consultas e exames
     {
       id: 'consultas',
       title: tDash.cards.appointments.title,
       icon: Stethoscope,
-      href: isCareMode ? '' : `/${locale}/dashboard/appointments`,
+      href: isCareMode ? '' : `/${locale}/dashboard/consultas`,
       onClick: isCareMode ? () => onNavigateTab?.('routine', 'appointment') : undefined,
       bgColor: 'bg-[#0284C7] hover:bg-[#0369A1]',
     },
@@ -228,7 +228,7 @@ export function MobileMacroMicroCards({
       bgColor: 'bg-gradient-to-br from-pink-400 to-rose-500',
     },
 
-    // 16. Idosos → badge com nome (informativo)
+    // 16. Idosos → Lista de pessoas cadastradas
     {
       id: 'idosos',
       title: tDash.cards.caredPeople.title,
