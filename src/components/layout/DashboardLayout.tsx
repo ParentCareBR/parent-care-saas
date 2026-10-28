@@ -540,6 +540,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 SOS
               </Link>
             </Button>
+            <button
+              type="button"
+              onClick={() => signOut()}
+              className="px-2.5 h-8 rounded-xl text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 text-xs font-bold transition active:scale-95 flex items-center gap-1"
+              title="Sair da Conta / Sign Out"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span>Sair</span>
+            </button>
           </div>
         </header>
 

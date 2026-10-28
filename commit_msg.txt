@@ -1,1 +1,1 @@
-fix: permitir acesso publico a aceitacao de convite, link direto para planos no modal e botao de excluir idoso
+Sistema de vozes agradaveis e neurais de IA com seletor de personas e humanizacao de texto

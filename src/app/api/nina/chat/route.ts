@@ -33,17 +33,60 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Auth context (non-blocking) ────────────────────────────────────────────
+    // ── Auth context & Server-Side Role Enforcement ───────────────────────────
     let user: any = null;
+    let isElderlyUser = userRole === 'elderly';
+    let isHost = false;
+
+    let db: any;
+    try {
+      db = createAdminClient();
+    } catch {
+      const supabase = await createClient();
+      db = supabase;
+    }
+
     try {
       const supabase = await createClient();
       const { data } = await supabase.auth.getUser();
       user = data?.user || null;
+
+      if (user && caredPersonId) {
+        // Verify server-side if user is the cared person (elderly)
+        const { data: elderCheck } = await db
+          .from('cared_people')
+          .select('id')
+          .eq('id', caredPersonId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (elderCheck) {
+          isElderlyUser = true;
+        } else {
+          // Check organization membership/role for caregiver/host
+          const { data: member } = await db
+            .from('organization_members')
+            .select('role')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (member && (member.role === 'owner' || member.role === 'admin' || member.role === 'caregiver')) {
+            isHost = !isElderlyUser;
+          } else if (user && !isElderlyUser) {
+            isHost = true;
+          }
+        }
+      } else if (!isElderlyUser && user) {
+        isHost = true;
+      }
     } catch {
-      // no session — ok, we still answer general questions
+      // Fallback: if userRole says elderly or no user, cannot be host
+      if (isElderlyUser) isHost = false;
     }
 
-    const isHost = Boolean(user && userRole !== 'elderly');
+    if (isElderlyUser) {
+      isHost = false;
+    }
 
     // ── 1. Fetch Real-Time Context ─────────────────────────────────────────────
     let personData: any = null;
@@ -212,21 +255,28 @@ ${tasks.length === 0
     // ── 2. Build System Prompt ─────────────────────────────────────────────────
     const systemInstruction = `
 Você é a **Nina IA**, assistente virtual de saúde e cuidados do aplicativo **Parent Care**.
-Sua missão é apoiar cuidadores e familiares no acompanhamento de idosos com carinho, precisão e responsabilidade.
+Sua missão é apoiar cuidadores, familiares e idosos com muito carinho, clareza, empatia e máxima responsabilidade.
 
 SUAS CAPACIDADES:
 1. Responder dúvidas sobre saúde do idoso (sintomas, hidratação, alimentação, medicamentos JÁ CADASTRADOS, prevenção de quedas, etc.)
 2. Informar sobre a agenda, consultas e medicamentos registrados no sistema (use os dados do CONTEXTO ATUAL)
-3. SE O USUÁRIO FOR ANFITRIÃO: executar ações no aplicativo (criar agendamentos, tarefas, registrar água)
+3. SE O USUÁRIO FOR ANFITRIÃO: executar ações operacionais no aplicativo (criar agendamentos, tarefas, registrar água)
 4. Auxiliar na navegação e uso do aplicativo
 
-REGRAS CRÍTICAS:
+REGRAS CRÍTICAS DE SEGURANÇA E PERMISSÃO:
 - NUNCA prescreva, sugira novos medicamentos ou altere dosagens. Você apenas informa o que JÁ ESTÁ cadastrado.
 - NUNCA invente dados. Se não houver dados no contexto, diga claramente que não há informação disponível.
-- SE O USUÁRIO FOR O IDOSO: qualquer pedido de alteração em agenda, remédios ou configurações deve ser respondido com:
-  "Por segurança e cuidado com a sua saúde, alterações precisam da aprovação do seu cuidador ou anfitrião da família. Deseja que eu avise a sua família? 🩺💙"
+${isElderlyUser ? `
+- ATENÇÃO: O USUÁRIO ATUAL É O IDOSO (${elderName}).
+- O IDOSO NÃO TEM PERMISSÃO DE CRIAR, EDITAR, REMOVER OU REAGENDAR CONSULTAS, ATIVIDADES OU MEDICAMENTOS, NEM DE GERENCIAR FAMILIARES OU PERMISSÕES.
+- SE O IDOSO pedir para alterar, marcar, cancelar ou excluir consultas, remédios, atividades ou familiares, responda com afeto e firmeza:
+  "Por segurança e cuidado com a sua saúde, qualquer alteração na sua rotina ou medicamentos precisa ser feita pelo seu cuidador ou anfitrião da família. Deseja que eu envie um aviso com o seu pedido para a sua família? 🩺💙"
+- NUNCA inclua bloco de ação JSON para usuários idosos.
+` : `
+- O usuário atual é ANFITRIÃO/CUIDADOR AUTORIZADO. Pode solicitar ações de agendamento e rotina.
+`}
 
-PARA EXECUTAR AÇÕES (apenas se ANFITRIÃO):
+PARA EXECUTAR AÇÕES (apenas se ANFITRIÃO AUTORIZADO):
 Inclua no final da resposta um bloco JSON:
 \`\`\`json
 {
@@ -311,6 +361,11 @@ ${liveContext}
       } catch (e) {
         console.warn('[Nina IA] Erro ao processar JSON de ação:', e);
       }
+    }
+
+    // Strip and nullify any action payload if user is elderly or not an authorized host
+    if (isElderlyUser || !isHost) {
+      actionPayload = null;
     }
 
     if (actionPayload && isHost && caredPersonId) {

@@ -24,6 +24,9 @@ import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { ElderlyLanguageSwitcher } from '@/components/shared/ElderlyLanguageSwitcher';
 import { speakPleasantVoice, stopVoiceSpeech } from '@/lib/audio/voice-synthesizer';
 import { VoiceSettingsModal } from '@/components/shared/VoiceSettingsModal';
+import { CaringNoteCard } from '@/components/care/CaringNoteCard';
+import { EmergencyContactsBlock } from '@/components/care/EmergencyContactsBlock';
+import { getElderlyCardsTexts } from '@/lib/i18n/elderly-cards-translations';
 
 // ── Shared Audio Engine (Web Audio API Synthesizer) ──
 let globalAudioCtx: AudioContext | null = null;
@@ -134,6 +137,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
   const { theme } = useTheme(); // consumed to keep ThemeContext reactive
   const tCare = getCareTexts(params.locale);
   const tFin = getFinanceTexts(params.locale);
+  const tCards = getElderlyCardsTexts(params.locale);
   const dateFnsLoc = getDateFnsLocale(params.locale);
   const displayLocale = params.locale === 'en' ? 'en-US' : params.locale;
 
@@ -141,6 +145,14 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
   const [activeTab, setActiveTab] = useState<MobileTab>('home');
 
   const [loading, setLoading] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [emergencyContacts, setEmergencyContacts] = useState<Array<{
+    id?: string;
+    name?: string;
+    relationship?: string;
+    phone?: string;
+    is_primary?: boolean;
+  }>>([]);
   const [successMsg, setSuccessMsg] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set());
@@ -301,7 +313,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     };
   }, []);
 
-  // Confirmation of SOS
+  // Confirmation of SOS with verified status reporting
   const handleConfirmSos = async () => {
     setSendingSos(true);
     unlockAudioContext();
@@ -309,7 +321,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     triggerHaptic([150, 100, 150, 100, 200]);
 
     try {
-      await fetch('/api/care/alert', {
+      const res = await fetch('/api/care/alert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -318,15 +330,23 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
           message: `Emergência acionada pelo mini app do idoso (${personInfo.name})`,
         }),
       });
+
+      if (res.ok) {
+        setSuccessMsg('🚨 ALERTA DE EMERGÊNCIA ENVIADO! Toda a família e cuidadores foram alertados.');
+        speakReminder(`Alerta de emergência enviado, ${personInfo.name}! Sua família foi avisada agora mesmo e já está ciente.`, params.locale);
+      } else {
+        setSuccessMsg('⚠️ Pedido de emergência registrado no sistema. Por favor, tente também ligar para um contato de emergência.');
+        speakReminder(`Atenção, ${personInfo.name}. Registramos seu chamado no sistema, mas por favor, tente também ligar para um dos números logo abaixo.`, params.locale);
+      }
     } catch (e) {
       console.error('Error sending SOS alert:', e);
+      setSuccessMsg('⚠️ Falha de rede no envio automático. Por favor, use a discagem direta para a família ou para o SAMU.');
+      speakReminder(`Atenção, ${personInfo.name}. Houve uma instabilidade de conexão. Por favor, use os botões de ligação rápida logo abaixo.`, params.locale);
+    } finally {
+      setSendingSos(false);
+      setSosModalOpen(false);
+      setTimeout(() => setSuccessMsg(''), 10000);
     }
-
-    setSendingSos(false);
-    setSosModalOpen(false);
-    setSuccessMsg('🚨 ALERTA DE EMERGÊNCIA ENVIADO! Toda a família e cuidadores foram alertados.');
-    speakReminder(`Alerta de emergência enviado, ${personInfo.name}! Sua família foi avisada agora mesmo e já está ciente.`, params.locale);
-    setTimeout(() => setSuccessMsg(''), 10000);
   };
 
   // ── Parallelized High-Performance Initial Data Fetching (Zero Lag) ──
@@ -381,9 +401,9 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
           lifeActsRes,
           medConfirmationsRes
         ] = await Promise.all([
-          // 1. Emergency phone
+          // 1. Emergency contacts list & phone
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (supabase as any).from('emergency_contacts').select('phone').eq('cared_person_id', params.id).limit(1),
+          (supabase as any).from('emergency_contacts').select('id,name,relationship,phone,is_primary').eq('cared_person_id', params.id).order('is_primary', { ascending: false }),
           // 2. Active meds for quick action
           supabase.from('medications').select('id,name,dosage,unit,medication_schedules(id,time_of_day)').eq('cared_person_id', params.id).eq('is_active', true),
           // 3. Next appointment
@@ -438,7 +458,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
           }
         }
 
-        // Process Primary Phone
+        // Process Emergency Contacts List & Primary Phone
+        if (contactsRes?.data && Array.isArray(contactsRes.data)) {
+          setEmergencyContacts(contactsRes.data);
+        }
         let pPhone = '';
         if (contactsRes?.data && contactsRes.data[0]?.phone) {
           pPhone = contactsRes.data[0].phone;
@@ -843,8 +866,13 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
   };
 
   // Dedicated medication confirmation helper that immediately marks dose as completed,
-  // removes it from pending ("ATIVIDADE DO MOMENTO"), and persists with full date & time.
+  // prevents double-tap collisions, removes it from pending, and persists with full date & time.
   const confirmMedicationDose = async (targetEvent: AgendaEvent) => {
+    if (confirmingId === targetEvent.id) return;
+    setConfirmingId(targetEvent.id);
+
+    const previousState = { ...targetEvent };
+
     // 1. Immediately update UI state so it leaves "ATIVIDADE DO MOMENTO" and is marked done
     setEvents(prev => prev.map(e => e.id === targetEvent.id ? { ...e, completed: true, subtitle: '✓ Remédio tomado' } : e));
 
@@ -858,23 +886,72 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
       schedId: targetEvent.schedId || null,
     });
 
-    await handleAction(
-      'medication',
-      `Tomei ${targetEvent.title}`,
-      'medication_confirmations',
-      {
-        medication_id: targetEvent.raw?.id || personInfo.medicationId,
-        schedule_id: targetEvent.schedId || targetEvent.raw?.schedule_id || null,
-        confirmed_by: personInfo.userId,
-        status: 'taken',
-        confirmed_at: new Date().toISOString(),
-        notes: doseNote,
-        doseDate: doseDateStr,
-        doseTime: doseTimeStr,
-        eventId: targetEvent.id,
-      },
-      targetEvent.id
-    );
+    try {
+      await handleAction(
+        'medication',
+        `Tomei ${targetEvent.title}`,
+        'medication_confirmations',
+        {
+          medication_id: targetEvent.raw?.id || personInfo.medicationId,
+          schedule_id: targetEvent.schedId || targetEvent.raw?.schedule_id || null,
+          confirmed_by: personInfo.userId,
+          status: 'taken',
+          confirmed_at: new Date().toISOString(),
+          notes: doseNote,
+          doseDate: doseDateStr,
+          doseTime: doseTimeStr,
+          eventId: targetEvent.id,
+        },
+        targetEvent.id
+      );
+    } catch (err) {
+      // Revert if saving fails
+      setEvents(prev => prev.map(e => e.id === targetEvent.id ? previousState : e));
+      setSuccessMsg('');
+      alert('Não foi possível registrar o medicamento. Por favor, tente novamente.');
+    } finally {
+      setConfirmingId(null);
+    }
+  };
+
+  // Dedicated activity/routine confirmation helper that immediately marks occurrence as completed,
+  // prevents double-tap collisions, removes it from pending, and persists with full date & time.
+  const confirmActivityOccurrence = async (targetEvent: AgendaEvent) => {
+    if (confirmingId === targetEvent.id) return;
+    setConfirmingId(targetEvent.id);
+
+    const previousState = { ...targetEvent };
+
+    // 1. Immediately update UI state so it leaves "ATIVIDADE DO MOMENTO" and is marked done
+    setEvents(prev => prev.map(e => e.id === targetEvent.id ? { ...e, completed: true, subtitle: '✓ Realizado' } : e));
+
+    const occurrenceDate = format(targetEvent.date, 'yyyy-MM-dd');
+    const occurrenceTime = targetEvent.time || format(new Date(), 'HH:mm');
+
+    try {
+      if (targetEvent.type === 'meal') {
+        await handleAction('meal', `Já me alimentei: ${targetEvent.title}`, 'meals', {
+          meal_type: targetEvent.raw?.meal_type || 'other',
+          description: targetEvent.title,
+          consumed_at: new Date().toISOString(),
+          logged_by: personInfo.userId,
+          notes: JSON.stringify({ occurrenceDate, occurrenceTime, eventId: targetEvent.id }),
+        }, targetEvent.id);
+      } else {
+        await handleAction('general', `Realizei: ${targetEvent.title}`, 'care_notes', {
+          content: `✓ Realizado por ${personInfo.name}: ${targetEvent.title}`,
+          type: 'general',
+          created_at: new Date().toISOString(),
+          notes: JSON.stringify({ occurrenceDate, occurrenceTime, eventId: targetEvent.id, completed: true }),
+        }, targetEvent.id);
+      }
+    } catch (err) {
+      setEvents(prev => prev.map(e => e.id === targetEvent.id ? previousState : e));
+      setSuccessMsg('');
+      alert('Não foi possível registrar a atividade. Por favor, tente novamente.');
+    } finally {
+      setConfirmingId(null);
+    }
   };
 
   const undoLastAction = async () => {
@@ -1141,6 +1218,12 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
       .sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
   }, [events, selectedDate]);
 
+  const todayMedsCount = useMemo(() => {
+    const meds = todayEvents.filter(e => e.type === 'medication');
+    const taken = meds.filter(e => e.completed).length;
+    return { taken, total: meds.length };
+  }, [todayEvents]);
+
   const filteredEvents = useMemo(() => {
     return todayEvents.filter(ev => {
       if (routineFilter === 'all') return true;
@@ -1280,13 +1363,34 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
         )}
 
         {/* ═════════════════════════════════════════════════════════════ */}
-        {/* TAB 1: 🏠 INÍCIO (Momento Atual & Afeto)                      */}
+        {/* TAB 1: 🏠 INÍCIO (Experiência Acessível do Idoso)             */}
         {/* ═════════════════════════════════════════════════════════════ */}
         {activeTab === 'home' && (
-          <div className='space-y-4 animate-in fade-in duration-200'>
+          <div className='space-y-5 pb-32 animate-in fade-in duration-200'>
             
-            {/* 1.1 HERO CARD: ATIVIDADE DO MOMENTO ("AGORA") */}
-            <div className='bg-white dark:bg-stone-900 rounded-3xl border-3 border-indigo-400 dark:border-indigo-600 p-4 sm:p-5 shadow-lg relative overflow-hidden'>
+            {/* ── 1. IDENTIFICAÇÃO DA PESSOA E SAUDAÇÃO BREVE ── */}
+            <div className='flex items-center justify-between px-1 pt-1'>
+              <div>
+                <h2 className='text-2xl font-black text-stone-900 dark:text-stone-100 tracking-tight leading-tight'>
+                  {greetingIcon} {greetingText}, {personInfo.name}!
+                </h2>
+                <p className='text-xs font-bold text-stone-500 capitalize mt-0.5'>
+                  {format(currentTime, "EEEE, dd 'de' MMMM", { locale: dateFnsLoc })}
+                </p>
+              </div>
+              <button
+                type='button'
+                onClick={handleReadAloudCurrentTab}
+                className='h-9 px-3 rounded-2xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-stone-900 text-indigo-700 dark:text-indigo-300 text-xs font-bold flex items-center gap-1.5 shadow-2xs active:scale-95 transition'
+                title='Ouvir resumo do dia em voz alta'
+              >
+                <Volume2 className='h-4 w-4' /> {tCare.listenBtn}
+              </button>
+            </div>
+
+            {/* ── 2. RESUMO DA ROTINA E PRÓXIMO COMPROMISSO ── */}
+            {/* 2.1 Hero Card: Atividade do Momento */}
+            <div className='bg-white dark:bg-stone-900 rounded-3xl border-3 border-indigo-500/70 dark:border-indigo-600 p-4 sm:p-5 shadow-lg relative overflow-hidden'>
               <div className='flex items-center justify-between mb-3'>
                 <div className='flex items-center gap-2'>
                   <span className='w-2.5 h-2.5 rounded-full bg-indigo-600 animate-ping' />
@@ -1309,9 +1413,9 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                       <span className='text-xs font-black text-indigo-700 dark:text-indigo-400 bg-indigo-100/70 dark:bg-indigo-950/80 px-2 py-0.5 rounded-md'>
                         ⏰ {currentNowEvent.time || tCare.dayToday}
                       </span>
-                      <h2 className='text-xl sm:text-2xl font-black text-stone-900 dark:text-stone-100 leading-tight mt-1 truncate'>
+                      <h3 className='text-xl sm:text-2xl font-black text-stone-900 dark:text-stone-100 leading-tight mt-1 truncate'>
                         {currentNowEvent.title}
-                      </h2>
+                      </h3>
                       {currentNowEvent.subtitle && (
                         <p className='text-sm font-semibold text-stone-600 dark:text-stone-300 truncate'>
                           {currentNowEvent.subtitle}
@@ -1320,37 +1424,32 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     </div>
                   </div>
 
-                  {/* Big 1-Tap Action Button */}
+                  {/* Botão de Confirmação em 1 Toque com trava contra toques múltiplos */}
                   <button
-                    disabled={loading}
+                    disabled={loading || Boolean(confirmingId)}
                     onClick={() => {
                       if (currentNowEvent.type === 'medication') {
                         confirmMedicationDose(currentNowEvent);
-                      } else if (currentNowEvent.type === 'meal') {
-                        setEvents(prev => prev.map(e => e.id === currentNowEvent.id ? { ...e, completed: true } : e));
-                        handleAction('meal', `Já me alimentei: ${currentNowEvent.title}`, 'meals', {
-                          meal_type: currentNowEvent.raw?.meal_type || 'other',
-                          description: currentNowEvent.title,
-                          logged_by: personInfo.userId,
-                        }, currentNowEvent.id);
                       } else {
-                        setEvents(prev => prev.map(e => e.id === currentNowEvent.id ? { ...e, completed: true } : e));
-                        handleAction('general', `Realizei: ${currentNowEvent.title}`, 'care_notes', {
-                          content: `✓ Realizado por ${personInfo.name}: ${currentNowEvent.title}`,
-                          type: 'general',
-                        }, currentNowEvent.id);
+                        confirmActivityOccurrence(currentNowEvent);
                       }
                     }}
-                    className='w-full h-15 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-2xl shadow-lg flex items-center justify-center gap-2.5 text-lg font-black transition-all active:scale-[0.98] border-b-4 border-emerald-800'
+                    className='w-full h-15 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-60 text-white rounded-2xl shadow-lg flex items-center justify-center gap-2.5 text-base sm:text-lg font-black transition-all active:scale-[0.98] border-b-4 border-emerald-800'
                   >
                     <Check className='h-7 w-7 stroke-[3]' />
                     <span>
-                      {currentNowEvent.type === 'medication' ? tCare.btnTookMed : currentNowEvent.type === 'meal' ? tCare.btnHadMeal : tCare.btnCompleteNow}
+                      {confirmingId === currentNowEvent.id
+                        ? tCards.buttons.confirming
+                        : currentNowEvent.type === 'medication'
+                        ? tCards.buttons.tookMed
+                        : currentNowEvent.type === 'meal'
+                        ? tCards.buttons.hadMeal
+                        : tCards.buttons.completedTask}
                     </span>
                   </button>
                 </div>
               ) : (
-                <div className='py-4 text-center space-y-1'>
+                <div className='py-4 text-center space-y-1.5'>
                   <div className='w-12 h-12 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-950/60 flex items-center justify-center text-2xl'>
                     🌿
                   </div>
@@ -1364,328 +1463,187 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               )}
             </div>
 
-            {/* 1.2 MINHA AGENDA DE HOJE (Visível diretamente na tela inicial do Idoso) */}
-            <div className='bg-white dark:bg-stone-900 rounded-3xl border-3 border-indigo-200 dark:border-indigo-900/60 p-4 sm:p-5 shadow-md space-y-3'>
-              <div className='flex items-center justify-between'>
-                <div className='flex items-center gap-2.5'>
-                  <div className='w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-xl shrink-0'>
-                    📅
-                  </div>
-                  <div>
-                    <h3 className='text-base sm:text-lg font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                      Minha Agenda de Hoje
-                    </h3>
-                    <p className='text-xs text-stone-500 font-bold capitalize mt-0.5'>
-                      {format(new Date(), "EEEE, dd 'de' MMMM", { locale: dateFnsLoc })}
-                    </p>
-                  </div>
-                </div>
-
-                <div className='flex items-center gap-1.5'>
-                  <button
-                    type='button'
-                    onClick={() => {
-                      if (todayEvents.length === 0) {
-                        speakReminder('Você não tem nenhum compromisso agendado para hoje. Aproveite para descansar!', params.locale);
-                      } else {
-                        const items = todayEvents.map(e => `${e.time ? 'às ' + e.time : ''}: ${e.title}`).join('. ');
-                        speakReminder(`Sua agenda de hoje tem ${todayEvents.length} compromissos: ${items}`, params.locale);
-                      }
-                    }}
-                    className='h-8 px-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold flex items-center gap-1 active:scale-95 shadow-2xs'
-                    title='Ouvir compromissos de hoje'
-                  >
-                    <Volume2 className='h-3.5 w-3.5' /> Ouvir
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() => { triggerHaptic(20); setActiveTab('routine'); }}
-                    className='h-8 px-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 text-xs font-bold hover:bg-stone-200 transition active:scale-95'
-                    title='Ver dias anteriores e próximos'
-                  >
-                    Ver Tudo
-                  </button>
-                </div>
-              </div>
-
-              {/* Lista dos eventos de hoje */}
-              {todayEvents.length === 0 ? (
-                <div className='py-4 text-center bg-stone-50 dark:bg-stone-800/40 rounded-2xl p-4 space-y-1 border border-dashed border-stone-200 dark:border-stone-700'>
-                  <p className='text-2xl'>☀️</p>
-                  <p className='text-sm font-bold text-stone-800 dark:text-stone-200'>
-                    Nenhum compromisso marcado para hoje
-                  </p>
-                  <p className='text-xs text-stone-500'>
-                    Aproveite seu dia com tranquilidade e descanse!
-                  </p>
-                </div>
-              ) : (
-                <div className='space-y-2 max-h-[340px] overflow-y-auto pr-0.5 scrollbar-thin'>
-                  {todayEvents.map((ev) => (
-                    <div
-                      key={ev.id}
-                      className={`p-3 rounded-2xl border-2 flex items-center justify-between gap-3 transition-all ${
-                        ev.completed
-                          ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800/60 opacity-80'
-                          : 'bg-stone-50/90 dark:bg-stone-800/60 border-stone-200 dark:border-stone-700/80 shadow-2xs'
-                      }`}
-                    >
-                      <div className='flex items-center gap-3 min-w-0'>
-                        <div className='w-11 h-11 rounded-xl bg-white dark:bg-stone-900 border flex items-center justify-center text-2xl shrink-0 shadow-2xs'>
-                          {ev.type === 'medication' ? '💊' : ev.type === 'meal' ? '🍽️' : ev.type === 'appointment' ? '🩺' : ev.type === 'activity' ? '🏃' : '✅'}
-                        </div>
-                        <div className='min-w-0'>
-                          <div className='flex items-center gap-1.5'>
-                            <span className='text-xs font-black text-indigo-700 dark:text-indigo-400'>
-                              ⏰ {ev.time || 'Hoje'}
-                            </span>
-                            {ev.completed && (
-                              <span className='text-[10px] font-black text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-1.5 py-0.2 rounded-md'>
-                                Feito
-                              </span>
-                            )}
-                          </div>
-                          <p className={`text-sm sm:text-base font-black leading-tight truncate ${ev.completed ? 'line-through text-stone-500' : 'text-stone-900 dark:text-stone-100'}`}>
-                            {ev.title}
-                          </p>
-                          {ev.subtitle && (
-                            <p className='text-xs text-stone-500 dark:text-stone-400 truncate mt-0.5'>{ev.subtitle}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Botão de Check rápido direto na lista se não estiver concluído */}
-                      {!ev.completed && (
-                        <button
-                          type='button'
-                          onClick={() => {
-                            triggerHaptic(25);
-                            if (ev.type === 'medication') {
-                              confirmMedicationDose(ev);
-                            } else if (ev.type === 'meal') {
-                              setEvents(prev => prev.map(e => e.id === ev.id ? { ...e, completed: true } : e));
-                              handleAction('meal', `Já me alimentei: ${ev.title}`, 'meals', {
-                                meal_type: ev.raw?.meal_type || 'other',
-                                description: ev.title,
-                                logged_by: personInfo.userId,
-                              }, ev.id);
-                            } else {
-                              setEvents(prev => prev.map(e => e.id === ev.id ? { ...e, completed: true } : e));
-                              handleAction('general', `Realizado: ${ev.title}`, 'care_notes', {
-                                content: `✓ Realizado por ${personInfo.name}: ${ev.title}`,
-                                type: 'general',
-                              }, ev.id);
-                            }
-                          }}
-                          className='px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shrink-0 active:scale-95 shadow-xs flex items-center gap-1'
-                        >
-                          <Check className='h-3.5 w-3.5 stroke-[3]' />
-                          <span>Fiz</span>
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 1.3 MURAL DE CARINHO DA FAMÍLIA (Correio de Afeto) */}
-            {familyMessage && (
-              <div className='bg-gradient-to-br from-rose-50 via-amber-50/60 to-rose-100/50 dark:from-stone-900 dark:via-rose-950/20 dark:to-stone-900 border-2 border-rose-300 dark:border-rose-900/60 rounded-3xl p-4 shadow-sm space-y-3'>
-                <div className='flex items-center justify-between gap-2'>
-                  <div className='flex items-center gap-2.5 min-w-0'>
-                    <span className='text-2xl'>💌</span>
-                    <div className='min-w-0'>
-                      <span className='text-[10px] font-black uppercase text-rose-800 dark:text-rose-300 bg-rose-100 dark:bg-rose-950/80 px-2 py-0.5 rounded-full'>
-                        {tCare.familyNoteTitle}
-                      </span>
-                      <p className='text-xs text-stone-500 dark:text-stone-400 font-bold mt-0.5 truncate'>
-                        {tCare.fromLabel} <span className='text-stone-800 dark:text-stone-200 font-extrabold'>{familyMessage.sender}</span> {tCare.atLabel} {familyMessage.time}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => speakReminder(`Recado de ${familyMessage.sender}: ${familyMessage.text}`, params.locale)}
-                    className='h-9 px-3 rounded-xl border border-rose-300 dark:border-rose-800 bg-white dark:bg-stone-800 text-rose-800 dark:text-rose-300 text-xs font-bold flex items-center gap-1.5 active:scale-95 shadow-xs shrink-0'
-                  >
-                    <Volume2 className='h-4 w-4' /> {tCare.listenBtn}
-                  </button>
-                </div>
-
-                <div className='bg-white/90 dark:bg-stone-800/90 border border-rose-200/80 dark:border-rose-800/60 rounded-2xl p-3.5'>
-                  <p className='text-lg font-black text-stone-900 dark:text-stone-100 leading-snug'>
-                    &ldquo;{familyMessage.text}&rdquo;
-                  </p>
-                </div>
-
-              </div>
-            )}
-
-            {/* 1.3 NÚMEROS ESSENCIAIS DE EMERGÊNCIA (SAMU 192, BOMBEIROS 193, POLÍCIA 190) */}
-            <div className='bg-red-50/90 dark:bg-red-950/40 border-2 border-red-300 dark:border-red-800 rounded-3xl p-3.5 shadow-sm space-y-2.5'>
-              <div className='flex items-center justify-between px-1'>
-                <div className='flex items-center gap-2'>
-                  <span className='w-2.5 h-2.5 rounded-full bg-red-600 animate-ping' />
-                  <span className='text-[11px] font-black uppercase tracking-wider text-red-800 dark:text-red-300'>
-                    {tCare.emergencyNumbersTitle}
-                  </span>
-                </div>
-                <span className='text-[10px] font-extrabold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/80 px-2 py-0.5 rounded-full'>
-                  {tCare.oneTapToCall}
-                </span>
-              </div>
-
-              <div className='grid grid-cols-3 gap-2'>
-                {/* SAMU 192 */}
-                <a
-                  href='tel:192'
-                  onClick={() => triggerHaptic([60, 40, 60])}
-                  className='bg-white dark:bg-stone-900 border-2 border-red-400 hover:border-red-600 p-2.5 sm:p-3 rounded-2xl flex flex-col items-center text-center gap-1 active:scale-95 shadow-xs transition-all group'
-                >
-                  <div className='w-11 h-11 rounded-xl bg-red-100 dark:bg-red-950/80 text-red-600 flex items-center justify-center text-2xl group-hover:scale-105 transition-transform'>
-                    🚑
-                  </div>
-                  <span className='text-xs font-black text-red-700 dark:text-red-400 leading-tight'>
-                    SAMU
-                  </span>
-                  <span className='text-lg font-black text-stone-900 dark:text-stone-100 leading-none'>
-                    192
-                  </span>
-                  <span className='text-[9px] font-bold text-stone-500 leading-none mt-0.5'>
-                    {tCare.ambulanceLabel}
-                  </span>
-                </a>
-
-                {/* Bombeiros 193 */}
-                <a
-                  href='tel:193'
-                  onClick={() => triggerHaptic([60, 40, 60])}
-                  className='bg-white dark:bg-stone-900 border-2 border-amber-400 hover:border-amber-600 p-2.5 sm:p-3 rounded-2xl flex flex-col items-center text-center gap-1 active:scale-95 shadow-xs transition-all group'
-                >
-                  <div className='w-11 h-11 rounded-xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 flex items-center justify-center text-2xl group-hover:scale-105 transition-transform'>
-                    🚒
-                  </div>
-                  <span className='text-xs font-black text-amber-700 dark:text-amber-400 leading-tight'>
-                    {tCare.firefightersLabel}
-                  </span>
-                  <span className='text-lg font-black text-stone-900 dark:text-stone-100 leading-none'>
-                    193
-                  </span>
-                  <span className='text-[9px] font-bold text-stone-500 leading-none mt-0.5'>
-                    {tCare.rescueLabel}
-                  </span>
-                </a>
-
-                {/* Polícia 190 */}
-                <a
-                  href='tel:190'
-                  onClick={() => triggerHaptic([60, 40, 60])}
-                  className='bg-white dark:bg-stone-900 border-2 border-blue-400 hover:border-blue-600 p-2.5 sm:p-3 rounded-2xl flex flex-col items-center text-center gap-1 active:scale-95 shadow-xs transition-all group'
-                >
-                  <div className='w-11 h-11 rounded-xl bg-blue-100 dark:bg-blue-950/80 text-blue-600 flex items-center justify-center text-2xl group-hover:scale-105 transition-transform'>
-                    🚓
-                  </div>
-                  <span className='text-xs font-black text-blue-700 dark:text-blue-400 leading-tight'>
-                    {tCare.policeLabel}
-                  </span>
-                  <span className='text-lg font-black text-stone-900 dark:text-stone-100 leading-none'>
-                    190
-                  </span>
-                  <span className='text-[9px] font-bold text-stone-500 leading-none mt-0.5'>
-                    {tCare.policeEmergencyLabel}
-                  </span>
-                </a>
-              </div>
-            </div>
-
-            {/* 1.4 CARD DA NINA IA (Assistente de Saúde & Conversa) */}
-            <div className='bg-gradient-to-r from-sky-500/15 via-indigo-500/15 to-purple-500/15 dark:from-sky-950/40 dark:via-indigo-950/40 dark:to-purple-950/40 border-3 border-indigo-400 dark:border-indigo-600 p-4 sm:p-5 rounded-3xl shadow-sm flex items-center justify-between gap-3'>
-              <div className='flex items-center gap-3.5 min-w-0'>
-                <div className='w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-400 via-indigo-600 to-purple-600 text-white flex items-center justify-center text-3xl shadow-md shrink-0 relative'>
-                  👩‍⚕️
-                  <span className='absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-white dark:border-stone-900 animate-pulse' />
+            {/* 2.2 Resumo da rotina de hoje */}
+            <div className='bg-white dark:bg-stone-900 rounded-3xl border-2 border-stone-200 dark:border-stone-800 p-4 shadow-2xs flex items-center justify-between gap-3'>
+              <div className='flex items-center gap-3 min-w-0'>
+                <div className='w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-lg shrink-0'>
+                  📋
                 </div>
                 <div className='min-w-0'>
-                  <div className='flex items-center gap-1.5'>
-                    <span className='text-[11px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 block'>
-                      {tCare.assistantTitle}
-                    </span>
-                    <span className='text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-1.5 py-0.2 rounded-md'>
-                      {tCare.assistantVoiceText}
-                    </span>
-                  </div>
-                  <h3 className='text-lg font-black text-stone-900 dark:text-white leading-tight truncate'>
-                    {tCare.assistantName}
-                  </h3>
-                  <p className='text-xs font-bold text-stone-600 dark:text-slate-300 mt-0.5 line-clamp-1'>
-                    {tCare.assistantDesc}
+                  <p className='text-xs sm:text-sm font-black text-stone-900 dark:text-stone-100 truncate'>
+                    {tCards.routineSummary.completedText(
+                      todayEvents.filter(e => e.completed).length,
+                      todayEvents.length
+                    )}
+                  </p>
+                  <p className='text-[11px] text-stone-500 font-semibold truncate'>
+                    {todayEvents.filter(e => !e.completed).length > 0
+                      ? `${todayEvents.filter(e => !e.completed).length} atividades restantes para hoje`
+                      : tCards.routineSummary.allDone}
                   </p>
                 </div>
               </div>
               <button
                 type='button'
-                onClick={() => {
-                  triggerHaptic(40);
-                  setNinaModalOpen(true);
-                }}
-                className='px-4 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black text-sm shadow-md active:scale-95 shrink-0 transition-all flex items-center gap-1.5'
+                onClick={() => { triggerHaptic(20); setActiveTab('routine'); }}
+                className='h-8 px-3 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-bold shrink-0 transition active:scale-95'
               >
-                <span>{tCare.assistantBtn}</span>
-                <ChevronRight className='h-4 w-4' />
+                {tCards.routineSummary.seeAgenda}
               </button>
             </div>
 
-            {/* 1.5 HUB DE CARDS DO DIA A DIA — 24 cards coloridos (igual ao dashboard do anfitrião) */}
-            <MobileMacroMicroCards
-              locale={params.locale}
-              selectedPerson={{
-                id: params.id,
-                full_name: personInfo.fullName || personInfo.name,
-                whatsapp_phone: personInfo.primaryPhone,
-              }}
-              medsData={{
-                taken: todayEvents.filter((e) => e.type === 'medication' && e.completed).length,
-                total: todayEvents.filter((e) => e.type === 'medication').length,
-                list: todayEvents.filter((e) => e.type === 'medication'),
-              }}
-              hydration={{ cups: cupsDrank, goal: 8 }}
-              userName={personInfo.name}
-              isCareMode={true}
-              onQuickLogWater={handleDrinkWater}
-              onNavigateTab={(tab, filter) => {
-                triggerHaptic(20);
-                if (filter) setRoutineFilter(filter);
-                setActiveTab(tab);
-              }}
-              onOpenNina={() => {
-                triggerHaptic(40);
-                setNinaModalOpen(true);
-              }}
-              onOpenEmergency={() => {
-                triggerHaptic([60, 40, 60]);
-                setSosModalOpen(true);
-              }}
-              onRequestCall={handleRequestCall}
-              onLogMeal={() => {
-                triggerHaptic(30);
-                handleAction('meal', 'Refeição feita!', 'meals', {
-                  meal_type: 'other',
-                  logged_by: personInfo.userId,
-                });
-              }}
-            />
+            {/* ── 3. CARDS PRINCIPAIS HABILITADOS (5 CARDS EXATOS) ── */}
+            <div className='space-y-2'>
+              <div className='grid grid-cols-2 gap-3'>
+                
+                {/* Card 1: Minha rotina */}
+                <button
+                  type='button'
+                  onClick={() => {
+                    triggerHaptic(20);
+                    setRoutineFilter('all');
+                    setActiveTab('routine');
+                  }}
+                  className='bg-[#3B82F6] hover:bg-[#2563EB] active:bg-[#1D4ED8] text-white p-4 rounded-3xl shadow-md text-left flex flex-col justify-between min-h-[120px] transition-transform active:scale-95 border-b-4 border-[#1E40AF]'
+                >
+                  <div className='flex items-center justify-between'>
+                    <div className='w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-xl'>
+                      ⏰
+                    </div>
+                    <ChevronRight className='h-5 w-5 text-white/70' />
+                  </div>
+                  <div className='mt-3'>
+                    <h4 className='text-base sm:text-lg font-black leading-tight'>
+                      {tCards.routine.title}
+                    </h4>
+                    <p className='text-[11px] text-blue-100 font-semibold line-clamp-1 mt-0.5'>
+                      {tCards.routine.subtitle}
+                    </p>
+                  </div>
+                </button>
 
-            {/* Link para ver rotina completa */}
-            <button
-              onClick={() => { setActiveTab('routine'); triggerHaptic(20); }}
-              className='w-full py-3.5 px-4 rounded-2xl bg-white dark:bg-stone-900 border-2 border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300 flex items-center justify-between text-sm font-black shadow-xs active:scale-98 transition'
-            >
-              <span className='flex items-center gap-2'>
-                <Calendar className='h-4 w-4 text-indigo-600' /> {tCare.seeAllTodayRoutine(todayEvents.length)}
-              </span>
-              <ChevronRight className='h-4 w-4 text-stone-400' />
-            </button>
+                {/* Card 2: Meus medicamentos */}
+                <button
+                  type='button'
+                  onClick={() => {
+                    triggerHaptic(20);
+                    setRoutineFilter('medication');
+                    setActiveTab('routine');
+                  }}
+                  className='bg-[#059669] hover:bg-[#047857] active:bg-[#065F46] text-white p-4 rounded-3xl shadow-md text-left flex flex-col justify-between min-h-[120px] transition-transform active:scale-95 border-b-4 border-[#064E3B]'
+                >
+                  <div className='flex items-center justify-between'>
+                    <div className='w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-xl'>
+                      💊
+                    </div>
+                    {todayMedsCount.total > 0 && (
+                      <span className='text-[10px] font-black bg-white/25 px-2 py-0.5 rounded-full'>
+                        {todayMedsCount.taken}/{todayMedsCount.total}
+                      </span>
+                    )}
+                  </div>
+                  <div className='mt-3'>
+                    <h4 className='text-base sm:text-lg font-black leading-tight'>
+                      {tCards.medications.title}
+                    </h4>
+                    <p className='text-[11px] text-emerald-100 font-semibold line-clamp-1 mt-0.5'>
+                      {tCards.medications.subtitle(todayMedsCount.taken, todayMedsCount.total)}
+                    </p>
+                  </div>
+                </button>
+
+                {/* Card 3: Minha agenda */}
+                <button
+                  type='button'
+                  onClick={() => {
+                    triggerHaptic(20);
+                    setRoutineFilter('appointment');
+                    setActiveTab('routine');
+                  }}
+                  className='bg-[#0284C7] hover:bg-[#0369A1] active:bg-[#075985] text-white p-4 rounded-3xl shadow-md text-left flex flex-col justify-between min-h-[120px] transition-transform active:scale-95 border-b-4 border-[#0C4A6E]'
+                >
+                  <div className='flex items-center justify-between'>
+                    <div className='w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-xl'>
+                      📅
+                    </div>
+                    <ChevronRight className='h-5 w-5 text-white/70' />
+                  </div>
+                  <div className='mt-3'>
+                    <h4 className='text-base sm:text-lg font-black leading-tight'>
+                      {tCards.agenda.title}
+                    </h4>
+                    <p className='text-[11px] text-sky-100 font-semibold line-clamp-1 mt-0.5'>
+                      {tCards.agenda.subtitle}
+                    </p>
+                  </div>
+                </button>
+
+                {/* Card 4: Conversar com a IA (Nina) */}
+                <button
+                  type='button'
+                  onClick={() => {
+                    triggerHaptic(40);
+                    setNinaModalOpen(true);
+                  }}
+                  className='bg-[#7C3AED] hover:bg-[#6D28D9] active:bg-[#5B21B6] text-white p-4 rounded-3xl shadow-md text-left flex flex-col justify-between min-h-[120px] transition-transform active:scale-95 border-b-4 border-[#4C1D95]'
+                >
+                  <div className='flex items-center justify-between'>
+                    <div className='w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-xl'>
+                      ✨
+                    </div>
+                    <span className='text-[10px] font-black bg-white/25 px-2 py-0.5 rounded-full'>
+                      {tCards.aiChat.badge}
+                    </span>
+                  </div>
+                  <div className='mt-3'>
+                    <h4 className='text-base sm:text-lg font-black leading-tight'>
+                      {tCards.aiChat.title}
+                    </h4>
+                    <p className='text-[11px] text-purple-100 font-semibold line-clamp-1 mt-0.5'>
+                      {tCards.aiChat.subtitle}
+                    </p>
+                  </div>
+                </button>
+
+                {/* Card 5: Jogos e Memória (Ocupa 2 colunas no celular para destaque) */}
+                <button
+                  type='button'
+                  onClick={() => {
+                    triggerHaptic(20);
+                    setActiveTab('games');
+                  }}
+                  className='col-span-2 bg-[#DB2777] hover:bg-[#BE185D] active:bg-[#9D174D] text-white p-4 rounded-3xl shadow-md text-left flex items-center justify-between transition-transform active:scale-95 border-b-4 border-[#831843]'
+                >
+                  <div className='flex items-center gap-3.5 min-w-0'>
+                    <div className='w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-2xl shrink-0'>
+                      🎮
+                    </div>
+                    <div className='min-w-0'>
+                      <div className='flex items-center gap-2'>
+                        <h4 className='text-base sm:text-lg font-black leading-tight'>
+                          {tCards.games.title}
+                        </h4>
+                        <span className='text-[10px] font-black bg-white/25 px-2 py-0.2 rounded-full'>
+                          {tCards.games.badge}
+                        </span>
+                      </div>
+                      <p className='text-xs text-pink-100 font-semibold truncate mt-0.5'>
+                        {tCards.games.subtitle}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className='h-6 w-6 text-white/80 shrink-0 ml-2' />
+                </button>
+
+              </div>
+            </div>
+
+            {/* ── 4. RECADO COM CARINHO (Gerado por IA, Estável, Adulto e Acolhedor) ── */}
+            <CaringNoteCard locale={params.locale} elderName={personInfo.name} />
+
+            {/* ── 5. CONTATOS DE EMERGÊNCIA (ÚLTIMO BLOCO DO CONTEÚDO) ── */}
+            <EmergencyContactsBlock locale={params.locale} personalContacts={emergencyContacts} />
+
           </div>
         )}
 
@@ -1803,6 +1761,26 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                         <p className='text-xs text-stone-500 dark:text-stone-400 truncate mt-0.5'>{ev.subtitle}</p>
                       )}
                     </div>
+
+                    {/* Botão de confirmação direta na rotina */}
+                    {!ev.completed && (
+                      <button
+                        type='button'
+                        disabled={Boolean(confirmingId)}
+                        onClick={() => {
+                          triggerHaptic(25);
+                          if (ev.type === 'medication') {
+                            confirmMedicationDose(ev);
+                          } else {
+                            confirmActivityOccurrence(ev);
+                          }
+                        }}
+                        className='px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white text-xs font-black shrink-0 active:scale-95 shadow-xs flex items-center gap-1 transition'
+                      >
+                        <Check className='h-4 w-4 stroke-[3]' />
+                        <span>Fiz</span>
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

@@ -256,22 +256,22 @@ export function MobileMacroMicroCards({
       bgColor: 'bg-[#BE185D] hover:bg-[#9D174D]',
     },
 
-    // 19. Segurança → Modal de emergência (ação direta)
+    // 19. Segurança → Central de emergência e segurança
     {
       id: 'seguranca',
       title: tDash.cards.safety.title,
       icon: ShieldCheck,
-      href: isCareMode ? '' : `/${locale}/dashboard/home-safety`,
+      href: isCareMode ? '' : `/${locale}/dashboard/emergency`,
       onClick: isCareMode ? onOpenEmergency : undefined,
       bgColor: 'bg-[#0F766E] hover:bg-[#115E59]',
     },
-    // 20. Memórias → Aba Ações (dado sem data)
+    // 20. Memórias → Jogos cognitivos e estimulação de memória
     {
       id: 'memorias',
       title: tDash.cards.memories.title,
       icon: Heart,
-      href: isCareMode ? '' : `/${locale}/dashboard/memories`,
-      onClick: isCareMode ? () => onNavigateTab?.('actions') : undefined,
+      href: isCareMode ? '' : `/${locale}/dashboard/games`,
+      onClick: isCareMode ? () => onNavigateTab?.('games') : undefined,
       bgColor: 'bg-gradient-to-br from-rose-500 to-pink-600',
     },
     // 21. Ajustes → Aba Ações
@@ -332,12 +332,31 @@ export function MobileMacroMicroCards({
     onLogMeal,
   ]);
 
+  // In care mode (elderly experience), strictly exclude administrative and duplicated cards
+  const baseCards = useMemo(() => {
+    if (!isCareMode) return allCards;
+    const excludedInCare = new Set([
+      'seguranca',
+      'modo-idoso',
+      'idosos',
+      'familia',
+      'configuracoes',
+      'memorias',
+      'plantao',
+      'relatorios',
+      'compras',
+      'despesas',
+      'prescricoes',
+    ]);
+    return allCards.filter(c => !excludedInCare.has(c.id));
+  }, [allCards, isCareMode]);
+
   // Filtered cards based on optional search
   const visibleCards = useMemo(() => {
-    if (!searchQuery.trim()) return allCards;
+    if (!searchQuery.trim()) return baseCards;
     const q = searchQuery.toLowerCase();
-    return allCards.filter(card => card.title.toLowerCase().includes(q));
-  }, [allCards, searchQuery]);
+    return baseCards.filter(card => card.title.toLowerCase().includes(q));
+  }, [baseCards, searchQuery]);
 
   return (
     <div className="space-y-4">

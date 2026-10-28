@@ -27,13 +27,12 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    // For non-emergency requests from the elder's own device (e.g. Quero Conversar),
-    // we allow unauthenticated requests since the care page uses a separate session.
-    // Emergency requests still require authentication for security.
-    if (!user && type === 'emergency') {
-      return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 });
+    let user: any = null;
+    try {
+      const { data } = await supabase.auth.getUser();
+      user = data?.user || null;
+    } catch {
+      // User auth check non-blocking to protect elderly emergency triggering
     }
 
     const db = getDbClient(supabase);
