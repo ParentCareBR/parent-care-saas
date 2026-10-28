@@ -1,4 +1,5 @@
 'use client';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -14,11 +15,13 @@ interface CheckersPiece {
 
 interface CheckersEngineProps {
   levelNumber: number;
+  locale?: string;
   onComplete: (stats: { stars: number; score: number; moves: number; hints: number }) => void;
   onNextLevel?: () => void;
 }
 
-export function CheckersEngine({ levelNumber, onComplete, onNextLevel }: CheckersEngineProps) {
+export function CheckersEngine({ levelNumber, locale, onComplete, onNextLevel }: CheckersEngineProps) {
+  const tGame = getGameTexts(locale);
   const [board, setBoard] = useState<(CheckersPiece | null)[][]>([]);
   const [selectedPiece, setSelectedPiece] = useState<CheckersPiece | null>(null);
   const [validMoves, setValidMoves] = useState<{ row: number; col: number; capturePiece?: CheckersPiece }[]>([]);
@@ -321,7 +324,7 @@ export function CheckersEngine({ levelNumber, onComplete, onNextLevel }: Checker
           variant="outline"
           className="flex-1 h-12 border-amber-300 text-amber-800 dark:text-amber-300 font-bold text-sm rounded-xl gap-1.5"
         >
-          <Lightbulb className="h-4 w-4" /> Dica
+          <Lightbulb className="h-4 w-4" /> {tGame.hint}
         </Button>
         <Button
           type="button"
@@ -329,7 +332,7 @@ export function CheckersEngine({ levelNumber, onComplete, onNextLevel }: Checker
           variant="outline"
           className="flex-1 h-12 border-stone-300 font-bold text-sm rounded-xl gap-1.5"
         >
-          <RotateCcw className="h-4 w-4" /> Reiniciar
+          <RotateCcw className="h-4 w-4" /> {tGame.restart}
         </Button>
       </div>
 

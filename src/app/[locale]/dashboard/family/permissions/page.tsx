@@ -52,7 +52,7 @@ export default function FamilyPermissionsPage() {
           .eq('status', 'active'),
         supabase
           .from('cared_people')
-          .select('id, full_name, preferred_name')
+          .select('*')
           .eq('organization_id', currentOrganizationId),
       ]);
 

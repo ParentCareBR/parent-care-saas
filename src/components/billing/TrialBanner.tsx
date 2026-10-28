@@ -2,8 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Clock, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Clock, Sparkles, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getDashboardTexts } from '@/lib/i18n/dashboard-translations';
 
 interface TrialBannerProps {
   daysRemaining: number;
@@ -12,6 +13,7 @@ interface TrialBannerProps {
 
 export function TrialBanner({ daysRemaining, locale }: TrialBannerProps) {
   const isUrgent = daysRemaining <= 5;
+  const tDash = getDashboardTexts(locale);
 
   return (
     <div
@@ -31,13 +33,9 @@ export function TrialBanner({ daysRemaining, locale }: TrialBannerProps) {
         </div>
         <p className="font-medium leading-tight">
           <strong className="font-extrabold">
-            {isUrgent ? 'Atenção ao prazo:' : 'Período de Teste Grátis:'}
+            {isUrgent ? tDash.trial.urgentTitle : tDash.trial.normalTitle}
           </strong>{' '}
-          Você tem{' '}
-          <span className="font-black underline decoration-2">
-            {daysRemaining === 1 ? '1 dia restante' : `${daysRemaining} dias restantes`}
-          </span>{' '}
-          com acesso completo a todos os recursos sem cobrança.
+          {tDash.trial.message(daysRemaining)}
         </p>
       </div>
 
@@ -52,7 +50,7 @@ export function TrialBanner({ daysRemaining, locale }: TrialBannerProps) {
           }`}
         >
           <Link href={`/${locale}/dashboard/settings/subscription`}>
-            <span>Ver Planos &amp; Assinar</span>
+            <span>{tDash.trial.viewPlansBtn}</span>
             <ArrowRight className="h-3 w-3 ml-1" />
           </Link>
         </Button>

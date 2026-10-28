@@ -1,4 +1,5 @@
 'use client';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -6,6 +7,7 @@ import { Lightbulb, RotateCcw, Sparkles } from 'lucide-react';
 
 interface MatchThreeEngineProps {
   levelNumber: number;
+  locale?: string;
   onComplete: (stats: { stars: number; score: number; moves: number; hints: number }) => void;
   onNextLevel?: () => void;
 }
@@ -20,7 +22,8 @@ const FRUITS = [
 
 const GRID_SIZE = 6;
 
-export function MatchThreeEngine({ levelNumber, onComplete, onNextLevel }: MatchThreeEngineProps) {
+export function MatchThreeEngine({ levelNumber, locale, onComplete, onNextLevel }: MatchThreeEngineProps) {
+  const tGame = getGameTexts(locale);
   const [grid, setGrid] = useState<number[][]>([]);
   const [selectedCell, setSelectedCell] = useState<{ r: number; c: number } | null>(null);
   const [score, setScore] = useState(0);
@@ -218,7 +221,7 @@ export function MatchThreeEngine({ levelNumber, onComplete, onNextLevel }: Match
           variant="outline"
           className="flex-1 h-12 border-amber-300 text-amber-800 dark:text-amber-300 font-bold text-sm rounded-xl gap-2"
         >
-          <Lightbulb className="h-4 w-4" /> Dica
+          <Lightbulb className="h-4 w-4" /> {tGame.hint}
         </Button>
         <Button
           type="button"
@@ -226,7 +229,7 @@ export function MatchThreeEngine({ levelNumber, onComplete, onNextLevel }: Match
           variant="outline"
           className="flex-1 h-12 border-stone-300 font-bold text-sm rounded-xl gap-2"
         >
-          <RotateCcw className="h-4 w-4" /> Reiniciar
+          <RotateCcw className="h-4 w-4" /> {tGame.restart}
         </Button>
       </div>
 
@@ -235,7 +238,7 @@ export function MatchThreeEngine({ levelNumber, onComplete, onNextLevel }: Match
         <div className="bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-400 p-6 rounded-3xl text-center space-y-3 animate-in zoom-in-95">
           <div className="text-4xl">🎉</div>
           <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-100">
-            Parabéns! Meta Atingida!
+            {tGame.goalReached}
           </h3>
           <p className="text-sm font-semibold text-stone-700 dark:text-stone-300">
             Você combinou as frutas com sucesso e alcançou a pontuação da etapa!

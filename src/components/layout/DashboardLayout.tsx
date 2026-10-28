@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { CaredPersonSelector } from '@/components/shared/CaredPersonSelector';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
+import { getDashboardTexts } from '@/lib/i18n/dashboard-translations';
 import { GlobalAlarmClock, HostAlarmToggle } from '@/components/shared/GlobalAlarmClock';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
@@ -99,6 +100,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const segments = pathname.split('/').filter(Boolean);
   const locale = segments[0] || 'pt-BR';
+  const tDash = getDashboardTexts(locale);
 
   useEffect(() => {
     let isMounted = true;
@@ -585,7 +587,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   : 'text-stone-700 dark:text-slate-200'
               )}
             >
-              Início
+              {tDash.bottomNav.home}
             </span>
           </Link>
 
@@ -612,7 +614,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   : 'text-stone-700 dark:text-slate-200'
               )}
             >
-              Agenda
+              {tDash.bottomNav.schedule}
             </span>
           </Link>
 
@@ -639,7 +641,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   : 'text-stone-700 dark:text-slate-200'
               )}
             >
-              Remédios
+              {tDash.bottomNav.medications}
             </span>
           </Link>
 
@@ -666,7 +668,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   : 'text-stone-700 dark:text-slate-200'
               )}
             >
-              Nina IA
+              {tDash.bottomNav.nina}
             </span>
           </Link>
 

@@ -17,7 +17,8 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import { useCaredPerson } from '@/contexts/CaredPersonContext';
 
 interface Member {
   id: string;
@@ -45,6 +46,8 @@ interface EntitlementInfo {
 
 export default function FamilyPage() {
   const { user, currentOrganizationId } = useAuth();
+  const { caredPeople: contextCaredPeople } = useCaredPerson();
+  const router = useRouter();
   const supabase = createClient() as any;
   const { toast } = useToast();
   const params = useParams();
@@ -98,7 +101,7 @@ export default function FamilyPage() {
           .eq('organization_id', currentOrganizationId),
         supabase
           .from('cared_people')
-          .select('id, full_name, preferred_name, user_id')
+          .select('*')
           .eq('organization_id', currentOrganizationId),
         supabase
           .from('organization_entitlements')
@@ -136,6 +139,16 @@ export default function FamilyPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const effectiveCaredPeople = (caredPeople && caredPeople.length > 0)
+    ? caredPeople
+    : (contextCaredPeople || []);
+
+  useEffect(() => {
+    if (effectiveCaredPeople.length > 0 && !seniorForm.caredPersonId) {
+      setSeniorForm((prev) => ({ ...prev, caredPersonId: effectiveCaredPeople[0].id }));
+    }
+  }, [effectiveCaredPeople, seniorForm.caredPersonId]);
 
   // Handle Standard Member Invite
   const handleInvite = async (e: React.FormEvent) => {
@@ -333,24 +346,54 @@ export default function FamilyPage() {
                 </div>
               ) : (
                 <form onSubmit={handleCreateSeniorInvite} className="space-y-4 py-2">
-                  <div className="space-y-1.5">
-                    <Label className="font-bold text-xs">Pessoa Cuidada *</Label>
-                    <Select
-                      value={seniorForm.caredPersonId}
-                      onValueChange={(val) => setSeniorForm((prev) => ({ ...prev, caredPersonId: val }))}
-                    >
-                      <SelectTrigger className="h-11 rounded-xl font-semibold">
-                        <SelectValue placeholder="Selecione a pessoa cuidada" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl">
-                        {caredPeople.map((cp) => (
-                          <SelectItem key={cp.id} value={cp.id} className="font-semibold">
-                            {cp.preferred_name || cp.full_name} {cp.user_id ? '(Já possui conta)' : '(Sem conta)'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {effectiveCaredPeople.length === 0 ? (
+                    <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-300 dark:border-amber-800 rounded-2xl space-y-3">
+                      <div className="flex items-start gap-2.5">
+                        <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                            Nenhuma pessoa cuidada cadastrada ainda
+                          </p>
+                          <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5 leading-relaxed">
+                            Para gerar o acesso e a conta própria do idoso, primeiro você precisa cadastrar o perfil dele na plataforma.
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          setSeniorInviteOpen(false);
+                          router.push(`/${locale}/dashboard/cared-people/new`);
+                        }}
+                        className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl h-11 gap-2 text-xs shadow-sm"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                        + Cadastrar Idoso / Pessoa Cuidada Agora
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <Label className="font-bold text-xs">Pessoa Cuidada *</Label>
+                      <Select
+                        value={seniorForm.caredPersonId}
+                        onValueChange={(val) => setSeniorForm((prev) => ({ ...prev, caredPersonId: val }))}
+                      >
+                        <SelectTrigger className="h-11 rounded-xl font-semibold">
+                          <SelectValue placeholder="Selecione a pessoa cuidada" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          {effectiveCaredPeople.map((cp) => {
+                            const displayName = cp.preferred_name || cp.nickname || cp.full_name;
+                            return (
+                              <SelectItem key={cp.id} value={cp.id} className="font-semibold">
+                                {displayName} {cp.user_id ? '(Já possui conta)' : '(Sem conta vinculada)'}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   <div className="space-y-1.5">
                     <Label className="font-bold text-xs">E-mail do Idoso (Opcional se enviar por link)</Label>
@@ -391,7 +434,11 @@ export default function FamilyPage() {
 
                   <DialogFooter className="pt-2">
                     <Button type="button" variant="ghost" onClick={() => setSeniorInviteOpen(false)}>Cancelar</Button>
-                    <Button type="submit" disabled={seniorInviteLoading} className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl">
+                    <Button
+                      type="submit"
+                      disabled={seniorInviteLoading || effectiveCaredPeople.length === 0 || !seniorForm.caredPersonId}
+                      className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl"
+                    >
                       {seniorInviteLoading ? 'Gerando...' : 'Gerar Convite da Conta'}
                     </Button>
                   </DialogFooter>

@@ -1,10 +1,12 @@
 'use client';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, RotateCcw, Sparkles } from 'lucide-react';
 
 interface NumberMergeEngineProps {
+  locale?: string;
   levelNumber: number;
   onComplete: (stats: { stars: number; score: number; moves: number; hints: number }) => void;
   onNextLevel?: () => void;
@@ -22,7 +24,9 @@ const TILE_COLORS: Record<number, string> = {
   512: 'bg-emerald-500 text-white border-emerald-700 font-black shadow-xl ring-4 ring-emerald-300',
 };
 
-export function NumberMergeEngine({ levelNumber, onComplete, onNextLevel }: NumberMergeEngineProps) {
+export function NumberMergeEngine({
+  locale, levelNumber, onComplete, onNextLevel }: NumberMergeEngineProps) {
+  const tGame = getGameTexts(locale);
   const targetTile = levelNumber <= 3 ? 64 : levelNumber <= 10 ? 128 : 256;
 
   const [board, setBoard] = useState<number[][]>([]);

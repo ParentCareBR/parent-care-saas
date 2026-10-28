@@ -1,4 +1,5 @@
 'use client';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ interface HiddenItem {
 }
 
 interface HiddenObjectsEngineProps {
+  locale?: string;
   levelNumber: number;
   onComplete: (stats: { stars: number; score: number; moves: number; hints: number }) => void;
   onNextLevel?: () => void;
@@ -55,7 +57,9 @@ const SCENES = [
   },
 ];
 
-export function HiddenObjectsEngine({ levelNumber, onComplete, onNextLevel }: HiddenObjectsEngineProps) {
+export function HiddenObjectsEngine({
+  locale, levelNumber, onComplete, onNextLevel }: HiddenObjectsEngineProps) {
+  const tGame = getGameTexts(locale);
   const currentScene = SCENES[(levelNumber - 1) % SCENES.length];
   const [foundItemIds, setFoundItemIds] = useState<string[]>([]);
   const [hintsUsed, setHintsUsed] = useState(0);
@@ -202,7 +206,7 @@ export function HiddenObjectsEngine({ levelNumber, onComplete, onNextLevel }: Hi
           variant="outline"
           className="flex-1 h-12 border-amber-300 text-amber-800 dark:text-amber-300 font-bold text-sm rounded-xl gap-2"
         >
-          <Lightbulb className="h-4 w-4" /> Dica de Objeto
+          <Lightbulb className="h-4 w-4" /> {tGame.hint}
         </Button>
       </div>
 

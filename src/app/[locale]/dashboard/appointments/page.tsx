@@ -15,6 +15,7 @@ import {
   Calendar, Plus, MapPin, User, CheckCircle2, Clock, XCircle,
   RefreshCw, BellRing, ChevronLeft, ChevronRight, Pill, CheckSquare,
   Stethoscope, Utensils, Activity, Pencil, Trash2,
+  Dumbbell, GraduationCap, HeartPulse, Palmtree,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import RecurrenceSelector, { RecurrenceConfig, recurrenceLabel } from '@/components/ui/RecurrenceSelector';
@@ -29,8 +30,8 @@ import { ptBR, enUS, es as esLocale, fr as frLocale, de as deLocale } from 'date
 import { cn } from '@/lib/utils';
 
 type ViewMode = 'day' | 'week' | 'month';
-type EventType = 'appointment' | 'medication' | 'task' | 'meal' | 'routine';
-type NewItemType = 'appointment' | 'task';
+type EventType = 'appointment' | 'medication' | 'physical' | 'learning' | 'rehab' | 'leisure' | 'meal' | 'task' | 'routine';
+type NewItemType = 'appointment' | 'medication' | 'physical' | 'learning' | 'rehab' | 'leisure' | 'meal' | 'task';
 
 interface AgendaEvent {
   id: string;
@@ -59,7 +60,7 @@ const TYPE_CONFIG: Record<EventType, { color: string; bgLight: string; bgDark: s
     bgLight: 'bg-indigo-50',
     bgDark: 'dark:bg-indigo-950/30',
     border: 'border-indigo-200 dark:border-indigo-800',
-    label: 'Consulta',
+    label: 'Consulta / Exame',
     Icon: Stethoscope,
   },
   medication: {
@@ -70,13 +71,37 @@ const TYPE_CONFIG: Record<EventType, { color: string; bgLight: string; bgDark: s
     label: 'Medicamento',
     Icon: Pill,
   },
-  task: {
-    color: 'text-amber-700 dark:text-amber-300',
-    bgLight: 'bg-amber-50',
-    bgDark: 'dark:bg-amber-950/30',
-    border: 'border-amber-200 dark:border-amber-800',
-    label: 'Tarefa',
-    Icon: CheckSquare,
+  physical: {
+    color: 'text-teal-700 dark:text-teal-300',
+    bgLight: 'bg-teal-50',
+    bgDark: 'dark:bg-teal-950/30',
+    border: 'border-teal-200 dark:border-teal-800',
+    label: 'Atividade Física',
+    Icon: Dumbbell,
+  },
+  learning: {
+    color: 'text-blue-700 dark:text-blue-300',
+    bgLight: 'bg-blue-50',
+    bgDark: 'dark:bg-blue-950/30',
+    border: 'border-blue-200 dark:border-blue-800',
+    label: 'Aula / Curso',
+    Icon: GraduationCap,
+  },
+  rehab: {
+    color: 'text-rose-700 dark:text-rose-300',
+    bgLight: 'bg-rose-50',
+    bgDark: 'dark:bg-rose-950/30',
+    border: 'border-rose-200 dark:border-rose-800',
+    label: 'Reabilitação',
+    Icon: HeartPulse,
+  },
+  leisure: {
+    color: 'text-purple-700 dark:text-purple-300',
+    bgLight: 'bg-purple-50',
+    bgDark: 'dark:bg-purple-950/30',
+    border: 'border-purple-200 dark:border-purple-800',
+    label: 'Lazer & Social',
+    Icon: Palmtree,
   },
   meal: {
     color: 'text-orange-700 dark:text-orange-300',
@@ -85,6 +110,14 @@ const TYPE_CONFIG: Record<EventType, { color: string; bgLight: string; bgDark: s
     border: 'border-orange-200 dark:border-orange-800',
     label: 'Alimentação',
     Icon: Utensils,
+  },
+  task: {
+    color: 'text-amber-700 dark:text-amber-300',
+    bgLight: 'bg-amber-50',
+    bgDark: 'dark:bg-amber-950/30',
+    border: 'border-amber-200 dark:border-amber-800',
+    label: 'Tarefa',
+    Icon: CheckSquare,
   },
   routine: {
     color: 'text-sky-700 dark:text-sky-300',
@@ -123,6 +156,16 @@ export default function AppointmentsPage() {
   });
   const [taskForm, setTaskForm] = useState({
     title: '', description: '', priority: 'medium', due_date: new Date().toISOString().slice(0, 10), due_time: '09:00',
+  });
+  const [medForm, setMedForm] = useState({
+    name: '', dosage: '', unit: 'mg', time_of_day: '08:00', instructions: '',
+  });
+  const [activityForm, setActivityForm] = useState({
+    title: '', time_of_day: '09:00', location_name: '', instructor_name: '', health_orientations: '',
+    days: [1, 3, 5] as number[],
+  });
+  const [mealForm, setMealForm] = useState({
+    meal_type: 'lunch', description: '', time_of_day: '12:00', notes: '',
   });
   const [recurrence, setRecurrence] = useState<RecurrenceConfig>({ type: 'none' });
   const [alarm, setAlarm] = useState<string>('15m');
@@ -351,6 +394,48 @@ export default function AppointmentsPage() {
       });
     });
 
+    // 6. Life Activities (Physical, Learning, Rehab, Leisure & Social)
+    const { data: lifeActs } = await supabase
+      .from('life_activities')
+      .select('*')
+      .eq('cared_person_id', selectedPerson.id)
+      .eq('is_active', true);
+
+    (lifeActs || []).forEach((act: any) => {
+      const cat = act.category;
+      const eventType: EventType =
+        cat === 'physical' ? 'physical' :
+        cat === 'learning' ? 'learning' :
+        cat === 'rehab' ? 'rehab' :
+        (cat === 'leisure' || cat === 'social' || cat === 'spiritual') ? 'leisure' : 'routine';
+
+      const timeStr = act.time_of_day ? act.time_of_day.slice(0, 5) : '09:00';
+      const [h, m] = timeStr.split(':').map(Number);
+      const recDays: number[] = Array.isArray(act.recurrence_days) ? act.recurrence_days : [];
+
+      for (let i = -7; i <= 30; i++) {
+        const d = addDays(new Date(), i);
+        const dayOfWeek = d.getDay();
+        const isScheduled = recDays.length === 0 || recDays.includes(dayOfWeek) || act.recurrence_type === 'daily';
+        if (isScheduled) {
+          d.setHours(h || 9, m || 0, 0, 0);
+          all.push({
+            id: `act-${act.id}-${i}`,
+            type: eventType,
+            title: act.title,
+            subtitle: [
+              act.location_name ? `Local: ${act.location_name}` : '',
+              act.instructor_name ? `Resp: ${act.instructor_name}` : '',
+            ].filter(Boolean).join(' · ') || undefined,
+            time: timeStr,
+            date: new Date(d),
+            status: 'scheduled',
+            raw: act,
+          });
+        }
+      }
+    });
+
     // Sort all by date + time
     all.sort((a, b) => a.date.getTime() - b.date.getTime());
     setEvents(all);
@@ -443,6 +528,116 @@ export default function AppointmentsPage() {
       fetchEvents();
     }
     setSaving(false);
+  };
+
+  // ── Create Medication ─────────────────────────────────────────
+  const handleCreateMedication = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPerson || !currentOrganizationId || !user) return;
+    setSaving(true);
+    try {
+      const { data: createdMed, error: medErr } = await supabase.from('medications').insert({
+        cared_person_id: selectedPerson.id,
+        organization_id: currentOrganizationId,
+        name: medForm.name.trim(),
+        dosage: medForm.dosage.trim() || '1',
+        unit: medForm.unit.trim() || 'comprimido',
+        instructions: medForm.instructions.trim() || null,
+        is_active: true,
+        created_by: user.id,
+      }).select().single();
+
+      if (medErr) throw medErr;
+
+      if (createdMed) {
+        await supabase.from('medication_schedules').insert({
+          medication_id: createdMed.id,
+          cared_person_id: selectedPerson.id,
+          organization_id: currentOrganizationId,
+          time_of_day: medForm.time_of_day || '08:00',
+          days_of_week: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+        });
+      }
+
+      toast({ title: 'Medicamento cadastrado!', description: `${medForm.name} adicionado à rotina diária.` });
+      setModalOpen(false);
+      setMedForm({ name: '', dosage: '', unit: 'mg', time_of_day: '08:00', instructions: '' });
+      fetchEvents();
+    } catch (err: any) {
+      toast({ title: 'Erro ao cadastrar medicamento', description: err.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Create Life Activity ──────────────────────────────────────
+  const handleCreateLifeActivity = async (category: 'physical' | 'learning' | 'rehab' | 'leisure', e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPerson || !currentOrganizationId || !user) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('life_activities').insert({
+        organization_id: currentOrganizationId,
+        cared_person_id: selectedPerson.id,
+        title: activityForm.title.trim(),
+        category: category,
+        time_of_day: activityForm.time_of_day || '09:00',
+        location_name: activityForm.location_name.trim() || null,
+        instructor_name: activityForm.instructor_name.trim() || null,
+        health_orientations: activityForm.health_orientations.trim() || null,
+        recurrence_type: 'weekly',
+        recurrence_days: activityForm.days,
+        duration_minutes: 60,
+        is_active: true,
+        created_by: user.id,
+      });
+
+      if (error) throw error;
+
+      toast({ title: 'Atividade cadastrada!', description: `${activityForm.title} adicionada à rotina da pessoa cuidada.` });
+      setModalOpen(false);
+      setActivityForm({
+        title: '', time_of_day: '09:00', location_name: '', instructor_name: '', health_orientations: '',
+        days: [1, 3, 5],
+      });
+      fetchEvents();
+    } catch (err: any) {
+      toast({ title: 'Erro ao cadastrar atividade', description: err.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Create Meal ───────────────────────────────────────────────
+  const handleCreateMeal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPerson || !currentOrganizationId || !user) return;
+    setSaving(true);
+    try {
+      const mealDate = new Date();
+      const [h, m] = (mealForm.time_of_day || '12:00').split(':').map(Number);
+      mealDate.setHours(h || 12, m || 0, 0, 0);
+
+      const { error } = await supabase.from('meals').insert({
+        organization_id: currentOrganizationId,
+        cared_person_id: selectedPerson.id,
+        meal_type: mealForm.meal_type,
+        description: mealForm.description.trim() || null,
+        consumed_at: mealDate.toISOString(),
+        logged_by: user.id,
+      });
+
+      if (error) throw error;
+
+      toast({ title: 'Refeição registrada!', description: 'Horário de alimentação adicionado à agenda.' });
+      setModalOpen(false);
+      setMealForm({ meal_type: 'lunch', description: '', time_of_day: '12:00', notes: '' });
+      fetchEvents();
+    } catch (err: any) {
+      toast({ title: 'Erro ao registrar refeição', description: err.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ── Update Appointment Status ─────────────────────────────────
@@ -733,32 +928,56 @@ export default function AppointmentsPage() {
           <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
             {/* Tab selector */}
             <DialogHeader>
-              <div className="flex bg-stone-100 dark:bg-stone-800 rounded-xl p-1 gap-1 mb-1">
-                {(['appointment', 'task'] as NewItemType[]).map(t => (
+              <div className="grid grid-cols-2 sm:grid-cols-4 bg-stone-100 dark:bg-stone-800 rounded-xl p-1 gap-1 mb-2">
+                {[
+                  { key: 'appointment', label: '🩺 Consulta' },
+                  { key: 'medication', label: '💊 Remédio' },
+                  { key: 'physical', label: '🏃 Física' },
+                  { key: 'learning', label: '📚 Aula' },
+                  { key: 'rehab', label: '🩹 Fisio / Terapia' },
+                  { key: 'leisure', label: '🎭 Lazer / Social' },
+                  { key: 'meal', label: '🍽️ Refeição' },
+                  { key: 'task', label: '✅ Tarefa' },
+                ].map(item => (
                   <button
-                    key={t}
+                    key={item.key}
                     type="button"
-                    onClick={() => { setNewItemType(t); setRecurrence({ type: 'none' }); setAlarm('15m'); }}
+                    onClick={() => { setNewItemType(item.key as NewItemType); setRecurrence({ type: 'none' }); setAlarm('15m'); }}
                     className={cn(
-                      'flex-1 py-2 rounded-lg text-xs font-bold transition-all',
-                      newItemType === t
+                      'py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center truncate',
+                      newItemType === item.key
                         ? 'bg-white dark:bg-stone-700 shadow text-indigo-700 dark:text-indigo-300'
                         : 'text-stone-500 dark:text-stone-400 hover:text-stone-700'
                     )}
                   >
-                    {t === 'appointment' ? '🩺 Consulta / Exame' : '✅ Tarefa'}
+                    {item.label}
                   </button>
                 ))}
               </div>
-              <DialogTitle>{newItemType === 'appointment' ? 'Novo Compromisso Médico' : 'Nova Tarefa'}</DialogTitle>
+              <DialogTitle>
+                {newItemType === 'appointment' && '🩺 Novo Compromisso Médico'}
+                {newItemType === 'medication' && '💊 Cadastrar Medicamento'}
+                {newItemType === 'physical' && '🏃 Nova Atividade Física'}
+                {newItemType === 'learning' && '📚 Nova Aula ou Curso'}
+                {newItemType === 'rehab' && '🩹 Sessão de Reabilitação / Terapia'}
+                {newItemType === 'leisure' && '🎭 Lazer, Cultura & Vida Social'}
+                {newItemType === 'meal' && '🍽️ Programar Refeição'}
+                {newItemType === 'task' && '✅ Nova Tarefa do Cuidado'}
+              </DialogTitle>
               <DialogDescription>
-                {newItemType === 'appointment'
-                  ? 'Adicione consultas, exames, retornos ou sessões de terapia.'
-                  : 'Crie uma tarefa com data e hora para aparecer na agenda.'}
+                {newItemType === 'appointment' && 'Adicione consultas, exames, retornos ou procedimentos médicos.'}
+                {newItemType === 'medication' && 'Programe horários, dosagens e orientações de medicamentos contínuos.'}
+                {newItemType === 'physical' && 'Registre caminhada, hidroginástica, pilates ou exercícios orientados.'}
+                {newItemType === 'learning' && 'Aulas de línguas, oficinas de memória, informática ou cursos.'}
+                {newItemType === 'rehab' && 'Fisioterapia motora/respiratória, fonoaudiologia ou terapia ocupacional.'}
+                {newItemType === 'leisure' && 'Passeios, encontros com a família, cinema, cultos ou eventos sociais.'}
+                {newItemType === 'meal' && 'Horários programados de café, almoço, lanches e refeições.'}
+                {newItemType === 'task' && 'Crie tarefas e lembretes com data e horário para a rotina.'}
               </DialogDescription>
             </DialogHeader>
 
-            {newItemType === 'appointment' ? (
+            {/* Form 1: Consulta / Exame */}
+            {newItemType === 'appointment' && (
               <form onSubmit={handleCreateAppointment}>
                 <div className="grid gap-3 py-3">
                   <div className="space-y-1.5">
@@ -816,12 +1035,210 @@ export default function AppointmentsPage() {
                 </div>
                 <DialogFooter>
                   <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
-                  <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700" disabled={saving}>
+                  <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 font-bold" disabled={saving}>
                     {saving ? 'Salvando...' : 'Confirmar Agendamento'}
                   </Button>
                 </DialogFooter>
               </form>
-            ) : (
+            )}
+
+            {/* Form 2: Medicamento */}
+            {newItemType === 'medication' && (
+              <form onSubmit={handleCreateMedication}>
+                <div className="grid gap-3 py-3">
+                  <div className="space-y-1.5">
+                    <Label>Nome do Medicamento *</Label>
+                    <Input required placeholder="Ex: Losartana Potássica" value={medForm.name}
+                      onChange={e => setMedForm(p => ({ ...p, name: e.target.value }))} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Dosagem</Label>
+                      <Input placeholder="Ex: 50" value={medForm.dosage}
+                        onChange={e => setMedForm(p => ({ ...p, dosage: e.target.value }))} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Unidade</Label>
+                      <Input placeholder="Ex: mg, comprimido, gotas" value={medForm.unit}
+                        onChange={e => setMedForm(p => ({ ...p, unit: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
+                      <Clock className="h-3.5 w-3.5 text-emerald-600" />
+                      Horário da Tomada Diária *
+                    </Label>
+                    <Input type="time" required value={medForm.time_of_day}
+                      onChange={e => setMedForm(p => ({ ...p, time_of_day: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Instruções / Orientações</Label>
+                    <Input placeholder="Ex: Tomar pela manhã em jejum com água" value={medForm.instructions}
+                      onChange={e => setMedForm(p => ({ ...p, instructions: e.target.value }))} />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
+                  <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 font-bold text-white" disabled={saving}>
+                    {saving ? 'Salvando...' : 'Cadastrar Medicamento'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            )}
+
+            {/* Form 3, 4, 5, 6: Atividades da Vida (Física, Aula, Reabilitação, Lazer) */}
+            {(newItemType === 'physical' || newItemType === 'learning' || newItemType === 'rehab' || newItemType === 'leisure') && (
+              <form onSubmit={e => handleCreateLifeActivity(newItemType, e)}>
+                <div className="grid gap-3 py-3">
+                  <div className="space-y-1.5">
+                    <Label>
+                      {newItemType === 'physical' && 'Nome da Atividade Física *'}
+                      {newItemType === 'learning' && 'Nome da Aula / Curso *'}
+                      {newItemType === 'rehab' && 'Tipo de Reabilitação / Fisioterapia *'}
+                      {newItemType === 'leisure' && 'Nome do Evento ou Passeio *'}
+                    </Label>
+                    <Input
+                      required
+                      placeholder={
+                        newItemType === 'physical' ? 'Ex: Caminhada na Praça, Hidroginástica' :
+                        newItemType === 'learning' ? 'Ex: Aula de Informática, Oficina de Memória' :
+                        newItemType === 'rehab' ? 'Ex: Fisioterapia Motora, Fonoaudiologia' :
+                        'Ex: Almoço de Domingo com a Família, Cinema'
+                      }
+                      value={activityForm.title}
+                      onChange={e => setActivityForm(p => ({ ...p, title: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="flex items-center gap-1 font-bold">
+                        <Clock className="h-3.5 w-3.5 text-indigo-600" />
+                        Horário de Início *
+                      </Label>
+                      <Input type="time" required value={activityForm.time_of_day}
+                        onChange={e => setActivityForm(p => ({ ...p, time_of_day: e.target.value }))} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>
+                        {newItemType === 'rehab' ? 'Terapeuta / Profissional' :
+                         newItemType === 'learning' ? 'Professor / Instrutor' :
+                         newItemType === 'physical' ? 'Educador / Instrutor' : 'Companhia / Responsável'}
+                      </Label>
+                      <Input
+                        placeholder="Ex: Dra. Juliana"
+                        value={activityForm.instructor_name}
+                        onChange={e => setActivityForm(p => ({ ...p, instructor_name: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Local / Endereço</Label>
+                    <Input
+                      placeholder="Ex: Clube Sírio, Parque Ibirapuera, Em casa..."
+                      value={activityForm.location_name}
+                      onChange={e => setActivityForm(p => ({ ...p, location_name: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Orientações / Recomendações</Label>
+                    <Input
+                      placeholder="Ex: Levar toalha, garrafinha d'água, protetor solar..."
+                      value={activityForm.health_orientations}
+                      onChange={e => setActivityForm(p => ({ ...p, health_orientations: e.target.value }))}
+                    />
+                  </div>
+                  {/* Dias da semana */}
+                  <div className="space-y-1.5 pt-1">
+                    <Label className="text-xs font-bold text-stone-600 dark:text-stone-300">Dias da Semana Recorrentes</Label>
+                    <div className="flex flex-wrap gap-1">
+                      {[
+                        { day: 1, label: 'Seg' },
+                        { day: 2, label: 'Ter' },
+                        { day: 3, label: 'Qua' },
+                        { day: 4, label: 'Qui' },
+                        { day: 5, label: 'Sex' },
+                        { day: 6, label: 'Sáb' },
+                        { day: 0, label: 'Dom' },
+                      ].map(d => {
+                        const isSelected = activityForm.days.includes(d.day);
+                        return (
+                          <button
+                            key={d.day}
+                            type="button"
+                            onClick={() => {
+                              setActivityForm(p => ({
+                                ...p,
+                                days: isSelected
+                                  ? p.days.filter(x => x !== d.day)
+                                  : [...p.days, d.day]
+                              }));
+                            }}
+                            className={cn(
+                              'px-2.5 py-1 rounded-lg text-xs font-bold border transition-all',
+                              isSelected
+                                ? 'bg-indigo-600 text-white border-indigo-600'
+                                : 'bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700'
+                            )}
+                          >
+                            {d.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
+                  <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 font-bold text-white" disabled={saving}>
+                    {saving ? 'Salvando...' : 'Salvar Atividade'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            )}
+
+            {/* Form 7: Refeição */}
+            {newItemType === 'meal' && (
+              <form onSubmit={handleCreateMeal}>
+                <div className="grid gap-3 py-3">
+                  <div className="space-y-1.5">
+                    <Label>Tipo de Refeição *</Label>
+                    <Select value={mealForm.meal_type} onValueChange={v => setMealForm(p => ({ ...p, meal_type: v }))}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="breakfast">☕ Café da Manhã</SelectItem>
+                        <SelectItem value="lunch">🍲 Almoço</SelectItem>
+                        <SelectItem value="snack">🥪 Lanche da Tarde</SelectItem>
+                        <SelectItem value="dinner">🥗 Jantar</SelectItem>
+                        <SelectItem value="supper">🥛 Ceia Noturna</SelectItem>
+                        <SelectItem value="other">🍽️ Outra Refeição</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Prato / O que será servido</Label>
+                    <Input placeholder="Ex: Sopa de legumes, frango grelhado com arroz..." value={mealForm.description}
+                      onChange={e => setMealForm(p => ({ ...p, description: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="flex items-center gap-1 font-bold text-orange-700 dark:text-orange-400">
+                      <Clock className="h-3.5 w-3.5 text-orange-600" />
+                      Horário Programado *
+                    </Label>
+                    <Input type="time" required value={mealForm.time_of_day}
+                      onChange={e => setMealForm(p => ({ ...p, time_of_day: e.target.value }))} />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
+                  <Button type="submit" className="bg-orange-600 hover:bg-orange-700 font-bold text-white" disabled={saving}>
+                    {saving ? 'Salvando...' : 'Programar Refeição'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            )}
+
+            {/* Form 8: Tarefa */}
+            {newItemType === 'task' && (
               <form onSubmit={handleCreateTask}>
                 <div className="grid gap-3 py-3">
                   <div className="space-y-1.5">
@@ -855,7 +1272,7 @@ export default function AppointmentsPage() {
                     <div className="space-y-1.5">
                       <Label className="flex items-center gap-1 font-bold text-amber-700 dark:text-amber-400">
                         <Clock className="h-3.5 w-3.5 text-amber-600" />
-                        Horário de Realização *
+                        Horário *
                       </Label>
                       <Input type="time" required value={taskForm.due_time}
                         onChange={e => setTaskForm(p => ({ ...p, due_time: e.target.value }))} />
@@ -884,7 +1301,7 @@ export default function AppointmentsPage() {
                 </div>
                 <DialogFooter>
                   <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
-                  <Button type="submit" className="bg-amber-600 hover:bg-amber-700" disabled={saving}>
+                  <Button type="submit" className="bg-amber-600 hover:bg-amber-700 font-bold text-white" disabled={saving}>
                     {saving ? 'Salvando...' : 'Criar Tarefa'}
                   </Button>
                 </DialogFooter>

@@ -1,4 +1,5 @@
 'use client';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -93,7 +94,8 @@ const TRIVIA_DATABASE: TriviaQuestion[] = [
   },
 ];
 
-export function TriviaEngine({ levelNumber, onComplete, onNextLevel }: TriviaEngineProps) {
+export function TriviaEngine({ levelNumber, locale, onComplete, onNextLevel }: TriviaEngineProps) {
+  const tGame = getGameTexts(locale);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [eliminatedOptions, setEliminatedOptions] = useState<number[]>([]);
@@ -251,7 +253,7 @@ export function TriviaEngine({ levelNumber, onComplete, onNextLevel }: TriviaEng
         <div className="bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-400 p-6 rounded-3xl text-center space-y-3 animate-in zoom-in-95">
           <div className="text-4xl">🌟</div>
           <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-100">
-            Parabéns! Etapa Concluída!
+            {tGame.stageCompleted}
           </h3>
           <p className="text-sm font-semibold text-stone-700 dark:text-stone-300">
             Você relembrou belas histórias e conhecimentos com muita sabedoria.

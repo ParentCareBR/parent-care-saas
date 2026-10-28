@@ -1,4 +1,5 @@
 'use client';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -35,7 +36,8 @@ const ANAGRAM_LEVELS: AnagramLevel[] = [
   },
 ];
 
-export function WordAnagramEngine({ levelNumber, onComplete, onNextLevel }: WordAnagramEngineProps) {
+export function WordAnagramEngine({ levelNumber, locale, onComplete, onNextLevel }: WordAnagramEngineProps) {
+  const tGame = getGameTexts(locale);
   const currentLevel = ANAGRAM_LEVELS[(levelNumber - 1) % ANAGRAM_LEVELS.length];
 
   const [currentWord, setCurrentWord] = useState<string[]>([]);
@@ -212,7 +214,7 @@ export function WordAnagramEngine({ levelNumber, onComplete, onNextLevel }: Word
           variant="outline"
           className="h-12 border-amber-300 text-amber-800 dark:text-amber-300 font-bold text-xs rounded-xl gap-1"
         >
-          <Lightbulb className="h-4 w-4" /> Dica
+          <Lightbulb className="h-4 w-4" /> {tGame.hint}
         </Button>
       </div>
 

@@ -114,7 +114,7 @@ interface AgendaEvent {
   title: string;
   time?: string;
   date: Date;
-  type: 'appointment' | 'medication' | 'meal' | 'task';
+  type: 'appointment' | 'medication' | 'meal' | 'task' | 'activity';
   subtitle?: string;
   color: string;
   completed?: boolean;
@@ -382,7 +382,8 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
           tasksRes,
           hydroRes,
           humanNotesRes,
-          financesRes
+          financesRes,
+          lifeActsRes
         ] = await Promise.all([
           // 1. Emergency phone
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -420,6 +421,9 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
           (supabase as any).from('care_notes').select('id,content,created_at,author_id').eq('cared_person_id', params.id).order('created_at', { ascending: false }).limit(20),
           // 13. Financial expenses & profile
           fetch(`/api/expenses?caredPersonId=${params.id}`).then(r => r.json()).catch(() => null),
+          // 14. Life activities (física, aula, reabilitação, lazer)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase as any).from('life_activities').select('*').eq('cared_person_id', params.id).eq('is_active', true),
         ]);
 
         if (isCancelled) return;
@@ -609,6 +613,34 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
           });
         });
 
+        // Life Activities (Physical, Learning, Rehab, Leisure & Social)
+        (lifeActsRes?.data || []).forEach((act: any) => {
+          const timeStr = act.time_of_day ? act.time_of_day.slice(0, 5) : '09:00';
+          const [h, m] = timeStr.split(':').map(Number);
+          const recDays: number[] = Array.isArray(act.recurrence_days) ? act.recurrence_days : [];
+
+          for (let i = -7; i <= 14; i++) {
+            const d = new Date(); d.setDate(d.getDate() + i);
+            const dayOfWeek = d.getDay();
+            const isScheduled = recDays.length === 0 || recDays.includes(dayOfWeek) || act.recurrence_type === 'daily';
+            if (isScheduled) {
+              d.setHours(h || 9, m || 0, 0, 0);
+              const icon = act.category === 'physical' ? '🏃' : act.category === 'learning' ? '📚' : act.category === 'rehab' ? '🩹' : '🎭';
+              allEvents.push({
+                id: `act-${act.id}-${i}`,
+                title: `${icon} ${act.title}`,
+                subtitle: [act.location_name, act.instructor_name].filter(Boolean).join(' · ') || 'Atividade da rotina',
+                time: timeStr,
+                date: new Date(d),
+                type: 'activity',
+                color: 'indigo',
+                completed: false,
+                raw: act,
+              });
+            }
+          }
+        });
+
         setEvents(allEvents);
         setAgendaLoading(false);
 
@@ -758,7 +790,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
       setLastAction({ id: recordedId, type, table: targetTable });
     }
     setLoading(false);
-    setSuccessMsg(`${message}! A família foi avisada.`);
+    setSuccessMsg(tCare.actionNotified(message));
     speakReminder(`${message}! Sua família já sabe.`, params.locale);
     setTimeout(() => setSuccessMsg(''), 6000);
   };
@@ -775,7 +807,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     }
     setLoading(false);
     setLastAction(null);
-    setSuccessMsg('Ação cancelada.');
+    setSuccessMsg(tCare.actionUndone);
     setTimeout(() => setSuccessMsg(''), 3000);
   };
 
@@ -784,32 +816,27 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     unlockAudioContext();
     triggerHaptic(30);
     if (activeTab === 'home') {
-      let speech = `Olá, ${personInfo.name}! `;
-      if (currentNowEvent) {
-        speech += `No momento, sua atividade principal é: ${currentNowEvent.title}, agendada para ${currentNowEvent.time || 'agora'}. `;
-      } else {
-        speech += `Todas as suas atividades deste horário estão concluídas. `;
-      }
-      if (familyMessage) {
-        speech += `Você tem um recado da família de ${familyMessage.sender}: ${familyMessage.text}. `;
-      }
-      speech += `Você já tomou ${cupsDrank} copos de água hoje.`;
+      const speech = tCare.speechHome(
+        personInfo.name,
+        currentNowEvent?.title,
+        cupsDrank,
+        !!familyMessage,
+      );
       speakReminder(speech, params.locale);
     } else if (activeTab === 'routine') {
-      const dayLabel = selectedDayOffset === 0 ? 'Hoje' : selectedDayOffset === 1 ? 'Amanhã' : 'Ontem';
+      const dayLabel = selectedDayOffset === 0 ? tCare.dayToday : selectedDayOffset === 1 ? tCare.dayTomorrow : tCare.dayYesterday;
       const dayEvents = filteredEvents;
       if (dayEvents.length === 0) {
-        speakReminder(`Você não tem nenhum compromisso marcado para ${dayLabel}.`, params.locale);
+        speakReminder(tCare.speechNoRoutine(dayLabel), params.locale);
       } else {
-        const eventsDesc = dayEvents.map(e => `${e.title}${e.time ? ` às ${e.time}` : ''}`).join('. ');
-        speakReminder(`Sua rotina de ${dayLabel} tem ${dayEvents.length} atividades: ${eventsDesc}.`, params.locale);
+        speakReminder(tCare.speechRoutine(dayEvents.length, dayLabel), params.locale);
       }
     } else if (activeTab === 'games') {
-      speakReminder('Aqui estão seus jogos cognitivos: Jogo da Forca, Memória, Caça-Palavras, Trivia Brasil, Genius e muito mais. Toque em um jogo para exercitar a mente!', params.locale);
+      speakReminder(tCare.speechGames, params.locale);
     } else if (activeTab === 'actions') {
-      speakReminder(`Aqui você pode registrar o que fez hoje: beber água, tomar remédio, refeição, ou avisar como está se sentindo.`, params.locale);
+      speakReminder(tCare.speechActions, params.locale);
     } else if (activeTab === 'finances') {
-      speakReminder(`Seu saldo disponível para este mês é de ${formatCurrency(financeData.balance)}.`, params.locale);
+      speakReminder(tCare.speechFinances(formatCurrency(financeData.balance)), params.locale);
     }
   };
 
@@ -1082,12 +1109,12 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
             <div className='min-w-0'>
               <div className='flex items-center gap-1.5'>
                 <h1 className='text-lg font-black truncate leading-tight'>
-                  {greetingIcon} {greetingText}, {personInfo.name}!
+                  {greetingIcon} {tCare.greeting(personInfo.name)}
                 </h1>
               </div>
               <div className='flex items-center gap-1 text-[11px] text-stone-500 dark:text-stone-400 font-bold'>
                 <span className='w-2 h-2 rounded-full bg-emerald-500 animate-pulse' />
-                <span className='truncate'>{currentTime.toLocaleTimeString(displayLocale, { hour: '2-digit', minute: '2-digit' })} · Conectado</span>
+                <span className='truncate'>{currentTime.toLocaleTimeString(displayLocale, { hour: '2-digit', minute: '2-digit' })} · {tCare.familyConnected}</span>
               </div>
             </div>
           </div>
@@ -1097,7 +1124,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
             <ElderlyLanguageSwitcher caredPersonId={params.id} compact />
             <button
               onClick={handleReadAloudCurrentTab}
-              title='Ouvir em Voz Alta'
+              title={tCare.readAloudTooltip}
               className='w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 flex items-center justify-center transition active:scale-90 shadow-xs'
             >
               <Volume2 className='h-5 w-5' />
@@ -1107,7 +1134,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               onClick={() => { supabase.auth.signOut(); router.push(`/${params.locale}/care/login`); }}
               className='px-2.5 h-10 rounded-xl text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 text-xs font-bold transition active:scale-95'
             >
-              Sair
+              {tCare.signOut}
             </button>
           </div>
         </div>
@@ -1125,10 +1152,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               </div>
               <div className='min-w-0'>
                 <p className='text-xs font-extrabold leading-tight truncate'>
-                  Período de Teste Grátis Ativo
+                  {tCare.trialBadge(trialInfo.daysRemaining)}
                 </p>
                 <p className='text-[11px] text-emerald-800 dark:text-emerald-300 font-semibold truncate'>
-                  Você tem <strong className='font-black underline'>{trialInfo.daysRemaining === 1 ? '1 dia restante' : `${trialInfo.daysRemaining} dias restantes`}</strong> sem cobrança
+                  {trialInfo.daysRemaining === 1 ? '1 dia' : `${trialInfo.daysRemaining} dias`}
                 </p>
               </div>
             </div>
@@ -1152,7 +1179,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                 onClick={undoLastAction} 
                 className='h-9 px-2.5 rounded-xl border border-emerald-600 bg-white dark:bg-stone-900 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-1 active:scale-95'
               >
-                <RotateCcw className='h-3.5 w-3.5' /> Desfazer
+                <RotateCcw className='h-3.5 w-3.5' /> {tCare.undoBtn}
               </button>
             )}
           </div>
@@ -1170,7 +1197,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                 <div className='flex items-center gap-2'>
                   <span className='w-2.5 h-2.5 rounded-full bg-indigo-600 animate-ping' />
                   <span className='text-[11px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/80 px-2.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800'>
-                    Atividade do Momento
+                    {tCare.activityNow}
                   </span>
                 </div>
                 <span className='text-xs font-bold text-stone-500'>
@@ -1186,7 +1213,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     </div>
                     <div className='flex-1 min-w-0'>
                       <span className='text-xs font-black text-indigo-700 dark:text-indigo-400 bg-indigo-100/70 dark:bg-indigo-950/80 px-2 py-0.5 rounded-md'>
-                        ⏰ {currentNowEvent.time || 'Agora'}
+                        ⏰ {currentNowEvent.time || tCare.dayToday}
                       </span>
                       <h2 className='text-xl sm:text-2xl font-black text-stone-900 dark:text-stone-100 leading-tight mt-1 truncate'>
                         {currentNowEvent.title}
@@ -1226,7 +1253,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                   >
                     <Check className='h-7 w-7 stroke-[3]' />
                     <span>
-                      {currentNowEvent.type === 'medication' ? '✓ JÁ TOMEI ESSE REMÉDIO' : currentNowEvent.type === 'meal' ? '✓ JÁ ME ALIMENTEI' : '✓ CONCLUIR AGORA'}
+                      {currentNowEvent.type === 'medication' ? tCare.btnTookMed : currentNowEvent.type === 'meal' ? tCare.btnHadMeal : tCare.btnCompleteNow}
                     </span>
                   </button>
                 </div>
@@ -1236,16 +1263,143 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     🌿
                   </div>
                   <h3 className='text-lg font-black text-stone-800 dark:text-stone-200'>
-                    Tudo em dia por agora!
+                    {tCare.allDoneTitle}
                   </h3>
                   <p className='text-xs text-stone-500 max-w-xs mx-auto'>
-                    Você cumpriu seus horários. Aproveite para descansar ou tomar uma água!
+                    {tCare.allDoneDesc}
                   </p>
                 </div>
               )}
             </div>
 
-            {/* 1.2 MURAL DE CARINHO DA FAMÍLIA (Correio de Afeto) */}
+            {/* 1.2 MINHA AGENDA DE HOJE (Visível diretamente na tela inicial do Idoso) */}
+            <div className='bg-white dark:bg-stone-900 rounded-3xl border-3 border-indigo-200 dark:border-indigo-900/60 p-4 sm:p-5 shadow-md space-y-3'>
+              <div className='flex items-center justify-between'>
+                <div className='flex items-center gap-2.5'>
+                  <div className='w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-xl shrink-0'>
+                    📅
+                  </div>
+                  <div>
+                    <h3 className='text-base sm:text-lg font-black text-stone-900 dark:text-stone-100 leading-tight'>
+                      Minha Agenda de Hoje
+                    </h3>
+                    <p className='text-xs text-stone-500 font-bold capitalize mt-0.5'>
+                      {format(new Date(), "EEEE, dd 'de' MMMM", { locale: dateFnsLoc })}
+                    </p>
+                  </div>
+                </div>
+
+                <div className='flex items-center gap-1.5'>
+                  <button
+                    type='button'
+                    onClick={() => {
+                      if (todayEvents.length === 0) {
+                        speakReminder('Você não tem nenhum compromisso agendado para hoje. Aproveite para descansar!', params.locale);
+                      } else {
+                        const items = todayEvents.map(e => `${e.time ? 'às ' + e.time : ''}: ${e.title}`).join('. ');
+                        speakReminder(`Sua agenda de hoje tem ${todayEvents.length} compromissos: ${items}`, params.locale);
+                      }
+                    }}
+                    className='h-8 px-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold flex items-center gap-1 active:scale-95 shadow-2xs'
+                    title='Ouvir compromissos de hoje'
+                  >
+                    <Volume2 className='h-3.5 w-3.5' /> Ouvir
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => { triggerHaptic(20); setActiveTab('routine'); }}
+                    className='h-8 px-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 text-xs font-bold hover:bg-stone-200 transition active:scale-95'
+                    title='Ver dias anteriores e próximos'
+                  >
+                    Ver Tudo
+                  </button>
+                </div>
+              </div>
+
+              {/* Lista dos eventos de hoje */}
+              {todayEvents.length === 0 ? (
+                <div className='py-4 text-center bg-stone-50 dark:bg-stone-800/40 rounded-2xl p-4 space-y-1 border border-dashed border-stone-200 dark:border-stone-700'>
+                  <p className='text-2xl'>☀️</p>
+                  <p className='text-sm font-bold text-stone-800 dark:text-stone-200'>
+                    Nenhum compromisso marcado para hoje
+                  </p>
+                  <p className='text-xs text-stone-500'>
+                    Aproveite seu dia com tranquilidade e descanse!
+                  </p>
+                </div>
+              ) : (
+                <div className='space-y-2 max-h-[340px] overflow-y-auto pr-0.5 scrollbar-thin'>
+                  {todayEvents.map((ev) => (
+                    <div
+                      key={ev.id}
+                      className={`p-3 rounded-2xl border-2 flex items-center justify-between gap-3 transition-all ${
+                        ev.completed
+                          ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800/60 opacity-80'
+                          : 'bg-stone-50/90 dark:bg-stone-800/60 border-stone-200 dark:border-stone-700/80 shadow-2xs'
+                      }`}
+                    >
+                      <div className='flex items-center gap-3 min-w-0'>
+                        <div className='w-11 h-11 rounded-xl bg-white dark:bg-stone-900 border flex items-center justify-center text-2xl shrink-0 shadow-2xs'>
+                          {ev.type === 'medication' ? '💊' : ev.type === 'meal' ? '🍽️' : ev.type === 'appointment' ? '🩺' : ev.type === 'activity' ? '🏃' : '✅'}
+                        </div>
+                        <div className='min-w-0'>
+                          <div className='flex items-center gap-1.5'>
+                            <span className='text-xs font-black text-indigo-700 dark:text-indigo-400'>
+                              ⏰ {ev.time || 'Hoje'}
+                            </span>
+                            {ev.completed && (
+                              <span className='text-[10px] font-black text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-1.5 py-0.2 rounded-md'>
+                                Feito
+                              </span>
+                            )}
+                          </div>
+                          <p className={`text-sm sm:text-base font-black leading-tight truncate ${ev.completed ? 'line-through text-stone-500' : 'text-stone-900 dark:text-stone-100'}`}>
+                            {ev.title}
+                          </p>
+                          {ev.subtitle && (
+                            <p className='text-xs text-stone-500 dark:text-stone-400 truncate mt-0.5'>{ev.subtitle}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Botão de Check rápido direto na lista se não estiver concluído */}
+                      {!ev.completed && (
+                        <button
+                          type='button'
+                          onClick={() => {
+                            triggerHaptic(25);
+                            if (ev.type === 'medication') {
+                              handleAction('medication', `Tomei ${ev.title}`, 'medication_confirmations', {
+                                medication_id: ev.raw?.id || personInfo.medicationId,
+                                confirmed_by: personInfo.userId,
+                                status: 'taken',
+                              });
+                            } else if (ev.type === 'meal') {
+                              handleAction('meal', `Já me alimentei: ${ev.title}`, 'meals', {
+                                meal_type: ev.raw?.meal_type || 'other',
+                                description: ev.title,
+                                logged_by: personInfo.userId,
+                              });
+                            } else {
+                              handleAction('general', `Realizado: ${ev.title}`, 'care_notes', {
+                                content: `✓ Realizado por ${personInfo.name}: ${ev.title}`,
+                                type: 'general',
+                              });
+                            }
+                          }}
+                          className='px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shrink-0 active:scale-95 shadow-xs flex items-center gap-1'
+                        >
+                          <Check className='h-3.5 w-3.5 stroke-[3]' />
+                          <span>Fiz</span>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 1.3 MURAL DE CARINHO DA FAMÍLIA (Correio de Afeto) */}
             {familyMessage && (
               <div className='bg-gradient-to-br from-rose-50 via-amber-50/60 to-rose-100/50 dark:from-stone-900 dark:via-rose-950/20 dark:to-stone-900 border-2 border-rose-300 dark:border-rose-900/60 rounded-3xl p-4 shadow-sm space-y-3'>
                 <div className='flex items-center justify-between gap-2'>
@@ -1253,10 +1407,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     <span className='text-2xl'>💌</span>
                     <div className='min-w-0'>
                       <span className='text-[10px] font-black uppercase text-rose-800 dark:text-rose-300 bg-rose-100 dark:bg-rose-950/80 px-2 py-0.5 rounded-full'>
-                        Recado com Carinho
+                        {tCare.familyNoteTitle}
                       </span>
                       <p className='text-xs text-stone-500 dark:text-stone-400 font-bold mt-0.5 truncate'>
-                        De <span className='text-stone-800 dark:text-stone-200 font-extrabold'>{familyMessage.sender}</span> às {familyMessage.time}
+                        {tCare.fromLabel} <span className='text-stone-800 dark:text-stone-200 font-extrabold'>{familyMessage.sender}</span> {tCare.atLabel} {familyMessage.time}
                       </p>
                     </div>
                   </div>
@@ -1265,7 +1419,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     onClick={() => speakReminder(`Recado de ${familyMessage.sender}: ${familyMessage.text}`, params.locale)}
                     className='h-9 px-3 rounded-xl border border-rose-300 dark:border-rose-800 bg-white dark:bg-stone-800 text-rose-800 dark:text-rose-300 text-xs font-bold flex items-center gap-1.5 active:scale-95 shadow-xs shrink-0'
                   >
-                    <Volume2 className='h-4 w-4' /> Ouvir
+                    <Volume2 className='h-4 w-4' /> {tCare.listenBtn}
                   </button>
                 </div>
 
@@ -1284,11 +1438,11 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                 <div className='flex items-center gap-2'>
                   <span className='w-2.5 h-2.5 rounded-full bg-red-600 animate-ping' />
                   <span className='text-[11px] font-black uppercase tracking-wider text-red-800 dark:text-red-300'>
-                    Números de Emergência Rápidos
+                    {tCare.emergencyNumbersTitle}
                   </span>
                 </div>
                 <span className='text-[10px] font-extrabold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/80 px-2 py-0.5 rounded-full'>
-                  1 Toque para Ligar
+                  {tCare.oneTapToCall}
                 </span>
               </div>
 
@@ -1309,7 +1463,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     192
                   </span>
                   <span className='text-[9px] font-bold text-stone-500 leading-none mt-0.5'>
-                    Ambulância
+                    {tCare.ambulanceLabel}
                   </span>
                 </a>
 
@@ -1323,13 +1477,13 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     🚒
                   </div>
                   <span className='text-xs font-black text-amber-700 dark:text-amber-400 leading-tight'>
-                    Bombeiros
+                    {tCare.firefightersLabel}
                   </span>
                   <span className='text-lg font-black text-stone-900 dark:text-stone-100 leading-none'>
                     193
                   </span>
                   <span className='text-[9px] font-bold text-stone-500 leading-none mt-0.5'>
-                    Resgate
+                    {tCare.rescueLabel}
                   </span>
                 </a>
 
@@ -1343,13 +1497,13 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     🚓
                   </div>
                   <span className='text-xs font-black text-blue-700 dark:text-blue-400 leading-tight'>
-                    Polícia
+                    {tCare.policeLabel}
                   </span>
                   <span className='text-lg font-black text-stone-900 dark:text-stone-100 leading-none'>
                     190
                   </span>
                   <span className='text-[9px] font-bold text-stone-500 leading-none mt-0.5'>
-                    Emergência
+                    {tCare.policeEmergencyLabel}
                   </span>
                 </a>
               </div>
@@ -1365,17 +1519,17 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                 <div className='min-w-0'>
                   <div className='flex items-center gap-1.5'>
                     <span className='text-[11px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 block'>
-                      Assistente Pessoal
+                      {tCare.assistantTitle}
                     </span>
                     <span className='text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-1.5 py-0.2 rounded-md'>
-                      Voz & Texto
+                      {tCare.assistantVoiceText}
                     </span>
                   </div>
                   <h3 className='text-lg font-black text-stone-900 dark:text-white leading-tight truncate'>
-                    Falar com a Nina
+                    {tCare.assistantName}
                   </h3>
                   <p className='text-xs font-bold text-stone-600 dark:text-slate-300 mt-0.5 line-clamp-1'>
-                    Pergunte sobre horários, remédios ou converse por áudio
+                    {tCare.assistantDesc}
                   </p>
                 </div>
               </div>
@@ -1387,7 +1541,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                 }}
                 className='px-4 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black text-sm shadow-md active:scale-95 shrink-0 transition-all flex items-center gap-1.5'
               >
-                <span>Conversar</span>
+                <span>{tCare.assistantBtn}</span>
                 <ChevronRight className='h-4 w-4' />
               </button>
             </div>
@@ -1396,9 +1550,9 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
             <div className='space-y-2.5'>
               <div className='flex items-center justify-between px-1'>
                 <h3 className='text-xs font-black uppercase tracking-wider text-stone-500 dark:text-stone-400'>
-                  Minhas Atividades & Acessos
+                  {tCare.myActivitiesTitle}
                 </h3>
-                <span className='text-[11px] font-bold text-stone-500'>Toque para entrar</span>
+                <span className='text-[11px] font-bold text-stone-500'>{tCare.tapToEnter}</span>
               </div>
 
               <div className='grid grid-cols-2 gap-3'>
@@ -1414,12 +1568,12 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     💊
                   </div>
                   <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    Meus Remédios
+                    {tCare.cardMedsTitle}
                   </span>
                   <span className='text-xs font-bold text-emerald-700 dark:text-emerald-400'>
                     {todayEvents.filter(e => e.type === 'medication').length > 0
-                      ? `${todayEvents.filter(e => e.type === 'medication').length} para hoje`
-                      : 'Ver horários'}
+                      ? `${todayEvents.filter(e => e.type === 'medication').length} ${tCare.cardMedsSubtitle}`
+                      : tCare.cardMedsNone}
                   </span>
                 </button>
 
@@ -1433,10 +1587,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     💧
                   </div>
                   <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    Bebi Água
+                    {tCare.cardWaterTitle}
                   </span>
                   <span className='text-xs font-bold text-sky-700 dark:text-sky-300'>
-                    {cupsDrank}/8 copos hoje (+1)
+                    {tCare.cardWaterSubtitle(cupsDrank)}
                   </span>
                 </button>
 
@@ -1456,10 +1610,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     🍽️
                   </div>
                   <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    Já Comi
+                    {tCare.cardMealTitle}
                   </span>
                   <span className='text-xs font-bold text-amber-700 dark:text-amber-300'>
-                    Registrar refeição
+                    {tCare.cardMealSubtitle}
                   </span>
                 </button>
 
@@ -1475,10 +1629,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     📅
                   </div>
                   <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    Minha Agenda
+                    {tCare.cardRoutineTitle}
                   </span>
                   <span className='text-xs font-bold text-indigo-700 dark:text-indigo-300'>
-                    {todayEvents.length} compromissos
+                    {tCare.todaySummary(todayEvents.length)}
                   </span>
                 </button>
 
@@ -1491,10 +1645,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     📞
                   </div>
                   <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    Chamar Família
+                    {tCare.cardCallTitle}
                   </span>
                   <span className='text-xs font-bold text-rose-700 dark:text-rose-300'>
-                    Pedir ligação
+                    {tCare.cardCallSubtitle}
                   </span>
                 </button>
 
@@ -1510,10 +1664,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     🎮
                   </div>
                   <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    Passatempos
+                    {tCare.cardGamesTitle}
                   </span>
                   <span className='text-xs font-bold text-amber-700 dark:text-amber-400'>
-                    Jogos da mente
+                    {tCare.cardGamesSubtitle}
                   </span>
                 </button>
 
@@ -1529,10 +1683,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     💰
                   </div>
                   <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    Meu Dinheiro
+                    {tCare.myMoneyTitle}
                   </span>
                   <span className='text-xs font-bold text-teal-700 dark:text-teal-300'>
-                    Saldo & gastos
+                    {tCare.myMoneySub}
                   </span>
                 </button>
 
@@ -1553,10 +1707,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     ❤️
                   </div>
                   <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    Estou Bem!
+                    {tCare.cardMoodTitle}
                   </span>
                   <span className='text-xs font-bold text-emerald-700 dark:text-emerald-400'>
-                    Avisar família
+                    {tCare.cardMoodSubtitle}
                   </span>
                 </button>
 
@@ -1577,10 +1731,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     {hour < 15 ? '☀️' : '🌙'}
                   </div>
                   <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    {hour < 15 ? 'Acordei' : 'Vou Dormir'}
+                    {hour < 15 ? tCare.wokeUpTitle : tCare.sleepTitle}
                   </span>
                   <span className='text-xs font-bold text-purple-700 dark:text-purple-300'>
-                    {hour < 15 ? 'Bom dia!' : 'Boa noite!'}
+                    {hour < 15 ? tCare.wokeUpSub : tCare.sleepSub}
                   </span>
                 </button>
 
@@ -1596,10 +1750,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     🚨
                   </div>
                   <span className='text-base font-black text-red-700 dark:text-red-400 leading-tight'>
-                    SOS Urgente
+                    {tCare.emergencySosTitle}
                   </span>
                   <span className='text-xs font-extrabold text-red-600 dark:text-red-300'>
-                    Pedir Socorro
+                    {tCare.emergencySosSubtitle}
                   </span>
                 </button>
               </div>
@@ -1611,7 +1765,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               className='w-full py-3.5 px-4 rounded-2xl bg-white dark:bg-stone-900 border-2 border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300 flex items-center justify-between text-sm font-black shadow-xs active:scale-98 transition'
             >
               <span className='flex items-center gap-2'>
-                <Calendar className='h-4 w-4 text-indigo-600' /> Ver Todos os Compromissos de Hoje ({todayEvents.length})
+                <Calendar className='h-4 w-4 text-indigo-600' /> {tCare.seeAllTodayRoutine(todayEvents.length)}
               </span>
               <ChevronRight className='h-4 w-4 text-stone-400' />
             </button>
@@ -1628,7 +1782,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
             <div className='bg-white dark:bg-stone-900 rounded-3xl p-3 border-2 border-stone-200 dark:border-stone-800 shadow-xs space-y-2.5'>
               <div className='flex items-center justify-between px-1'>
                 <div>
-                  <h2 className='text-lg font-black text-stone-900 dark:text-stone-100'>Minha Rotina</h2>
+                  <h2 className='text-lg font-black text-stone-900 dark:text-stone-100'>{tCare.routineTitle}</h2>
                   <p className='text-xs text-stone-500 font-bold capitalize'>
                     {format(selectedDate, "EEEE, dd 'de' MMMM", { locale: dateFnsLoc })}
                   </p>
@@ -1637,16 +1791,16 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                   onClick={handleReadAloudCurrentTab}
                   className='h-8 px-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold flex items-center gap-1 active:scale-95'
                 >
-                  <Volume2 className='h-3.5 w-3.5' /> Ouvir
+                  <Volume2 className='h-3.5 w-3.5' /> {tCare.listenBtn}
                 </button>
               </div>
 
               {/* Day Switcher */}
               <div className='grid grid-cols-3 gap-1.5 bg-stone-100 dark:bg-stone-800 p-1.5 rounded-2xl'>
                 {[
-                  { offset: -1, label: 'Ontem' },
-                  { offset: 0, label: 'Hoje' },
-                  { offset: 1, label: 'Amanhã' },
+                  { offset: -1, label: tCare.dayYesterday },
+                  { offset: 0, label: tCare.dayToday },
+                  { offset: 1, label: tCare.dayTomorrow },
                 ].map(tab => (
                   <button
                     key={tab.offset}
@@ -1665,11 +1819,11 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               {/* Type Filter Pills */}
               <div className='flex items-center gap-1.5 overflow-x-auto pb-1 text-xs'>
                 {[
-                  { key: 'all', label: 'Tudo' },
-                  { key: 'medication', label: '💊 Remédios' },
-                  { key: 'meal', label: '🍽️ Refeições' },
-                  { key: 'appointment', label: '🩺 Consultas' },
-                  { key: 'task', label: '✅ Tarefas' },
+                  { key: 'all', label: tCare.filterAll },
+                  { key: 'medication', label: `💊 ${tCare.filterMeds}` },
+                  { key: 'meal', label: `🍽️ ${tCare.filterMeals}` },
+                  { key: 'appointment', label: `🩺 ${tCare.filterAppts}` },
+                  { key: 'task', label: `✅ ${tCare.filterTasks}` },
                 ].map(f => (
                   <button
                     key={f.key}
@@ -1696,7 +1850,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               <div className='bg-white dark:bg-stone-900 rounded-3xl p-8 text-center border-2 border-stone-200 dark:border-stone-800 space-y-2'>
                 <p className='text-4xl'>☀️</p>
                 <p className='text-base font-bold text-stone-600 dark:text-stone-300'>
-                  Nenhum compromisso deste tipo marcado para este dia.
+                  {tCare.noEventsDay}
                 </p>
               </div>
             ) : (
@@ -1717,11 +1871,11 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                     <div className='flex-1 min-w-0'>
                       <div className='flex items-center gap-1.5'>
                         <span className='text-xs font-black text-indigo-700 dark:text-indigo-400'>
-                          ⏰ {ev.time || 'Horário flexível'}
+                          ⏰ {ev.time || tCare.flexibleSchedule}
                         </span>
                         {ev.completed && (
                           <span className='text-[10px] font-black text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-1.5 py-0.2 rounded-md'>
-                            ✓ Realizado
+                            {tCare.doneStatus}
                           </span>
                         )}
                       </div>
@@ -1753,10 +1907,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                 </div>
                 <div>
                   <h2 className='text-lg font-black text-stone-900 dark:text-white leading-tight'>
-                    Passatempos Cognitivos
+                    {tCare.gamesHubTitle}
                   </h2>
                   <p className='text-xs font-bold text-stone-600 dark:text-slate-300 mt-0.5'>
-                    7 jogos para exercitar a memória e o raciocínio
+                    {tCare.gamesHubSubtitle}
                   </p>
                 </div>
               </div>
@@ -1765,7 +1919,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                 onClick={() => { setActiveTab('home'); triggerHaptic(20); }}
                 className='text-xs font-black text-stone-700 dark:text-slate-200 bg-stone-100 dark:bg-stone-800 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 hover:bg-stone-200'
               >
-                Voltar
+                {tCare.backBtn}
               </button>
             </div>
 
@@ -1786,8 +1940,8 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
             
             {/* Header explicativo */}
             <div className='bg-white dark:bg-stone-900 p-4 rounded-3xl border-2 border-stone-200 dark:border-stone-800 shadow-xs'>
-              <h2 className='text-lg font-black text-stone-900 dark:text-stone-100'>O que você fez agora?</h2>
-              <p className='text-xs text-stone-500 font-medium'>Toque no botão para registrar e avisar a família:</p>
+              <h2 className='text-lg font-black text-stone-900 dark:text-stone-100'>{tCare.actionsTitle}</h2>
+              <p className='text-xs text-stone-500 font-medium'>{tCare.actionsSubtitle}</p>
             </div>
 
                         {/* Acesso a Finanças / Saldo */}
@@ -1800,8 +1954,8 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                   💰
                 </div>
                 <div>
-                  <span className='text-sm font-black text-stone-900 dark:text-white block'>Meu Saldo & Finanças</span>
-                  <span className='text-xs font-bold text-emerald-700 dark:text-emerald-400'>Ver extrato mensal disponível</span>
+                  <span className='text-sm font-black text-stone-900 dark:text-white block'>{tCare.actionFinancesTitle}</span>
+                  <span className='text-xs font-bold text-emerald-700 dark:text-emerald-400'>{tCare.actionFinancesSubtitle}</span>
                 </div>
               </div>
               <ChevronRight className='h-4 w-4 text-stone-400' />
@@ -1819,8 +1973,8 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                 <div className='w-14 h-14 rounded-2xl bg-sky-100 dark:bg-sky-900/60 flex items-center justify-center text-3xl'>
                   💧
                 </div>
-                <span className='text-base font-black text-stone-900 dark:text-stone-100 block'>Bebi Água</span>
-                <span className='text-xs font-bold text-sky-700 dark:text-sky-300'>+1 copo ({cupsDrank}/8)</span>
+                <span className='text-base font-black text-stone-900 dark:text-stone-100 block'>{tCare.actionWaterLabel}</span>
+                <span className='text-xs font-bold text-sky-700 dark:text-sky-300'>{tCare.actionWaterSub(cupsDrank)}</span>
               </button>
 
               {/* 2. Tomei Remédio */}
@@ -1836,8 +1990,8 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                 <div className='w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-900/60 flex items-center justify-center text-3xl'>
                   💊
                 </div>
-                <span className='text-base font-black text-stone-900 dark:text-stone-100 block'>Tomei Remédio</span>
-                <span className='text-xs font-bold text-emerald-700 dark:text-emerald-300'>Horário cumprido</span>
+                <span className='text-base font-black text-stone-900 dark:text-stone-100 block'>{tCare.actionMedsLabel}</span>
+                <span className='text-xs font-bold text-emerald-700 dark:text-emerald-300'>{tCare.actionMedsSub}</span>
               </button>
 
               {/* 3. Já Me Alimentei */}
@@ -1852,8 +2006,8 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                 <div className='w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-900/60 flex items-center justify-center text-3xl'>
                   🍽️
                 </div>
-                <span className='text-base font-black text-stone-900 dark:text-stone-100 block'>Já Me Alimentei</span>
-                <span className='text-xs font-bold text-amber-700 dark:text-amber-300'>Refeição feita</span>
+                <span className='text-base font-black text-stone-900 dark:text-stone-100 block'>{tCare.actionMealLabel}</span>
+                <span className='text-xs font-bold text-amber-700 dark:text-amber-300'>{tCare.actionMealSub}</span>
               </button>
 
               {/* 4. Acordei / Dormir */}
@@ -1872,23 +2026,23 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                   {hour < 15 ? '☀️' : '🌙'}
                 </div>
                 <span className='text-base font-black text-stone-900 dark:text-stone-100 block'>
-                  {hour < 15 ? 'Acordei' : 'Vou Dormir'}
+                  {hour < 15 ? tCare.actionWakeLabel : tCare.actionSleepLabel}
                 </span>
                 <span className='text-xs font-bold text-indigo-700 dark:text-indigo-300'>
-                  {hour < 15 ? 'Bom dia família!' : 'Boa noite família!'}
+                  {hour < 15 ? tCare.actionWakeSub : tCare.actionSleepSub}
                 </span>
               </button>
             </div>
 
             {/* Termômetro de Humor */}
             <div className='bg-white dark:bg-stone-900 p-4 rounded-3xl border-2 border-stone-200 dark:border-stone-800 shadow-xs space-y-2.5'>
-              <h3 className='text-base font-black text-stone-900 dark:text-stone-100'>Como está seu humor hoje?</h3>
+              <h3 className='text-base font-black text-stone-900 dark:text-stone-100'>{tCare.actionMoodTitle}</h3>
               <div className='grid grid-cols-4 gap-2'>
                 {[
-                  { mood: 'great', emoji: '😄', label: 'Muito Bem' },
-                  { mood: 'good', emoji: '😊', label: 'Tranquilo' },
-                  { mood: 'okay', emoji: '😐', label: 'Mais ou Menos' },
-                  { mood: 'bad', emoji: '😔', label: 'Com Dor' },
+                  { mood: 'great', emoji: '😄', label: tCare.moodGreat },
+                  { mood: 'good', emoji: '😊', label: tCare.moodGood },
+                  { mood: 'okay', emoji: '😐', label: tCare.moodOkay },
+                  { mood: 'bad', emoji: '😔', label: tCare.moodSad },
                 ].map(item => (
                   <button
                     key={item.mood}
@@ -1927,8 +2081,8 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                   {formatCurrency(financeData.balance)}
                 </p>
                 <div className='flex items-center justify-between text-xs font-bold text-stone-500 mt-2.5 pt-2.5 border-t border-emerald-200/60 dark:border-emerald-800/60'>
-                  <span>Renda: <strong className='text-emerald-700'>{formatCurrency(financeData.monthlyIncome)}</strong></span>
-                  <span>Gastos: <strong className='text-amber-700'>{formatCurrency(financeData.totalExpenses)}</strong></span>
+                  <span>{tCare.financeIncome}: <strong className='text-emerald-700'>{formatCurrency(financeData.monthlyIncome)}</strong></span>
+                  <span>{tCare.financeExpenses}: <strong className='text-amber-700'>{formatCurrency(financeData.totalExpenses)}</strong></span>
                 </div>
               </div>
             </div>
@@ -1940,7 +2094,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                 className='w-full h-15 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-2xl shadow-lg flex items-center justify-center gap-2.5 text-lg font-black transition active:scale-[0.98] border-b-4 border-emerald-800'
               >
                 <Plus className='h-6 w-6 stroke-[3]' />
-                <span>+ REGISTRAR GASTO</span>
+                <span>{tCare.financeRegisterExpense}</span>
               </button>
 
               <button
@@ -1948,7 +2102,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                 className='w-full h-13 bg-white dark:bg-stone-900 border-2 border-emerald-400 dark:border-emerald-600 text-emerald-900 dark:text-emerald-200 rounded-2xl flex items-center justify-center gap-2 text-sm font-extrabold active:scale-[0.98] shadow-xs'
               >
                 <Landmark className='h-5 w-5 text-emerald-600 dark:text-emerald-400' />
-                <span>Minha Aposentadoria / Renda</span>
+                <span>{tCare.financePension}</span>
               </button>
             </div>
           </div>
@@ -1970,7 +2124,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
             }`}
           >
             <Home className='h-6 w-6 stroke-[2.2]' />
-            <span className='text-[11px] leading-none'>Início</span>
+            <span className='text-[11px] leading-none'>{tCare.tabHome}</span>
           </button>
 
           {/* Tab 2: Rotina */}
@@ -1983,7 +2137,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
             }`}
           >
             <Clock className='h-6 w-6 stroke-[2.2]' />
-            <span className='text-[11px] leading-none'>Rotina</span>
+            <span className='text-[11px] leading-none'>{tCare.tabRoutine}</span>
           </button>
 
           {/* Tab Central: SOS de Emergência */}
@@ -1994,7 +2148,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
             <div className='w-13 h-13 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg border-3 border-white dark:border-stone-900 group-active:scale-90 transition'>
               <ShieldAlert className='h-7 w-7' />
             </div>
-            <span className='text-[10px] font-black text-red-600 dark:text-red-400 leading-none mt-0.5'>SOS</span>
+            <span className='text-[10px] font-black text-red-600 dark:text-red-400 leading-none mt-0.5'>{tCare.tabSos}</span>
           </button>
 
           {/* Tab 3: 🎮 Jogos Cognitivos */}
@@ -2007,7 +2161,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
             }`}
           >
             <Gamepad2 className='h-6 w-6 stroke-[2.2]' />
-            <span className='text-[11px] leading-none'>Jogos</span>
+            <span className='text-[11px] leading-none'>{tCare.tabGames}</span>
           </button>
 
           {/* Tab 4: 👩‍⚕️ Nina IA */}
@@ -2018,7 +2172,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
             <div className='w-6 h-6 rounded-lg bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center text-sm shadow-2xs'>
               👩‍⚕️
             </div>
-            <span className='text-[11px] leading-none font-bold'>Nina IA</span>
+            <span className='text-[11px] leading-none font-bold'>{tCare.ninaTab}</span>
           </button>
 
         </div>
@@ -2034,10 +2188,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
 
             <div>
               <span className='inline-block px-2.5 py-0.5 bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 font-extrabold text-xs rounded-full uppercase tracking-wider mb-1'>
-                Pedido de Conversa
+                {tCare.conversationRequestTitle}
               </span>
               <h2 className='text-xl sm:text-2xl font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                Avisamos sua família!
+                {tCare.conversationNotifiedTitle}
               </h2>
               <p className='text-xs text-stone-600 dark:text-stone-300 mt-1 font-medium'>
                 {sendingCallRequest
@@ -2122,7 +2276,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                 onClick={() => setSosModalOpen(false)}
                 className='w-full h-11 text-xs font-bold text-stone-600 dark:text-stone-300 border-2 border-stone-300 dark:border-stone-700 hover:bg-stone-100 rounded-2xl'
               >
-                Cancelar / Toquei Sem Querer
+                {tCare.sosCancel}
               </button>
             </div>
           </div>
@@ -2194,13 +2348,13 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               </div>
               <div>
                 <h3 className='text-xl font-black text-stone-900 dark:text-stone-100'>{tFin.addExpense}</h3>
-                <p className='text-xs text-stone-500 font-medium'>Será abatido do saldo do mês.</p>
+                <p className='text-xs text-stone-500 font-medium'>{tCare.expenseDeducted}</p>
               </div>
             </div>
 
             <form onSubmit={handleSeniorAddExpense} className='space-y-3.5'>
               <div>
-                <label className='block text-xs font-black text-stone-700 dark:text-stone-300 mb-1'>Valor Gasto (R$) *</label>
+                <label className='block text-xs font-black text-stone-700 dark:text-stone-300 mb-1'>{tCare.expenseLabelAmount}</label>
                 <input
                   type='number' step='0.01' required autoFocus placeholder='0.00'
                   value={seniorExpenseAmount} onChange={(e) => setSeniorExpenseAmount(e.target.value)}
@@ -2209,7 +2363,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               </div>
 
               <div>
-                <label className='block text-xs font-black text-stone-700 dark:text-stone-300 mb-1.5'>Categoria:</label>
+                <label className='block text-xs font-black text-stone-700 dark:text-stone-300 mb-1.5'>{tCare.expenseLabelCategory}</label>
                 <div className='grid grid-cols-2 gap-2'>
                   {[
                     { key: 'medication', label: '💊 Farmácia' },
@@ -2228,7 +2382,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               </div>
 
               <div>
-                <label className='block text-[11px] font-bold text-stone-500 dark:text-stone-400 mb-1'>Detalhe (opcional):</label>
+                <label className='block text-[11px] font-bold text-stone-500 dark:text-stone-400 mb-1'>{tCare.expenseLabelDetail}</label>
                 <input
                   type='text' placeholder='Ex: Remédio, Pão...'
                   value={seniorExpenseDesc} onChange={(e) => setSeniorExpenseDesc(e.target.value)}
@@ -2238,10 +2392,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
 
               <div className='flex gap-2 pt-1'>
                 <Button type='button' variant='outline' onClick={() => setExpenseModalOpen(false)} className='flex-1 h-12 text-sm font-bold rounded-xl border-stone-300'>
-                  Cancelar
+                  {tCare.cancelBtn}
                 </Button>
                 <Button type='submit' disabled={savingExpense} className='flex-2 h-12 text-sm font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md active:scale-95'>
-                  {savingExpense ? 'Salvando...' : '✓ Salvar Gasto'}
+                  {savingExpense ? tCare.expenseSaving : tCare.expenseSave}
                 </Button>
               </div>
             </form>
@@ -2259,13 +2413,13 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               </div>
               <div>
                 <h3 className='text-xl font-black text-stone-900 dark:text-stone-100'>{tFin.editIncome}</h3>
-                <p className='text-xs text-stone-500 font-medium'>Renda mensal para cálculo de saldo.</p>
+                <p className='text-xs text-stone-500 font-medium'>{tCare.pensionDesc}</p>
               </div>
             </div>
 
             <form onSubmit={handleSeniorSavePension} className='space-y-3.5'>
               <div>
-                <label className='block text-xs font-black text-stone-700 dark:text-stone-300 mb-1'>Valor Mensal (R$) *</label>
+                <label className='block text-xs font-black text-stone-700 dark:text-stone-300 mb-1'>{tCare.pensionLabelAmount}</label>
                 <input
                   type='number' step='0.01' required autoFocus placeholder='Ex: 3000.00'
                   value={seniorPensionInput} onChange={(e) => setSeniorPensionInput(e.target.value)}
@@ -2275,10 +2429,10 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
 
               <div className='flex gap-2 pt-1'>
                 <Button type='button' variant='outline' onClick={() => setSeniorPensionModalOpen(false)} className='flex-1 h-12 text-sm font-bold rounded-xl border-stone-300'>
-                  Cancelar
+                  {tCare.cancelBtn}
                 </Button>
                 <Button type='submit' disabled={savingPension} className='flex-2 h-12 text-sm font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md active:scale-95'>
-                  {savingPension ? 'Salvando...' : '✓ Salvar Minha Renda'}
+                  {savingPension ? tCare.pensionSaving : tCare.pensionSave}
                 </Button>
               </div>
             </form>

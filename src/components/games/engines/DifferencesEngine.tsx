@@ -1,4 +1,5 @@
 'use client';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ interface DifferenceSpot {
 
 interface DifferencesEngineProps {
   levelNumber: number;
+  locale?: string;
   onComplete: (stats: { stars: number; score: number; moves: number; hints: number }) => void;
   onNextLevel?: () => void;
 }
@@ -73,7 +75,8 @@ const DIFFERENCE_LEVELS = [
   },
 ];
 
-export function DifferencesEngine({ levelNumber, onComplete, onNextLevel }: DifferencesEngineProps) {
+export function DifferencesEngine({ levelNumber, locale, onComplete, onNextLevel }: DifferencesEngineProps) {
+  const tGame = getGameTexts(locale);
   const currentLevel = DIFFERENCE_LEVELS[(levelNumber - 1) % DIFFERENCE_LEVELS.length];
   const [foundSpots, setFoundSpots] = useState<string[]>([]);
   const [hintsUsed, setHintsUsed] = useState(0);
@@ -218,7 +221,7 @@ export function DifferencesEngine({ levelNumber, onComplete, onNextLevel }: Diff
           variant="outline"
           className="flex-1 h-12 border-amber-300 text-amber-800 dark:text-amber-300 font-bold text-sm rounded-xl gap-2"
         >
-          <Lightbulb className="h-4 w-4" /> Dica de Diferença
+          <Lightbulb className="h-4 w-4" /> {tGame.hintDiff}
         </Button>
       </div>
 

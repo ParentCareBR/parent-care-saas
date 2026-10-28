@@ -1,10 +1,12 @@
 'use client';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { RotateCcw, Sparkles } from 'lucide-react';
 
 interface BubblePopEngineProps {
+  locale?: string;
   levelNumber: number;
   onComplete: (stats: { stars: number; score: number; moves: number; hints: number }) => void;
   onNextLevel?: () => void;
@@ -21,7 +23,9 @@ const BUBBLE_COLORS = [
 const ROWS = 8;
 const COLS = 7;
 
-export function BubblePopEngine({ levelNumber, onComplete, onNextLevel }: BubblePopEngineProps) {
+export function BubblePopEngine({
+  locale, levelNumber, onComplete, onNextLevel }: BubblePopEngineProps) {
+  const tGame = getGameTexts(locale);
   const targetScore = 300 + levelNumber * 50;
 
   const [grid, setGrid] = useState<number[][]>([]);
@@ -196,7 +200,7 @@ export function BubblePopEngine({ levelNumber, onComplete, onNextLevel }: Bubble
         <div className="bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-400 p-6 rounded-3xl text-center space-y-3 animate-in zoom-in-95">
           <div className="text-4xl">🫧</div>
           <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-100">
-            Parabéns! Bolhas Estouradas!
+            {tGame.congratulations}
           </h3>
           <p className="text-sm font-semibold text-stone-700 dark:text-stone-300">
             Você estourou as bolhas com agilidade e alcançou a meta da etapa!

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Lightbulb, RotateCcw } from 'lucide-react';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 
 export type SolitaireVariant = 'klondike' | 'freecell' | 'spider';
 
@@ -15,6 +16,7 @@ interface Card {
 
 interface SolitaireEngineProps {
   levelNumber: number;
+  locale?: string;
   variant?: SolitaireVariant;
   onComplete: (stats: { stars: number; score: number; moves: number; hints: number }) => void;
   onNextLevel?: () => void;
@@ -81,9 +83,11 @@ function CardBack({ small = false }: { small?: boolean }) {
 export function SolitaireEngine({
   levelNumber,
   variant = 'klondike',
+  locale,
   onComplete,
   onNextLevel,
 }: SolitaireEngineProps) {
+  const tGame = getGameTexts(locale);
   const [stock, setStock]           = useState<Card[]>([]);
   const [waste, setWaste]           = useState<Card[]>([]);
   const [foundations, setFoundations] = useState<Card[][]>([[], [], [], []]);
@@ -93,7 +97,7 @@ export function SolitaireEngine({
   const [moves, setMoves]           = useState(0);
   const [hintsUsed, setHintsUsed]   = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [message, setMessage]       = useState('Toque em uma carta para selecioná-la, depois toque onde quer colocá-la.');
+  const [message, setMessage]       = useState(tGame.solitaire.instructions);
 
   useEffect(() => { initGame(); }, [levelNumber, variant]);
 
@@ -137,7 +141,7 @@ export function SolitaireEngine({
     }
     setMoves(0); setHintsUsed(0); setIsCompleted(false);
     setSelectedCard(null);
-    setMessage('Toque em uma carta para selecioná-la, depois toque onde quer colocá-la.');
+    setMessage(tGame.solitaire.instructions);
   };
 
   // ─── Foundation logic ────────────────────────────────────────────
@@ -330,15 +334,15 @@ export function SolitaireEngine({
     for (let i = 0; i < tableau.length; i++) {
       const col = tableau[i];
       if (col.length > 0 && col[col.length - 1].isFaceUp && col[col.length - 1].value === 1) {
-        setMessage(`Dica: Há um Ás na coluna ${i + 1} — mova-o para a área de base!`);
+        setMessage(tGame.solitaire.hintAceCol(i + 1));
         return;
       }
     }
     if (waste.length > 0 && waste[waste.length - 1].value === 1) {
-      setMessage('Dica: O Ás no descarte pode ir para a base!');
+      setMessage(tGame.solitaire.hintAceWaste);
       return;
     }
-    setMessage('Dica: Tente mover cartas para revelar as viradas de costas.');
+    setMessage(tGame.solitaire.hintReveal);
   };
 
   // Card dimensions (responsive)
@@ -470,24 +474,24 @@ export function SolitaireEngine({
       <div className="flex gap-2">
         <Button type="button" onClick={handleHint} variant="outline"
           className="flex-1 h-11 border-amber-300 text-amber-800 dark:text-amber-300 font-bold text-sm rounded-xl gap-1.5">
-          <Lightbulb className="h-4 w-4" /> Dica
+          <Lightbulb className="h-4 w-4" /> {tGame.hint}
         </Button>
         <Button type="button" onClick={initGame} variant="outline"
           className="flex-1 h-11 border-stone-300 font-bold text-sm rounded-xl gap-1.5">
-          <RotateCcw className="h-4 w-4" /> Reiniciar
+          <RotateCcw className="h-4 w-4" /> {tGame.restart}
         </Button>
       </div>
 
       {isCompleted && (
         <div className="bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-400 p-6 rounded-3xl text-center space-y-3">
           <div className="text-4xl">👑</div>
-          <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-100">Parabéns! Paciência Concluída!</h3>
-          <p className="text-sm font-semibold text-stone-700 dark:text-stone-300">Você organizou todas as cartas com grande calma.</p>
+          <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-100">{tGame.solitaire.winTitle}</h3>
+          <p className="text-sm font-semibold text-stone-700 dark:text-stone-300">{tGame.solitaire.winDesc}</p>
           <div className="flex gap-2 pt-2">
-            <Button type="button" onClick={initGame} variant="outline" className="flex-1 h-12 rounded-xl font-bold">Jogar Novamente</Button>
+            <Button type="button" onClick={initGame} variant="outline" className="flex-1 h-12 rounded-xl font-bold">{tGame.playAgain}</Button>
             {onNextLevel && (
               <Button type="button" onClick={onNextLevel} className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold">
-                Próxima Etapa
+                {tGame.nextLevel}
               </Button>
             )}
           </div>

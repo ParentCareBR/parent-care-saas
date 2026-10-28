@@ -1,4 +1,5 @@
 'use client';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -7,11 +8,13 @@ import { getSudokuLevel } from '@/lib/games/content-generator';
 
 interface SudokuEngineProps {
   levelNumber: number;
+  locale?: string;
   onComplete: (stats: { stars: number; score: number; moves: number; hints: number }) => void;
   onNextLevel?: () => void;
 }
 
-export function SudokuEngine({ levelNumber, onComplete, onNextLevel }: SudokuEngineProps) {
+export function SudokuEngine({ levelNumber, locale, onComplete, onNextLevel }: SudokuEngineProps) {
+  const tGame = getGameTexts(locale);
   const puzzle = useMemo(() => getSudokuLevel(levelNumber), [levelNumber]);
   const size = puzzle.size;
 
@@ -229,7 +232,7 @@ export function SudokuEngine({ levelNumber, onComplete, onNextLevel }: SudokuEng
             ))}
           </div>
           <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-100">
-            Parabéns! Etapa Concluída! 🎉
+            {tGame.stageCompleted}
           </h3>
           <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
             Você completou o Sudoku com tranquilidade e foco.
@@ -240,7 +243,7 @@ export function SudokuEngine({ levelNumber, onComplete, onNextLevel }: SudokuEng
               onClick={onNextLevel}
               className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-base rounded-2xl shadow-md active:scale-95"
             >
-              Próxima Etapa →
+              {tGame.nextLevel} →
             </Button>
           )}
         </div>

@@ -1,4 +1,5 @@
 'use client';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,7 @@ interface MahjongTile {
 
 interface MahjongEngineProps {
   levelNumber: number;
+  locale?: string;
   onComplete: (stats: { stars: number; score: number; moves: number; hints: number }) => void;
   onNextLevel?: () => void;
 }
@@ -32,7 +34,8 @@ const TILE_SYMBOLS = [
   { id: 'peixe', symbol: '🐟', name: 'Peixe', color: '#0891b2' },
 ];
 
-export function MahjongEngine({ levelNumber, onComplete, onNextLevel }: MahjongEngineProps) {
+export function MahjongEngine({ levelNumber, locale, onComplete, onNextLevel }: MahjongEngineProps) {
+  const tGame = getGameTexts(locale);
   const [tiles, setTiles] = useState<MahjongTile[]>([]);
   const [selectedTile, setSelectedTile] = useState<MahjongTile | null>(null);
   const [hintPair, setHintPair] = useState<string[]>([]);
@@ -287,7 +290,7 @@ export function MahjongEngine({ levelNumber, onComplete, onNextLevel }: MahjongE
           variant="outline"
           className="flex-1 h-12 border-amber-300 text-amber-800 dark:text-amber-300 font-bold text-sm rounded-xl gap-2"
         >
-          <Lightbulb className="h-4 w-4" /> Dica de Par
+          <Lightbulb className="h-4 w-4" /> {tGame.hintPair}
         </Button>
         <Button
           type="button"
@@ -296,7 +299,7 @@ export function MahjongEngine({ levelNumber, onComplete, onNextLevel }: MahjongE
           variant="outline"
           className="flex-1 h-12 border-stone-300 font-bold text-sm rounded-xl gap-2"
         >
-          <RotateCcw className="h-4 w-4" /> Embaralhar
+          <RotateCcw className="h-4 w-4" /> {tGame.shuffle}
         </Button>
       </div>
 
@@ -305,7 +308,7 @@ export function MahjongEngine({ levelNumber, onComplete, onNextLevel }: MahjongE
         <div className="bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-400 p-6 rounded-3xl text-center space-y-3 animate-in zoom-in-95">
           <div className="text-4xl">🀄</div>
           <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-100">
-            Parabéns! Tabuleiro Limpo!
+            {tGame.boardCleared}
           </h3>
           <p className="text-sm font-semibold text-stone-700 dark:text-stone-300">
             Você combinou todas as peças com grande harmonia e concentração.

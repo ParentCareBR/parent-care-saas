@@ -34,6 +34,7 @@ import {
   setLocalProgressCache, 
   flushOfflineSessionsQueue 
 } from '@/lib/games/offline-sync';
+import { getCareTexts } from '@/lib/i18n/care-translations';
 
 interface GamesAndMomentsHubProps {
   caredPersonId: string;
@@ -44,18 +45,6 @@ interface GamesAndMomentsHubProps {
   backHref?: string;
 }
 
-const CATEGORY_TABS: { key: GameCategory; label: string; icon: string }[] = [
-  { key: 'all', label: 'Todos os Jogos', icon: '🎮' },
-  { key: 'cards', label: 'Cartas', icon: '🃏' },
-  { key: 'words', label: 'Palavras', icon: '🔤' },
-  { key: 'numbers', label: 'Números', icon: '🔢' },
-  { key: 'memory', label: 'Memória', icon: '🧠' },
-  { key: 'images', label: 'Imagens', icon: '🖼️' },
-  { key: 'strategy', label: 'Estratégia', icon: '♟️' },
-  { key: 'relaxation', label: 'Relaxamento', icon: '🫧' },
-  { key: 'family', label: 'Jogos em Família', icon: '👨‍👩‍👧‍👦' },
-];
-
 export function GamesAndMomentsHub({
   caredPersonId,
   caredPersonName = 'Pessoa Querida',
@@ -64,6 +53,19 @@ export function GamesAndMomentsHub({
   showBackHeader = true,
   backHref = '/dashboard',
 }: GamesAndMomentsHubProps) {
+  const tCare = getCareTexts(locale);
+
+  const categoryTabs: { key: GameCategory; label: string; icon: string }[] = useMemo(() => [
+    { key: 'all', label: tCare.gamesCategories.all, icon: '🎮' },
+    { key: 'cards', label: tCare.gamesCategories.cards, icon: '🃏' },
+    { key: 'words', label: tCare.gamesCategories.words, icon: '🔤' },
+    { key: 'numbers', label: tCare.gamesCategories.numbers, icon: '🔢' },
+    { key: 'memory', label: tCare.gamesCategories.memory, icon: '🧠' },
+    { key: 'images', label: tCare.gamesCategories.images, icon: '🖼️' },
+    { key: 'strategy', label: tCare.gamesCategories.strategy, icon: '♟️' },
+    { key: 'relaxation', label: tCare.gamesCategories.relaxation, icon: '🫧' },
+    { key: 'family', label: tCare.gamesCategories.family, icon: '👨‍👩‍👧‍👦' },
+  ], [tCare]);
   const [catalog, setCatalog] = useState<GameCatalogItem[]>(STATIC_CATALOG);
   const [progressMap, setProgressMap] = useState<Record<string, GameProgress>>({});
   const [stats, setStats] = useState<OverallStats>({
@@ -201,7 +203,7 @@ export function GamesAndMomentsHub({
           <div className="flex items-center gap-2">
             <Gamepad2 className="h-8 w-8 text-indigo-600 dark:text-indigo-400 stroke-[2.5]" />
             <h1 className="text-xl sm:text-2xl font-black text-stone-900 dark:text-stone-100 tracking-wider">
-              JOGOS E MOMENTOS
+              {tCare.gamesHubTitle.toUpperCase()}
             </h1>
           </div>
           <div className="w-11" />
@@ -215,13 +217,13 @@ export function GamesAndMomentsHub({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <span className="text-[11px] font-black uppercase tracking-wider bg-white/20 px-3 py-1 rounded-full inline-block mb-1.5">
-              Passatempos & Conexão
+              {tCare.gamesHubSubtitle}
             </span>
             <h2 className="text-2xl sm:text-3xl font-black leading-tight">
-              Olá, {caredPersonName}!
+              {tCare.greeting(caredPersonName)}
             </h2>
             <p className="text-sm font-semibold text-indigo-100 mt-1">
-              Desafios leves, relaxamento e boas memórias no seu ritmo.
+              {tCare.cardGamesSubtitle}
             </p>
           </div>
 
@@ -232,7 +234,7 @@ export function GamesAndMomentsHub({
                 ⭐ {stats.totalStars}
               </span>
               <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-200 block">
-                Estrelas
+                {tCare.gamesStars}
               </span>
             </div>
 
@@ -242,7 +244,7 @@ export function GamesAndMomentsHub({
                 🔥 {stats.streak}
               </span>
               <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-200 block">
-                Dias Seguidos
+                {tCare.dayToday}
               </span>
             </div>
           </div>
@@ -255,14 +257,14 @@ export function GamesAndMomentsHub({
             onClick={() => setShowEvolutionModal(true)}
             className="py-2 px-3 rounded-xl bg-white/15 hover:bg-white/25 text-xs font-black flex items-center justify-center gap-1.5 transition active:scale-95"
           >
-            <Trophy className="h-4 w-4" /> Minha Evolução
+            <Trophy className="h-4 w-4" /> {tCare.gamesEvolution}
           </button>
           <button
             type="button"
             onClick={() => setShowHistoryModal(true)}
             className="py-2 px-3 rounded-xl bg-white/15 hover:bg-white/25 text-xs font-black flex items-center justify-center gap-1.5 transition active:scale-95"
           >
-            <History className="h-4 w-4" /> Histórico
+            <History className="h-4 w-4" /> {tCare.gamesHistory}
           </button>
           <button
             type="button"
@@ -272,7 +274,7 @@ export function GamesAndMomentsHub({
             }}
             className="py-2 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-stone-900 text-xs font-black flex items-center justify-center gap-1.5 transition active:scale-95 shadow-sm"
           >
-            <Heart className="h-4 w-4 fill-current text-rose-600" /> Memórias
+            <Heart className="h-4 w-4 fill-current text-rose-600" /> {tCare.gameNames['memorias_familia']?.title || 'Memórias'}
           </button>
         </div>
       </div>
@@ -288,13 +290,13 @@ export function GamesAndMomentsHub({
               </div>
               <div className="min-w-0">
                 <span className="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 block">
-                  Continuar de onde parou
+                  {tCare.cardGamesSubtitle}
                 </span>
                 <h3 className="text-base font-black text-stone-900 dark:text-stone-100 truncate">
-                  {lastPlayedGame.name_key.toUpperCase()}
+                  {tCare.gameNames[lastPlayedGame.id]?.title || lastPlayedGame.name_key.replace('_', ' ').toUpperCase()}
                 </h3>
                 <span className="text-xs font-bold text-stone-500">
-                  Etapa {progressMap[lastPlayedGame.id]?.current_level || 1}
+                  {tCare.gamesLevel} {progressMap[lastPlayedGame.id]?.current_level || 1}
                 </span>
               </div>
             </div>
@@ -303,7 +305,7 @@ export function GamesAndMomentsHub({
               onClick={() => handleStartGame(lastPlayedGame)}
               className="h-11 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-xl shadow-xs shrink-0 active:scale-95"
             >
-              <Play className="h-4 w-4 mr-1 fill-current" /> Jogar
+              <Play className="h-4 w-4 mr-1 fill-current" /> {tCare.gamesPlayNow}
             </Button>
           </div>
         )}
@@ -317,7 +319,7 @@ export function GamesAndMomentsHub({
               </div>
               <div className="min-w-0">
                 <span className="text-[10px] font-black uppercase text-amber-800 dark:text-amber-400 block">
-                  Desafio do Dia ☀️
+                  {tCare.gamesDailyChallenge} ☀️
                 </span>
                 <h3 className="text-base font-black text-stone-900 dark:text-stone-100 truncate">
                   {dailyChallenge.title}
@@ -335,7 +337,7 @@ export function GamesAndMomentsHub({
               }}
               className="h-11 px-4 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-xl shadow-xs shrink-0 active:scale-95"
             >
-              Desafiar
+              {tCare.gamesPlayNow}
             </Button>
           </div>
         )}
@@ -344,7 +346,7 @@ export function GamesAndMomentsHub({
       {/* ── CATEGORY FILTER TABS ── */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none">
-          {CATEGORY_TABS.map(tab => (
+          {categoryTabs.map(tab => (
             <button
               key={tab.key}
               type="button"
@@ -389,7 +391,7 @@ export function GamesAndMomentsHub({
                 <div className="flex items-center gap-1">
                   {game.supports_multiplayer && (
                     <span className="text-[10px] font-bold bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-lg">
-                      👨‍👩‍👧 Familiar
+                      👨‍👩‍👧 {tCare.gamesFamilyBadge}
                     </span>
                   )}
                   <button
@@ -405,10 +407,10 @@ export function GamesAndMomentsHub({
               {/* Card Middle: Title & Level */}
               <div className="space-y-1 mb-4">
                 <h3 className="text-lg font-black text-stone-900 dark:text-stone-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                  {game.name_key.replace('_', ' ').toUpperCase()}
+                  {tCare.gameNames[game.id]?.title || game.name_key.replace('_', ' ').toUpperCase()}
                 </h3>
                 <div className="flex items-center gap-2 text-xs font-bold text-stone-500">
-                  <span>Etapa {currentLvl} de 100+</span>
+                  <span>{tCare.gamesLevel} {currentLvl} de 100+</span>
                   <span>•</span>
                   <span className="text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
                     ⭐ {starsEarned}
@@ -434,7 +436,7 @@ export function GamesAndMomentsHub({
                 className="w-full h-12 rounded-2xl bg-stone-100 dark:bg-stone-800 hover:bg-indigo-600 group-hover:bg-indigo-600 text-stone-800 dark:text-stone-200 group-hover:text-white font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-95 shadow-2xs"
               >
                 <Play className="h-4 w-4 fill-current" />
-                <span>{prog ? 'Continuar' : 'Jogar'}</span>
+                <span>{tCare.gamesPlayNow}</span>
               </button>
             </div>
           );
@@ -578,7 +580,7 @@ export function GamesAndMomentsHub({
       {activePlayingGame && (
         <GamePlayerModal
           gameId={activePlayingGame.id}
-          gameName={activePlayingGame.name_key.replace('_', ' ').toUpperCase()}
+          gameName={tCare.gameNames[activePlayingGame.id]?.title || activePlayingGame.name_key.replace('_', ' ').toUpperCase()}
           gameEmoji={activePlayingGame.icon_emoji}
           caredPersonId={caredPersonId}
           organizationId={organizationId}

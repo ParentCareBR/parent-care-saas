@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Lightbulb, Check, Sparkles, RotateCcw } from 'lucide-react';
 import { getWordSearchLevel, WordSearchPuzzle } from '@/lib/games/content-generator';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 
 interface WordSearchEngineProps {
   levelNumber: number;
@@ -95,7 +96,9 @@ function getLineCoords(
   return result;
 }
 
-export function WordSearchEngine({ levelNumber, locale = 'pt-BR', onComplete, onNextLevel }: WordSearchEngineProps) {
+export function WordSearchEngine({
+ levelNumber, locale = 'pt-BR', onComplete, onNextLevel }: WordSearchEngineProps) {
+  const tGame = getGameTexts(locale);
   const [puzzle, setPuzzle] = useState<WordSearchPuzzle>(() => getWordSearchLevel(levelNumber, locale));
   const [foundWords, setFoundWords] = useState<string[]>([]);
   const [foundCells, setFoundCells] = useState<{ r: number; c: number; colorClass: string }[]>([]);
@@ -411,14 +414,14 @@ export function WordSearchEngine({ levelNumber, locale = 'pt-BR', onComplete, on
           variant="outline"
           className="flex-1 h-12 rounded-xl text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-50 font-bold gap-2 text-sm"
         >
-          <Lightbulb className="h-5 w-5" /> Dica de Início
+          <Lightbulb className="h-5 w-5" /> {tGame.hintStart}
         </Button>
         <Button
           type="button"
           onClick={restartPuzzle}
           variant="outline"
           className="h-12 px-4 rounded-xl text-stone-600 dark:text-stone-300 border-stone-300 dark:border-stone-700 font-bold gap-1 text-sm"
-          title="Reiniciar caça-palavras"
+          title={tGame.restartTitle}
         >
           <RotateCcw className="h-4 w-4" />
         </Button>
@@ -435,7 +438,7 @@ export function WordSearchEngine({ levelNumber, locale = 'pt-BR', onComplete, on
             ))}
           </div>
           <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-100">
-            Você Encontrou Todas as Palavras! 🎉
+            {tGame.wordsFoundAll}
           </h3>
           <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
             Excelente atenção e memória visual!
@@ -446,7 +449,7 @@ export function WordSearchEngine({ levelNumber, locale = 'pt-BR', onComplete, on
               onClick={onNextLevel}
               className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-base rounded-2xl shadow-md active:scale-95"
             >
-              Próxima Etapa →
+              {tGame.nextLevel} →
             </Button>
           )}
         </div>

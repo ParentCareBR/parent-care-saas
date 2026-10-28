@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCaredPerson } from '@/contexts/CaredPersonContext';
 import { useMonitoring } from '@/hooks/useMonitoring';
+import { getDashboardTexts } from '@/lib/i18n/dashboard-translations';
 import { createClient } from '@/lib/supabase/client';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { Button } from '@/components/ui/button';
@@ -95,6 +96,7 @@ export default function DashboardOverviewPage() {
   const params = useParams();
   const router = useRouter();
   const locale = (params?.locale as string) || 'pt-BR';
+  const tDash = getDashboardTexts(locale);
   const { user, currentOrganizationId } = useAuth();
   const { caredPeople, selectedPerson, loading: personLoading } = useCaredPerson();
   const { isModuleEnabled } = useMonitoring();
@@ -639,7 +641,7 @@ export default function DashboardOverviewPage() {
                 {selectedPerson.full_name.charAt(0).toUpperCase()}
               </div>
               <div>
-                <p className="text-[11px] text-stone-400 font-semibold leading-none">Acompanhando</p>
+                <p className="text-[11px] text-stone-400 font-semibold leading-none">{tDash.caringFor}</p>
                 <p className="text-sm font-black text-stone-900 dark:text-white leading-tight mt-0.5">
                   {selectedPerson.full_name}
                 </p>
@@ -652,7 +654,7 @@ export default function DashboardOverviewPage() {
                 target="_blank"
                 className="px-2.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-[#1D4ED8] dark:text-blue-300 text-xs font-bold border border-blue-200 dark:border-blue-500/30 flex items-center gap-1"
               >
-                Modo Idoso <ExternalLink className="h-3 w-3" />
+                {tDash.seniorMode} <ExternalLink className="h-3 w-3" />
               </Link>
             </div>
           </div>
@@ -673,9 +675,9 @@ export default function DashboardOverviewPage() {
         {/* ─── RESUMO DA TIMELINE NO MOBILE ───────────────────────────────────── */}
         <div className="bg-white dark:bg-[#0C1728] border border-stone-200 dark:border-[#1E293B] rounded-3xl p-4 shadow-2xs space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="font-extrabold text-sm text-stone-900 dark:text-white">Agenda de hoje</h3>
+            <h3 className="font-extrabold text-sm text-stone-900 dark:text-white">{tDash.todaySchedule}</h3>
             <Link href={`/${locale}/dashboard/appointments`} className="text-xs text-[#1D4ED8] dark:text-blue-400 font-bold">
-              Ver tudo
+              {tDash.viewAll}
             </Link>
           </div>
           {timelineItems.length > 0 ? (
@@ -694,7 +696,7 @@ export default function DashboardOverviewPage() {
               ))}
             </div>
           ) : (
-            <p className="text-xs text-stone-400 text-center py-2">Tudo tranquilo por hoje.</p>
+            <p className="text-xs text-stone-400 text-center py-2">{tDash.allCalmToday}</p>
           )}
         </div>
       </div>
@@ -753,7 +755,7 @@ export default function DashboardOverviewPage() {
                   className="bg-white hover:bg-emerald-50 text-emerald-900 font-black px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
                 >
                   <Footprints className="h-4 w-4 text-emerald-700" />
-                  Abrir Modo Idoso ↗
+                  {tDash.openSeniorMode}
                 </Link>
               )}
 

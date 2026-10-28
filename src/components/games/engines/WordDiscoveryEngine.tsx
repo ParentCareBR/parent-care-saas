@@ -1,4 +1,5 @@
 'use client';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ interface WordDiscoveryEngineProps {
 }
 
 export function WordDiscoveryEngine({ levelNumber, locale = 'pt-BR', onComplete, onNextLevel }: WordDiscoveryEngineProps) {
+  const tGame = getGameTexts(locale);
   const puzzle = useMemo(() => getWordDiscoveryLevel(levelNumber, locale), [levelNumber, locale]);
 
   const [guessedLetters, setGuessedLetters] = useState<Set<string>>(new Set());
@@ -197,7 +199,7 @@ export function WordDiscoveryEngine({ levelNumber, locale = 'pt-BR', onComplete,
           variant="outline"
           className="flex-1 h-12 rounded-xl text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-50 font-bold gap-2 text-sm"
         >
-          <Lightbulb className="h-5 w-5" /> Dica e Letra Livre
+          <Lightbulb className="h-5 w-5" /> {tGame.hint}
         </Button>
       </div>
 

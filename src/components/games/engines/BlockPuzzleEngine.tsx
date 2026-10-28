@@ -1,4 +1,5 @@
 'use client';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,7 @@ interface BlockShape {
 }
 
 interface BlockPuzzleEngineProps {
+  locale?: string;
   levelNumber: number;
   onComplete: (stats: { stars: number; score: number; moves: number; hints: number }) => void;
   onNextLevel?: () => void;
@@ -25,7 +27,9 @@ const AVAILABLE_SHAPES: { coords: { r: number; c: number }[]; color: string }[] 
   { coords: [{ r: 0, c: 0 }, { r: 1, c: 0 }, { r: 1, c: 1 }], color: 'bg-orange-500 border-orange-600' }, // L-shape
 ];
 
-export function BlockPuzzleEngine({ levelNumber, onComplete, onNextLevel }: BlockPuzzleEngineProps) {
+export function BlockPuzzleEngine({
+  locale, levelNumber, onComplete, onNextLevel }: BlockPuzzleEngineProps) {
+  const tGame = getGameTexts(locale);
   const targetScore = 250 + levelNumber * 50;
 
   const [grid, setGrid] = useState<string[][]>([]);
@@ -242,7 +246,7 @@ export function BlockPuzzleEngine({ levelNumber, onComplete, onNextLevel }: Bloc
         <div className="bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-400 p-6 rounded-3xl text-center space-y-3 animate-in zoom-in-95">
           <div className="text-4xl">🪵</div>
           <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-100">
-            Parabéns! Meta de Blocos Atingida!
+            {tGame.congratulations}
           </h3>
           <p className="text-sm font-semibold text-stone-700 dark:text-stone-300">
             Você encaixou e limpou as linhas de blocos com muita destreza e calma.

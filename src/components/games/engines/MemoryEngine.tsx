@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 import { Button } from '@/components/ui/button';
 import { Lightbulb, RotateCcw, Check, Sparkles } from 'lucide-react';
 import { getMemoryLevel, MemoryPair } from '@/lib/games/content-generator';
@@ -16,11 +17,13 @@ interface MemoryCard {
 
 interface MemoryEngineProps {
   levelNumber: number;
+  locale?: string;
   onComplete: (stats: { stars: number; score: number; moves: number; hints: number }) => void;
   onNextLevel?: () => void;
 }
 
-export function MemoryEngine({ levelNumber, onComplete, onNextLevel }: MemoryEngineProps) {
+export function MemoryEngine({ levelNumber, locale, onComplete, onNextLevel }: MemoryEngineProps) {
+  const tGame = getGameTexts(locale);
   const [cards, setCards] = useState<MemoryCard[]>([]);
   const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
   const [moves, setMoves] = useState(0);
@@ -202,7 +205,7 @@ export function MemoryEngine({ levelNumber, onComplete, onNextLevel }: MemoryEng
             ))}
           </div>
           <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-100">
-            Parabéns! Memória Excelente! 🎉
+            {tGame.memoryWin}
           </h3>
           <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-200">
             Você encontrou todos os pares com calma e carinho.
@@ -213,7 +216,7 @@ export function MemoryEngine({ levelNumber, onComplete, onNextLevel }: MemoryEng
               onClick={onNextLevel}
               className="w-full h-13 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-base rounded-2xl shadow-md active:scale-95"
             >
-              Próxima Etapa →
+              {tGame.nextLevel} →
             </Button>
           )}
         </div>

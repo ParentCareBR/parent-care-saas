@@ -1,10 +1,12 @@
 'use client';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Eye, Lightbulb, RotateCcw, CheckCircle2 } from 'lucide-react';
 
 interface JigsawEngineProps {
+  locale?: string;
   levelNumber: number;
   onComplete: (stats: { stars: number; score: number; moves: number; hints: number }) => void;
   onNextLevel?: () => void;
@@ -37,7 +39,9 @@ const PUZZLE_LEVELS = [
   },
 ];
 
-export function JigsawEngine({ levelNumber, onComplete, onNextLevel }: JigsawEngineProps) {
+export function JigsawEngine({
+  locale, levelNumber, onComplete, onNextLevel }: JigsawEngineProps) {
+  const tGame = getGameTexts(locale);
   // 2x2 = 4 pieces for smooth, accessible, relaxing experience for seniors
   const gridSize = 2;
   const totalPieces = 4;
@@ -230,7 +234,7 @@ export function JigsawEngine({ levelNumber, onComplete, onNextLevel }: JigsawEng
           variant="outline"
           className="flex-1 h-12 border-stone-300 font-bold text-sm rounded-xl gap-2"
         >
-          <RotateCcw className="h-4 w-4" /> Embaralhar
+          <RotateCcw className="h-4 w-4" /> {tGame.shuffle}
         </Button>
       </div>
 

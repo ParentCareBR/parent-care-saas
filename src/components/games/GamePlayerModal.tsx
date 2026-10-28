@@ -24,6 +24,8 @@ import { BlockPuzzleEngine } from './engines/BlockPuzzleEngine';
 import { BubblePopEngine } from './engines/BubblePopEngine';
 import { WordAnagramEngine } from './engines/WordAnagramEngine';
 import { saveOfflineSession } from '@/lib/games/offline-sync';
+import { getCareTexts } from '@/lib/i18n/care-translations';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 
 interface GamePlayerModalProps {
   gameId: GameId;
@@ -48,6 +50,8 @@ export function GamePlayerModal({
   onClose,
   onSessionComplete,
 }: GamePlayerModalProps) {
+  const tCare = getCareTexts(locale);
+  const tGame = getGameTexts(locale);
   const [levelNumber, setLevelNumber] = useState(initialLevel);
   const [isPaused, setIsPaused] = useState(false);
   const [sessionStartTime] = useState<number>(Date.now());
@@ -116,7 +120,7 @@ export function GamePlayerModal({
   };
 
   const handleConfirmExit = () => {
-    if (confirm('Deseja salvar sua partida e voltar para o menu?')) {
+    if (confirm(tCare.exitConfirm)) {
       const durationSeconds = Math.round((Date.now() - sessionStartTime) / 1000);
       fetch('/api/games/sessions', {
         method: 'POST',
@@ -146,7 +150,7 @@ export function GamePlayerModal({
               type="button"
               onClick={handleConfirmExit}
               className="w-11 h-11 rounded-2xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-800 dark:text-stone-200 flex items-center justify-center font-bold active:scale-95 transition"
-              title="Voltar ao Menu"
+              title={tCare.backBtn}
             >
               <ChevronLeft className="h-6 w-6 stroke-[2.5]" />
             </button>
@@ -157,7 +161,7 @@ export function GamePlayerModal({
                   {gameName}
                 </h2>
                 <p className="text-[11px] font-bold text-stone-500">
-                  Etapa {levelNumber} de 100+
+                  {tGame.levelOf(levelNumber)}
                 </p>
               </div>
             </div>
@@ -170,7 +174,7 @@ export function GamePlayerModal({
               className="h-10 px-3 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 font-bold text-xs flex items-center gap-1.5 active:scale-95"
             >
               {isPaused ? <Play className="h-4 w-4 fill-current" /> : <Pause className="h-4 w-4" />}
-              <span>{isPaused ? 'Continuar' : 'Pausar'}</span>
+              <span>{isPaused ? tCare.resumeBtn : tCare.pauseBtn}</span>
             </button>
           </div>
         </div>
@@ -182,10 +186,10 @@ export function GamePlayerModal({
           <div className="bg-white dark:bg-stone-900 border-3 border-amber-300 dark:border-amber-700 p-6 rounded-3xl text-center space-y-4 shadow-xl">
             <div className="text-5xl">☕</div>
             <h3 className="text-xl font-black text-stone-900 dark:text-stone-100">
-              Partida Pausada
+              {tCare.pausedGameTitle}
             </h3>
             <p className="text-sm font-semibold text-stone-600 dark:text-stone-300">
-              Respire fundo, tome uma água e continue quando estiver pronto. Seu progresso está guardado!
+              {tCare.pausedGameDesc}
             </p>
             <div className="space-y-2 pt-2">
               <Button
@@ -193,7 +197,7 @@ export function GamePlayerModal({
                 onClick={() => setIsPaused(false)}
                 className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base rounded-2xl shadow-md active:scale-95"
               >
-                Retomar Jogo
+                {tCare.resumeGameBtn}
               </Button>
               <Button
                 type="button"
@@ -201,14 +205,14 @@ export function GamePlayerModal({
                 onClick={handleConfirmExit}
                 className="w-full h-12 border-stone-300 text-stone-700 dark:text-stone-300 font-bold rounded-2xl"
               >
-                Voltar aos Jogos
+                {tCare.backToGamesBtn}
               </Button>
             </div>
           </div>
         ) : (
           <>
             {gameId === 'paciencia' && (
-              <SolitaireEngine
+              <SolitaireEngine locale={locale}
                 key={`paciencia-${levelNumber}`}
                 variant="klondike"
                 levelNumber={levelNumber}
@@ -217,7 +221,7 @@ export function GamePlayerModal({
               />
             )}
             {gameId === 'freecell' && (
-              <SolitaireEngine
+              <SolitaireEngine locale={locale}
                 key={`freecell-${levelNumber}`}
                 variant="freecell"
                 levelNumber={levelNumber}
@@ -226,7 +230,7 @@ export function GamePlayerModal({
               />
             )}
             {gameId === 'spider' && (
-              <SolitaireEngine
+              <SolitaireEngine locale={locale}
                 key={`spider-${levelNumber}`}
                 variant="spider"
                 levelNumber={levelNumber}
@@ -235,7 +239,7 @@ export function GamePlayerModal({
               />
             )}
             {gameId === 'domino' && (
-              <DominoEngine
+              <DominoEngine locale={locale}
                 key={`domino-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
@@ -243,7 +247,7 @@ export function GamePlayerModal({
               />
             )}
             {gameId === 'sudoku' && (
-              <SudokuEngine
+              <SudokuEngine locale={locale}
                 key={`sudoku-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
@@ -260,7 +264,7 @@ export function GamePlayerModal({
               />
             )}
             {gameId === 'mahjong' && (
-              <MahjongEngine
+              <MahjongEngine locale={locale}
                 key={`mahjong-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
@@ -268,7 +272,7 @@ export function GamePlayerModal({
               />
             )}
             {gameId === 'memoria' && (
-              <MemoryEngine
+              <MemoryEngine locale={locale}
                 key={`memoria-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
@@ -285,7 +289,7 @@ export function GamePlayerModal({
               />
             )}
             {gameId === 'quebra_cabeca' && (
-              <JigsawEngine
+              <JigsawEngine locale={locale}
                 key={`quebra_cabeca-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
@@ -293,7 +297,7 @@ export function GamePlayerModal({
               />
             )}
             {gameId === 'damas' && (
-              <CheckersEngine
+              <CheckersEngine locale={locale}
                 key={`damas-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
@@ -310,7 +314,7 @@ export function GamePlayerModal({
               />
             )}
             {gameId === 'combine_tres' && (
-              <MatchThreeEngine
+              <MatchThreeEngine locale={locale}
                 key={`combine_tres-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
@@ -318,7 +322,7 @@ export function GamePlayerModal({
               />
             )}
             {gameId === 'encontre_diferencas' && (
-              <DifferencesEngine
+              <DifferencesEngine locale={locale}
                 key={`encontre_diferencas-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
@@ -335,7 +339,7 @@ export function GamePlayerModal({
               />
             )}
             {gameId === 'objetos_escondidos' && (
-              <HiddenObjectsEngine
+              <HiddenObjectsEngine locale={locale}
                 key={`objetos_escondidos-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
@@ -343,7 +347,7 @@ export function GamePlayerModal({
               />
             )}
             {gameId === 'unir_numeros' && (
-              <NumberMergeEngine
+              <NumberMergeEngine locale={locale}
                 key={`unir_numeros-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
@@ -351,7 +355,7 @@ export function GamePlayerModal({
               />
             )}
             {gameId === 'blocos' && (
-              <BlockPuzzleEngine
+              <BlockPuzzleEngine locale={locale}
                 key={`blocos-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
@@ -359,7 +363,7 @@ export function GamePlayerModal({
               />
             )}
             {gameId === 'bolhas' && (
-              <BubblePopEngine
+              <BubblePopEngine locale={locale}
                 key={`bolhas-${levelNumber}`}
                 levelNumber={levelNumber}
                 onComplete={handleGameComplete}
@@ -389,7 +393,7 @@ export function GamePlayerModal({
       </main>
 
       <footer className="p-3 text-center text-xs text-white/50">
-        Parent Care • Jogos e Momentos
+        {tGame.footerTag}
       </footer>
     </div>
   );

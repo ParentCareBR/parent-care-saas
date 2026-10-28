@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sparkles, RotateCcw, Lightbulb, Bot, Lock } from 'lucide-react';
+import { getGameTexts } from '@/lib/i18n/game-i18n';
 
 interface DominoTile {
   id: string;
@@ -12,6 +13,7 @@ interface DominoTile {
 
 interface DominoEngineProps {
   levelNumber: number;
+  locale?: string;
   onComplete: (stats: { stars: number; score: number; moves: number; hints: number }) => void;
   onNextLevel?: () => void;
 }
@@ -53,7 +55,8 @@ function renderDots(num: number, size: 'sm' | 'md' = 'sm') {
   );
 }
 
-export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEngineProps) {
+export function DominoEngine({ levelNumber, locale, onComplete, onNextLevel }: DominoEngineProps) {
+  const tGame = getGameTexts(locale);
   const [playerHand, setPlayerHand] = useState<DominoTile[]>([]);
   const [botHand, setBotHand] = useState<DominoTile[]>([]);
   const [boneyard, setBoneyard] = useState<DominoTile[]>([]);
@@ -61,7 +64,7 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
   const [turn, setTurn] = useState<'player' | 'bot'>('player');
   const [moves, setMoves] = useState(0);
   const [hintsUsed, setHintsUsed] = useState(0);
-  const [message, setMessage] = useState('Sua vez! Toque em uma peça com borda verde para jogar.');
+  const [message, setMessage] = useState(tGame.domino.yourTurn);
   const [isCompleted, setIsCompleted] = useState(false);
   const [earnedStars, setEarnedStars] = useState(3);
   const [botName] = useState(() => (levelNumber % 2 === 0 ? 'Dona Rosa' : 'Seu José'));
@@ -96,7 +99,7 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
     setHintsUsed(0);
     setIsCompleted(false);
     setLockedResult(null);
-    setMessage(`Jogo aberto na mesa com [${firstTile.left} | ${firstTile.right}]. Sua vez!`);
+    setMessage(tGame.domino.tableOpen(firstTile.left, firstTile.right));
   };
 
   const leftEnd = boardChain.length > 0 ? boardChain[0].left : null;
@@ -274,7 +277,7 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
       }
 
       setTurn('player');
-      setMessage(`${botName} não tem peça e passou a vez. Sua vez de jogar!`);
+      setMessage(tGame.domino.botPassed(botName));
     }
   };
 
@@ -311,7 +314,7 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
     }
 
     setTurn('bot');
-    setMessage(`Você passou a vez para ${botName}.`);
+    setMessage(tGame.domino.youPassed(botName));
   };
 
   const finishGame = (winner: 'player' | 'bot') => {
@@ -319,7 +322,7 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
     const won = winner === 'player';
     const stars = won ? (hintsUsed === 0 ? 3 : 2) : 1;
     setEarnedStars(stars);
-    setMessage(won ? 'Parabéns! Você bateu o dominó e venceu!' : `${botName} bateu o dominó. Bom jogo!`);
+    setMessage(won ? tGame.domino.playerWon : tGame.domino.botWon(botName));
 
     onComplete({
       stars,
@@ -333,11 +336,11 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
     setHintsUsed(h => h + 1);
     const playable = playerHand.find(t => canPlayTile(t));
     if (playable) {
-      setMessage(`Dica: A peça [${playable.left}|${playable.right}] combina com uma das pontas da mesa.`);
+      setMessage(tGame.domino.hintMatch(playable.left, playable.right));
     } else if (boneyard.length > 0) {
-      setMessage('Dica: Não há peças que combinam. Compre do monte.');
+      setMessage(tGame.domino.hintBuy);
     } else {
-      setMessage('Dica: Não há peças no monte, passe a vez para apurar os pontos.');
+      setMessage(tGame.domino.hintPass);
     }
   };
 
@@ -455,7 +458,7 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
           disabled={turn !== 'player' || boneyard.length === 0 || isCompleted}
           className="h-12 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs sm:text-sm rounded-xl"
         >
-          Comprar ({boneyard.length})
+          {tGame.domino.buy(boneyard.length)}
         </Button>
 
         <Button
@@ -469,7 +472,7 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
               : 'border-stone-300 text-stone-400'
           }`}
         >
-          Passar a Vez
+          {tGame.domino.pass}
         </Button>
 
         <Button
@@ -479,7 +482,7 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
           variant="outline"
           className="h-12 border-amber-300 text-amber-800 dark:text-amber-300 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-1"
         >
-          <Lightbulb className="h-4 w-4" /> Dica
+          <Lightbulb className="h-4 w-4" /> {tGame.hint}
         </Button>
       </div>
 
@@ -522,10 +525,10 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
               </div>
               <p className="text-xs font-semibold text-stone-600 dark:text-stone-300">
                 {lockedResult.winner === 'player'
-                  ? '✨ Parabéns! Você tinha menos pontos nas pedras e levou a vitória!'
+                  ? tGame.domino.winPointsPlayer
                   : lockedResult.winner === 'tie'
                   ? '🤝 Empate de pontos nas mãos! Bela partida de ambos!'
-                  : `👏 ${botName} tinha menos pontos nesta rodada. Parabéns pelo empenho!`}
+                  : tGame.domino.winPointsBot(botName)}
               </p>
             </div>
           )}
@@ -541,7 +544,7 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
               variant="outline"
               className="flex-1 h-12 rounded-xl font-bold"
             >
-              Jogar Novamente
+              {tGame.playAgain}
             </Button>
             {onNextLevel && (
               <Button
@@ -549,7 +552,7 @@ export function DominoEngine({ levelNumber, onComplete, onNextLevel }: DominoEng
                 onClick={onNextLevel}
                 className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold"
               >
-                Próxima Etapa
+                {tGame.nextLevel}
               </Button>
             )}
           </div>

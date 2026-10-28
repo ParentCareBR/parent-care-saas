@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { getDashboardTexts } from '@/lib/i18n/dashboard-translations';
 
 const LANGUAGES = [
   { code: 'pt-BR', label: 'Português (Brasil)', flag: '🇧🇷', badge: 'PT' },
@@ -28,6 +29,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
   const isFirstSegmentLocale = LANGUAGES.some((l) => l.code === firstSegment);
   const currentLocale = isFirstSegmentLocale ? firstSegment : 'pt-BR';
   const currentLang = LANGUAGES.find((l) => l.code === currentLocale) || LANGUAGES[0];
+  const tDash = getDashboardTexts(currentLocale);
 
   const handleSelectLanguage = (newLocale: string) => {
     if (newLocale === currentLocale) return;
@@ -35,14 +37,20 @@ export function LanguageSwitcher({ className }: { className?: string }) {
     // 1. Explicitly set NEXT_LOCALE cookie so next-intl middleware and server components read the new language
     document.cookie = `NEXT_LOCALE=${newLocale};path=/;max-age=31536000;SameSite=Lax`;
 
-    // 2. Compute destination URL
+    // 2. Persist language preference in the database asynchronously
+    fetch('/api/users/language', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ language: newLocale }),
+    }).catch(() => {});
+
+    // 3. Compute destination URL
     const remainingSegments = isFirstSegmentLocale ? segments.slice(1) : segments;
     const targetPath = `/${newLocale}${remainingSegments.length > 0 ? `/${remainingSegments.join('/')}` : ''}`;
 
-    // 3. Navigate with window.location to force full SSR refresh and prevent client-side translation caching
+    // 4. Navigate with window.location to force full SSR refresh and prevent client-side translation caching
     window.location.href = targetPath;
   };
-
 
   return (
     <DropdownMenu>
@@ -59,7 +67,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="rounded-xl border-stone-200 dark:border-stone-800 dark:bg-stone-900 shadow-lg min-w-[170px] z-50">
         <div className="px-2.5 py-1.5 text-[10px] font-bold text-stone-400 uppercase tracking-wider border-b border-stone-100 dark:border-stone-800 mb-1">
-          Selecionar Idioma
+          {tDash.selectLanguage}
         </div>
         {LANGUAGES.map((lang) => (
           <DropdownMenuItem
