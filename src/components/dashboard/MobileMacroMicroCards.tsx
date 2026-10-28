@@ -40,6 +40,12 @@ export interface MobileMacroMicroCardsProps {
   userName?: string;
   onQuickLogWater?: () => void;
   onOpenVitalsModal?: () => void;
+  isCareMode?: boolean;
+  onNavigateTab?: (tab: 'home' | 'routine' | 'games' | 'actions' | 'finances') => void;
+  onOpenNina?: () => void;
+  onOpenEmergency?: () => void;
+  onRequestCall?: () => void;
+  onLogMeal?: () => void;
 }
 
 export interface GridCardItem {
@@ -61,6 +67,12 @@ export function MobileMacroMicroCards({
   userName = 'Cuidador',
   onQuickLogWater,
   onOpenVitalsModal,
+  isCareMode = false,
+  onNavigateTab,
+  onOpenNina,
+  onOpenEmergency,
+  onRequestCall,
+  onLogMeal,
 }: MobileMacroMicroCardsProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const tDash = getDashboardTexts(locale);
@@ -76,7 +88,8 @@ export function MobileMacroMicroCards({
       id: 'agenda',
       title: tDash.cards.agenda.title,
       icon: Calendar,
-      href: `/${locale}/dashboard/appointments`,
+      href: isCareMode ? '' : `/${locale}/dashboard/appointments`,
+      onClick: isCareMode ? () => onNavigateTab?.('routine') : undefined,
       bgColor: 'bg-[#22C55E] hover:bg-[#16A34A]',
     },
     // 2. Medicamentos
@@ -84,7 +97,8 @@ export function MobileMacroMicroCards({
       id: 'medicamentos',
       title: tDash.cards.medications.title,
       icon: Pill,
-      href: `/${locale}/dashboard/medications`,
+      href: isCareMode ? '' : `/${locale}/dashboard/medications`,
+      onClick: isCareMode ? () => onNavigateTab?.('routine') : undefined,
       bgColor: 'bg-[#06B6D4] hover:bg-[#0891B2]',
       badge: medsData.total > 0 ? `${medsData.taken}/${medsData.total}` : undefined,
     },
@@ -93,7 +107,8 @@ export function MobileMacroMicroCards({
       id: 'alimentacao',
       title: tDash.cards.meals.title,
       icon: Utensils,
-      href: `/${locale}/dashboard/meals`,
+      href: isCareMode ? '' : `/${locale}/dashboard/meals`,
+      onClick: isCareMode ? (onLogMeal || (() => onNavigateTab?.('routine'))) : undefined,
       bgColor: 'bg-[#F97316] hover:bg-[#EA580C]',
     },
 
@@ -102,7 +117,8 @@ export function MobileMacroMicroCards({
       id: 'consultas',
       title: tDash.cards.appointments.title,
       icon: Stethoscope,
-      href: `/${locale}/dashboard/appointments`,
+      href: isCareMode ? '' : `/${locale}/dashboard/appointments`,
+      onClick: isCareMode ? () => onNavigateTab?.('routine') : undefined,
       bgColor: 'bg-[#0284C7] hover:bg-[#0369A1]',
     },
     // 5. Atividades
@@ -110,7 +126,8 @@ export function MobileMacroMicroCards({
       id: 'atividades',
       title: tDash.cards.activities.title,
       icon: Activity,
-      href: `/${locale}/dashboard/activities`,
+      href: isCareMode ? '' : `/${locale}/dashboard/activities`,
+      onClick: isCareMode ? () => onNavigateTab?.('routine') : undefined,
       bgColor: 'bg-[#A855F7] hover:bg-[#9333EA]',
     },
     // 6. Sinais Vitais
@@ -118,9 +135,9 @@ export function MobileMacroMicroCards({
       id: 'sinais-vitais',
       title: tDash.cards.vitals.title,
       icon: HeartPulse,
-      href: `/${locale}/dashboard/history`,
+      href: isCareMode ? '' : `/${locale}/dashboard/history`,
       bgColor: 'bg-[#EAB308] hover:bg-[#CA8A04]',
-      onClick: onOpenVitalsModal,
+      onClick: onOpenVitalsModal || (isCareMode ? () => onNavigateTab?.('actions') : undefined),
     },
 
     // 7. Hidratação
@@ -128,7 +145,8 @@ export function MobileMacroMicroCards({
       id: 'hidratacao',
       title: tDash.cards.hydration.title,
       icon: Droplet,
-      href: `/${locale}/dashboard/meals`,
+      href: isCareMode ? '' : `/${locale}/dashboard/meals`,
+      onClick: onQuickLogWater,
       bgColor: 'bg-[#0D9488] hover:bg-[#0F766E]',
       badge: tDash.cards.hydration.badge(hydration.cups),
     },
@@ -137,7 +155,8 @@ export function MobileMacroMicroCards({
       id: 'jogos',
       title: tDash.cards.games.title,
       icon: Gamepad2,
-      href: `/${locale}/dashboard/games`,
+      href: isCareMode ? '' : `/${locale}/dashboard/games`,
+      onClick: isCareMode ? () => onNavigateTab?.('games') : undefined,
       bgColor: 'bg-[#EC4899] hover:bg-[#DB2777]',
       badge: tDash.cards.games.badge,
     },
@@ -146,7 +165,8 @@ export function MobileMacroMicroCards({
       id: 'tarefas',
       title: tDash.cards.tasks.title,
       icon: ClipboardList,
-      href: `/${locale}/dashboard/tasks`,
+      href: isCareMode ? '' : `/${locale}/dashboard/tasks`,
+      onClick: isCareMode ? () => onNavigateTab?.('routine') : undefined,
       bgColor: 'bg-[#38BDF8] hover:bg-[#0284C7]',
     },
 
@@ -155,7 +175,8 @@ export function MobileMacroMicroCards({
       id: 'nina-ia',
       title: tDash.cards.nina.title,
       icon: Sparkles,
-      href: `/${locale}/dashboard/nina`,
+      href: isCareMode ? '' : `/${locale}/dashboard/nina`,
+      onClick: isCareMode ? onOpenNina : undefined,
       bgColor: 'bg-[#6366F1] hover:bg-[#4F46E5]',
       badge: tDash.cards.nina.badge,
     },
@@ -164,7 +185,8 @@ export function MobileMacroMicroCards({
       id: 'despesas',
       title: tDash.cards.expenses.title,
       icon: DollarSign,
-      href: `/${locale}/dashboard/expenses`,
+      href: isCareMode ? '' : `/${locale}/dashboard/expenses`,
+      onClick: isCareMode ? () => onNavigateTab?.('finances') : undefined,
       bgColor: 'bg-[#10B981] hover:bg-[#059669]',
     },
     // 12. Compras
@@ -172,7 +194,8 @@ export function MobileMacroMicroCards({
       id: 'compras',
       title: tDash.cards.shopping.title,
       icon: ShoppingCart,
-      href: `/${locale}/dashboard/shopping`,
+      href: isCareMode ? '' : `/${locale}/dashboard/shopping`,
+      onClick: isCareMode ? () => onNavigateTab?.('actions') : undefined,
       bgColor: 'bg-[#D97706] hover:bg-[#B45309]',
     },
 
@@ -181,7 +204,8 @@ export function MobileMacroMicroCards({
       id: 'plantao',
       title: tDash.cards.handovers.title,
       icon: ArrowLeftRight,
-      href: `/${locale}/dashboard/handovers`,
+      href: isCareMode ? '' : `/${locale}/dashboard/handovers`,
+      onClick: isCareMode ? () => onNavigateTab?.('actions') : undefined,
       bgColor: 'bg-gradient-to-br from-indigo-500 to-purple-600',
     },
     // 14. Modo Idoso
@@ -189,17 +213,18 @@ export function MobileMacroMicroCards({
       id: 'modo-idoso',
       title: tDash.cards.elderlyMode.title,
       icon: Footprints,
-      href: personId ? `/${locale}/care/${personId}` : `/${locale}/dashboard`,
+      href: isCareMode ? '' : (personId ? `/${locale}/care/${personId}` : `/${locale}/dashboard`),
       bgColor: 'bg-gradient-to-br from-cyan-400 to-teal-500',
-      isExternal: true,
-      badge: tDash.cards.elderlyMode.badge,
+      isExternal: !isCareMode,
+      badge: isCareMode ? 'Você está aqui' : tDash.cards.elderlyMode.badge,
     },
     // 15. Família
     {
       id: 'familia',
       title: tDash.cards.family.title,
       icon: Users,
-      href: `/${locale}/dashboard/family`,
+      href: isCareMode ? '' : `/${locale}/dashboard/family`,
+      onClick: isCareMode ? onRequestCall : undefined,
       bgColor: 'bg-gradient-to-br from-pink-400 to-rose-500',
     },
 
@@ -208,15 +233,17 @@ export function MobileMacroMicroCards({
       id: 'idosos',
       title: tDash.cards.caredPeople.title,
       icon: UserCheck,
-      href: `/${locale}/dashboard/cared-people`,
+      href: isCareMode ? '' : `/${locale}/dashboard/cared-people`,
       bgColor: 'bg-[#15803D] hover:bg-[#166534]',
+      badge: isCareMode ? firstName : undefined,
     },
     // 17. Relatórios
     {
       id: 'relatorios',
       title: tDash.cards.reports.title,
       icon: FileText,
-      href: `/${locale}/dashboard/reports`,
+      href: isCareMode ? '' : `/${locale}/dashboard/reports`,
+      onClick: isCareMode ? () => onNavigateTab?.('actions') : undefined,
       bgColor: 'bg-[#7C3AED] hover:bg-[#6D28D9]',
     },
     // 18. Histórico
@@ -224,7 +251,8 @@ export function MobileMacroMicroCards({
       id: 'historico',
       title: tDash.cards.history.title,
       icon: Clock,
-      href: `/${locale}/dashboard/history`,
+      href: isCareMode ? '' : `/${locale}/dashboard/history`,
+      onClick: isCareMode ? () => onNavigateTab?.('routine') : undefined,
       bgColor: 'bg-[#BE185D] hover:bg-[#9D174D]',
     },
 
@@ -233,7 +261,8 @@ export function MobileMacroMicroCards({
       id: 'seguranca',
       title: tDash.cards.safety.title,
       icon: ShieldCheck,
-      href: `/${locale}/dashboard/home-safety`,
+      href: isCareMode ? '' : `/${locale}/dashboard/home-safety`,
+      onClick: isCareMode ? onOpenEmergency : undefined,
       bgColor: 'bg-[#0F766E] hover:bg-[#115E59]',
     },
     // 20. Memórias
@@ -241,7 +270,8 @@ export function MobileMacroMicroCards({
       id: 'memorias',
       title: tDash.cards.memories.title,
       icon: Heart,
-      href: `/${locale}/dashboard/memories`,
+      href: isCareMode ? '' : `/${locale}/dashboard/memories`,
+      onClick: isCareMode ? () => onNavigateTab?.('actions') : undefined,
       bgColor: 'bg-gradient-to-br from-rose-500 to-pink-600',
     },
     // 21. Ajustes
@@ -249,7 +279,7 @@ export function MobileMacroMicroCards({
       id: 'configuracoes',
       title: tDash.cards.settings.title,
       icon: Sliders,
-      href: `/${locale}/dashboard/settings`,
+      href: isCareMode ? '' : `/${locale}/dashboard/settings`,
       bgColor: 'bg-[#475569] hover:bg-[#334155]',
     },
 
@@ -259,8 +289,9 @@ export function MobileMacroMicroCards({
       title: tDash.cards.whatsapp.title,
       icon: MessageSquare,
       href: personPhone
-        ? `https://wa.me/${personPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá ${firstName}, tudo bem? Como você está hoje?`)}`
+        ? `https://wa.me/${personPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá, tudo bem?`)}`
         : `/${locale}/dashboard/cared-people/${personId}`,
+      onClick: isCareMode ? onRequestCall : undefined,
       bgColor: 'bg-[#25D366] hover:bg-[#20BA5C]',
       isExternal: Boolean(personPhone),
     },
@@ -269,7 +300,8 @@ export function MobileMacroMicroCards({
       id: 'sos',
       title: tDash.cards.sos.title,
       icon: AlertTriangle,
-      href: `/${locale}/dashboard/emergency`,
+      href: isCareMode ? '' : `/${locale}/dashboard/emergency`,
+      onClick: isCareMode ? onOpenEmergency : undefined,
       bgColor: 'bg-[#DC2626] hover:bg-[#B91C1C]',
       badge: tDash.cards.sos.badge,
     },
@@ -278,10 +310,26 @@ export function MobileMacroMicroCards({
       id: 'prescricoes',
       title: tDash.cards.prescriptions.title,
       icon: Pill,
-      href: `/${locale}/dashboard/medications`,
+      href: isCareMode ? '' : `/${locale}/dashboard/medications`,
+      onClick: isCareMode ? () => onNavigateTab?.('routine') : undefined,
       bgColor: 'bg-[#4338CA] hover:bg-[#3730A3]',
     },
-  ], [locale, medsData, hydration, onOpenVitalsModal, personId, firstName, personPhone, tDash]);
+  ], [
+    locale,
+    medsData,
+    hydration,
+    onOpenVitalsModal,
+    personId,
+    firstName,
+    personPhone,
+    tDash,
+    isCareMode,
+    onNavigateTab,
+    onOpenNina,
+    onOpenEmergency,
+    onRequestCall,
+    onLogMeal,
+  ]);
 
   // Filtered cards based on optional search
   const visibleCards = useMemo(() => {

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { CognitiveGamesHub } from '@/components/games/CognitiveGamesHub';
 import { GamesAndMomentsHub } from '@/components/games/GamesAndMomentsHub';
 import { NinaAIChatbot } from '@/components/nina/NinaAIChatbot';
+import { MobileMacroMicroCards } from '@/components/dashboard/MobileMacroMicroCards';
 import { 
   Gamepad2,
   Heart, AlertCircle, Pill, Coffee, Droplet, CheckCircle2,
@@ -1546,218 +1547,44 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               </button>
             </div>
 
-            {/* 1.5 HUB DE CARDS DO DIA A DIA (Controle Confortável & Eficiente) */}
-            <div className='space-y-2.5'>
-              <div className='flex items-center justify-between px-1'>
-                <h3 className='text-xs font-black uppercase tracking-wider text-stone-500 dark:text-stone-400'>
-                  {tCare.myActivitiesTitle}
-                </h3>
-                <span className='text-[11px] font-bold text-stone-500'>{tCare.tapToEnter}</span>
-              </div>
-
-              <div className='grid grid-cols-2 gap-3'>
-                {/* Card 1: Meus Remédios */}
-                <button
-                  onClick={() => {
-                    triggerHaptic(20);
-                    setActiveTab('routine');
-                  }}
-                  className='bg-white dark:bg-stone-900 border-2 border-emerald-300 dark:border-emerald-800 p-4 rounded-3xl flex flex-col items-center text-center gap-1.5 transition active:scale-95 shadow-xs hover:border-emerald-500'
-                >
-                  <div className='w-13 h-13 rounded-2xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 flex items-center justify-center text-3xl shadow-2xs'>
-                    💊
-                  </div>
-                  <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    {tCare.cardMedsTitle}
-                  </span>
-                  <span className='text-xs font-bold text-emerald-700 dark:text-emerald-400'>
-                    {todayEvents.filter(e => e.type === 'medication').length > 0
-                      ? `${todayEvents.filter(e => e.type === 'medication').length} ${tCare.cardMedsSubtitle}`
-                      : tCare.cardMedsNone}
-                  </span>
-                </button>
-
-                {/* Card 2: Bebi Água */}
-                <button
-                  disabled={loading}
-                  onClick={handleDrinkWater}
-                  className='bg-white dark:bg-stone-900 border-2 border-sky-300 dark:border-sky-800 p-4 rounded-3xl flex flex-col items-center text-center gap-1.5 transition active:scale-95 shadow-xs hover:border-sky-500'
-                >
-                  <div className='w-13 h-13 rounded-2xl bg-sky-100 dark:bg-sky-950/80 text-sky-700 flex items-center justify-center text-3xl shadow-2xs'>
-                    💧
-                  </div>
-                  <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    {tCare.cardWaterTitle}
-                  </span>
-                  <span className='text-xs font-bold text-sky-700 dark:text-sky-300'>
-                    {tCare.cardWaterSubtitle(cupsDrank)}
-                  </span>
-                </button>
-
-                {/* Card 3: Já Me Alimentei */}
-                <button
-                  disabled={loading}
-                  onClick={() => {
-                    triggerHaptic(30);
-                    handleAction('meal', 'Refeição feita!', 'meals', {
-                      meal_type: 'other',
-                      logged_by: personInfo.userId,
-                    });
-                  }}
-                  className='bg-white dark:bg-stone-900 border-2 border-amber-300 dark:border-amber-800 p-4 rounded-3xl flex flex-col items-center text-center gap-1.5 transition active:scale-95 shadow-xs hover:border-amber-500'
-                >
-                  <div className='w-13 h-13 rounded-2xl bg-amber-100 dark:bg-amber-950/80 text-amber-700 flex items-center justify-center text-3xl shadow-2xs'>
-                    🍽️
-                  </div>
-                  <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    {tCare.cardMealTitle}
-                  </span>
-                  <span className='text-xs font-bold text-amber-700 dark:text-amber-300'>
-                    {tCare.cardMealSubtitle}
-                  </span>
-                </button>
-
-                {/* Card 4: Minha Agenda */}
-                <button
-                  onClick={() => {
-                    triggerHaptic(20);
-                    setActiveTab('routine');
-                  }}
-                  className='bg-white dark:bg-stone-900 border-2 border-indigo-300 dark:border-indigo-800 p-4 rounded-3xl flex flex-col items-center text-center gap-1.5 transition active:scale-95 shadow-xs hover:border-indigo-500'
-                >
-                  <div className='w-13 h-13 rounded-2xl bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 flex items-center justify-center text-3xl shadow-2xs'>
-                    📅
-                  </div>
-                  <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    {tCare.cardRoutineTitle}
-                  </span>
-                  <span className='text-xs font-bold text-indigo-700 dark:text-indigo-300'>
-                    {tCare.todaySummary(todayEvents.length)}
-                  </span>
-                </button>
-
-                {/* Card 5: Falar com a Família */}
-                <button
-                  onClick={handleRequestCall}
-                  className='bg-white dark:bg-stone-900 border-2 border-rose-300 dark:border-rose-800 p-4 rounded-3xl flex flex-col items-center text-center gap-1.5 transition active:scale-95 shadow-xs hover:border-rose-500'
-                >
-                  <div className='w-13 h-13 rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-700 flex items-center justify-center text-3xl shadow-2xs'>
-                    📞
-                  </div>
-                  <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    {tCare.cardCallTitle}
-                  </span>
-                  <span className='text-xs font-bold text-rose-700 dark:text-rose-300'>
-                    {tCare.cardCallSubtitle}
-                  </span>
-                </button>
-
-                {/* Card 6: Jogos Cognitivos */}
-                <button
-                  onClick={() => {
-                    triggerHaptic(30);
-                    setActiveTab('games');
-                  }}
-                  className='bg-white dark:bg-stone-900 border-2 border-[#D97706]/40 dark:border-[#D97706]/60 p-4 rounded-3xl flex flex-col items-center text-center gap-1.5 transition active:scale-95 shadow-xs hover:border-[#D97706]'
-                >
-                  <div className='w-13 h-13 rounded-2xl bg-amber-100 dark:bg-amber-950/80 text-[#D97706] flex items-center justify-center text-3xl shadow-2xs'>
-                    🎮
-                  </div>
-                  <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    {tCare.cardGamesTitle}
-                  </span>
-                  <span className='text-xs font-bold text-amber-700 dark:text-amber-400'>
-                    {tCare.cardGamesSubtitle}
-                  </span>
-                </button>
-
-                {/* Card 7: Meu Dinheirinho / Finanças */}
-                <button
-                  onClick={() => {
-                    triggerHaptic(20);
-                    setActiveTab('finances');
-                  }}
-                  className='bg-white dark:bg-stone-900 border-2 border-teal-300 dark:border-teal-800 p-4 rounded-3xl flex flex-col items-center text-center gap-1.5 transition active:scale-95 shadow-xs hover:border-teal-500'
-                >
-                  <div className='w-13 h-13 rounded-2xl bg-teal-100 dark:bg-teal-950/80 text-teal-700 flex items-center justify-center text-3xl shadow-2xs'>
-                    💰
-                  </div>
-                  <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    {tCare.myMoneyTitle}
-                  </span>
-                  <span className='text-xs font-bold text-teal-700 dark:text-teal-300'>
-                    {tCare.myMoneySub}
-                  </span>
-                </button>
-
-                {/* Card 8: Estou Bem! */}
-                <button
-                  disabled={loading}
-                  onClick={() => {
-                    triggerHaptic(25);
-                    handleAction('mood', 'Estou bem!', 'check_ins', {
-                      mood: 'great',
-                      checked_by: personInfo.userId,
-                      notes: 'Estou bem',
-                    });
-                  }}
-                  className='bg-white dark:bg-stone-900 border-2 border-emerald-300 dark:border-emerald-800 p-4 rounded-3xl flex flex-col items-center text-center gap-1.5 transition active:scale-95 shadow-xs hover:border-emerald-500'
-                >
-                  <div className='w-13 h-13 rounded-2xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 flex items-center justify-center text-3xl shadow-2xs'>
-                    ❤️
-                  </div>
-                  <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    {tCare.cardMoodTitle}
-                  </span>
-                  <span className='text-xs font-bold text-emerald-700 dark:text-emerald-400'>
-                    {tCare.cardMoodSubtitle}
-                  </span>
-                </button>
-
-                {/* Card 9: Acordei / Dormir */}
-                <button
-                  disabled={loading}
-                  onClick={() => {
-                    triggerHaptic(25);
-                    if (hour < 15) {
-                      handleAction('wake', 'Bom dia! Avisamos que você acordou', 'check_ins', { mood: 'great', checked_by: personInfo.userId, notes: 'Acordou' });
-                    } else {
-                      handleAction('sleep', 'Boa noite! Registramos seu descanso', 'check_ins', { mood: 'good', checked_by: personInfo.userId, notes: 'Foi dormir' });
-                    }
-                  }}
-                  className='bg-white dark:bg-stone-900 border-2 border-purple-300 dark:border-purple-800 p-4 rounded-3xl flex flex-col items-center text-center gap-1.5 transition active:scale-95 shadow-xs hover:border-purple-500'
-                >
-                  <div className='w-13 h-13 rounded-2xl bg-purple-100 dark:bg-purple-950/80 text-purple-700 flex items-center justify-center text-3xl shadow-2xs'>
-                    {hour < 15 ? '☀️' : '🌙'}
-                  </div>
-                  <span className='text-base font-black text-stone-900 dark:text-stone-100 leading-tight'>
-                    {hour < 15 ? tCare.wokeUpTitle : tCare.sleepTitle}
-                  </span>
-                  <span className='text-xs font-bold text-purple-700 dark:text-purple-300'>
-                    {hour < 15 ? tCare.wokeUpSub : tCare.sleepSub}
-                  </span>
-                </button>
-
-                {/* Card 10: SOS Emergência */}
-                <button
-                  onClick={() => {
-                    triggerHaptic([60, 60]);
-                    setSosModalOpen(true);
-                  }}
-                  className='bg-red-50 dark:bg-red-950/60 border-2 border-red-400 dark:border-red-700 p-4 rounded-3xl flex flex-col items-center text-center gap-1.5 transition active:scale-95 shadow-xs hover:border-red-600'
-                >
-                  <div className='w-13 h-13 rounded-2xl bg-red-600 text-white flex items-center justify-center text-3xl shadow-md animate-pulse'>
-                    🚨
-                  </div>
-                  <span className='text-base font-black text-red-700 dark:text-red-400 leading-tight'>
-                    {tCare.emergencySosTitle}
-                  </span>
-                  <span className='text-xs font-extrabold text-red-600 dark:text-red-300'>
-                    {tCare.emergencySosSubtitle}
-                  </span>
-                </button>
-              </div>
-            </div>
+            {/* 1.5 HUB DE CARDS DO DIA A DIA — 24 cards coloridos (igual ao dashboard do anfitrião) */}
+            <MobileMacroMicroCards
+              locale={params.locale}
+              selectedPerson={{
+                id: params.id,
+                full_name: personInfo.fullName || personInfo.name,
+                whatsapp_phone: personInfo.primaryPhone,
+              }}
+              medsData={{
+                taken: todayEvents.filter((e) => e.type === 'medication' && e.completed).length,
+                total: todayEvents.filter((e) => e.type === 'medication').length,
+                list: todayEvents.filter((e) => e.type === 'medication'),
+              }}
+              hydration={{ cups: cupsDrank, goal: 8 }}
+              userName={personInfo.name}
+              isCareMode={true}
+              onQuickLogWater={handleDrinkWater}
+              onNavigateTab={(tab) => {
+                triggerHaptic(20);
+                setActiveTab(tab);
+              }}
+              onOpenNina={() => {
+                triggerHaptic(40);
+                setNinaModalOpen(true);
+              }}
+              onOpenEmergency={() => {
+                triggerHaptic([60, 40, 60]);
+                setSosModalOpen(true);
+              }}
+              onRequestCall={handleRequestCall}
+              onLogMeal={() => {
+                triggerHaptic(30);
+                handleAction('meal', 'Refeição feita!', 'meals', {
+                  meal_type: 'other',
+                  logged_by: personInfo.userId,
+                });
+              }}
+            />
 
             {/* Link para ver rotina completa */}
             <button

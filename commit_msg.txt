@@ -1,0 +1,1 @@
+feat(care): exibe 24 cards coloridos na tela do idoso igual ao dashboard do anfitriao
