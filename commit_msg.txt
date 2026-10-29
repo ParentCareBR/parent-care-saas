@@ -1,1 +1,1 @@
-Reestrutura Paciencia com suporte a multi-cartas, desfazer, dicas inteligentes e modos inspirados no paciencia.co (Klondike, Spider, FreeCell e TriPeaks)
+Ajusta layout responsivo mobile da Paciencia: grid fluido alinhado 1-para-1, proporcao aspect-[5/7], sem estouro horizontal em celulares

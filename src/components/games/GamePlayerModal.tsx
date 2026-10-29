@@ -181,7 +181,7 @@ export function GamePlayerModal({
       </header>
 
       {/* Main Game Screen */}
-      <main className="flex-1 max-w-md mx-auto w-full p-4 flex flex-col justify-center">
+      <main className="flex-1 max-w-xl mx-auto w-full px-1.5 py-2 sm:p-4 flex flex-col justify-start sm:justify-center">
         {isPaused ? (
           <div className="bg-white dark:bg-stone-900 border-3 border-amber-300 dark:border-amber-700 p-6 rounded-3xl text-center space-y-4 shadow-xl">
             <div className="text-5xl">☕</div>

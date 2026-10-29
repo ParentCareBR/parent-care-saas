@@ -145,28 +145,28 @@ function CardFace({
   const val = formatValue(card.value);
 
   return (
-    <div className="w-full h-full flex flex-col justify-between p-1 select-none leading-none overflow-hidden bg-white rounded-lg">
+    <div className="w-full h-full flex flex-col justify-between p-0.5 sm:p-1 select-none leading-none overflow-hidden bg-white rounded-md sm:rounded-lg">
       <div className="flex items-center justify-between">
-        <span className="font-black text-xs sm:text-sm tracking-tight" style={{ color }}>
+        <span className="font-black text-[11px] sm:text-xs tracking-tight" style={{ color }}>
           {val}
         </span>
-        <span className="text-xs sm:text-sm" style={{ color }}>
+        <span className="text-[10px] sm:text-xs" style={{ color }}>
           {sym}
         </span>
       </div>
 
       {!small && !compact && (
-        <div className="mx-auto my-auto text-xl sm:text-2xl font-black select-none opacity-90" style={{ color }}>
+        <div className="mx-auto my-auto text-base sm:text-xl font-black select-none opacity-90" style={{ color }}>
           {sym}
         </div>
       )}
 
       {!small && (
         <div className="flex items-center justify-between rotate-180">
-          <span className="font-black text-xs sm:text-sm tracking-tight" style={{ color }}>
+          <span className="font-black text-[9px] sm:text-[11px] tracking-tight" style={{ color }}>
             {val}
           </span>
-          <span className="text-xs sm:text-sm" style={{ color }}>
+          <span className="text-[8px] sm:text-[10px]" style={{ color }}>
             {sym}
           </span>
         </div>
@@ -177,9 +177,9 @@ function CardFace({
 
 function CardBack({ small = false }: { small?: boolean }) {
   return (
-    <div className="w-full h-full rounded-lg bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-900 border border-blue-400/60 flex items-center justify-center shadow-xs">
-      <div className="w-[82%] h-[82%] rounded-md border border-blue-300/40 bg-blue-700/60 flex items-center justify-center">
-        <span className="text-blue-200/60 font-black tracking-tighter" style={{ fontSize: small ? 8 : 11 }}>
+    <div className="w-full h-full rounded-md sm:rounded-lg bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-900 border border-blue-400/60 flex items-center justify-center shadow-xs overflow-hidden">
+      <div className="w-[84%] h-[84%] rounded-sm sm:rounded border border-blue-300/40 bg-blue-700/60 flex items-center justify-center">
+        <span className="text-blue-200/60 font-black tracking-tighter" style={{ fontSize: small ? 7 : 10 }}>
           ◆
         </span>
       </div>
@@ -1121,19 +1121,15 @@ export function SolitaireEngine({
     setMessage('Sem mais jogadas visíveis. Você pode Desfazer as últimas jogadas ou Iniciar Nova Partida!');
   };
 
-  // Card dimensions (responsive)
-  const cardW = variant === 'spider' ? 'w-[32px] sm:w-11' : variant === 'freecell' ? 'w-10 sm:w-12' : 'w-11 sm:w-13';
-  const cardH = variant === 'spider' ? 'h-13 sm:h-16' : variant === 'freecell' ? 'h-14 sm:h-18' : 'h-16 sm:h-20';
-
   return (
-    <div className="space-y-3 select-none max-w-xl mx-auto">
+    <div className="space-y-2 sm:space-y-3 select-none w-full max-w-xl mx-auto px-0.5">
       
       {/* ── Top Variant Picker (paciencia.co inspired) ── */}
-      <div className="flex items-center justify-between gap-1 p-1.5 bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl overflow-x-auto text-xs font-bold shadow-2xs">
+      <div className="grid grid-cols-4 gap-1 p-1 bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl sm:rounded-2xl text-[11px] sm:text-xs font-bold shadow-2xs">
         <button
           type="button"
           onClick={() => { setVariant('klondike'); }}
-          className={`flex-1 py-1.5 px-2 rounded-xl transition-all whitespace-nowrap text-center ${
+          className={`py-1.5 px-0.5 rounded-lg sm:rounded-xl transition-all whitespace-nowrap text-center ${
             variant === 'klondike'
               ? 'bg-emerald-600 text-white shadow-xs'
               : 'text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-800'
@@ -1145,7 +1141,7 @@ export function SolitaireEngine({
         <button
           type="button"
           onClick={() => { setVariant('spider'); }}
-          className={`flex-1 py-1.5 px-2 rounded-xl transition-all whitespace-nowrap text-center ${
+          className={`py-1.5 px-0.5 rounded-lg sm:rounded-xl transition-all whitespace-nowrap text-center ${
             variant === 'spider'
               ? 'bg-emerald-600 text-white shadow-xs'
               : 'text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-800'
@@ -1157,7 +1153,7 @@ export function SolitaireEngine({
         <button
           type="button"
           onClick={() => { setVariant('freecell'); }}
-          className={`flex-1 py-1.5 px-2 rounded-xl transition-all whitespace-nowrap text-center ${
+          className={`py-1.5 px-0.5 rounded-lg sm:rounded-xl transition-all whitespace-nowrap text-center ${
             variant === 'freecell'
               ? 'bg-emerald-600 text-white shadow-xs'
               : 'text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-800'
@@ -1169,32 +1165,32 @@ export function SolitaireEngine({
         <button
           type="button"
           onClick={() => { setVariant('tripeaks'); }}
-          className={`flex-1 py-1.5 px-2 rounded-xl transition-all whitespace-nowrap text-center ${
+          className={`py-1.5 px-0.5 rounded-lg sm:rounded-xl transition-all whitespace-nowrap text-center ${
             variant === 'tripeaks'
               ? 'bg-emerald-600 text-white shadow-xs'
               : 'text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-800'
           }`}
         >
-          ⛰️ Três Picos
+          ⛰️ 3 Picos
         </button>
       </div>
 
       {/* Sub-toggles (Klondike Vira 1 / Vira 3; Spider Naipes) */}
       {variant === 'klondike' && (
-        <div className="flex items-center justify-between px-2 text-[11px] font-bold text-stone-500">
-          <div className="flex items-center gap-1.5">
-            <span>Modo Monte:</span>
+        <div className="flex items-center justify-between px-1 text-[10px] sm:text-[11px] font-bold text-stone-500">
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            <span className="hidden sm:inline">Modo Monte:</span>
             <button
               type="button"
               onClick={() => { setDrawMode(1); initGame(); }}
-              className={`px-2 py-0.5 rounded-lg border ${drawMode === 1 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'border-stone-300'}`}
+              className={`px-2 py-0.5 rounded-lg border ${drawMode === 1 ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-black' : 'border-stone-300'}`}
             >
               Vira 1 (Fácil)
             </button>
             <button
               type="button"
               onClick={() => { setDrawMode(3); initGame(); }}
-              className={`px-2 py-0.5 rounded-lg border ${drawMode === 3 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'border-stone-300'}`}
+              className={`px-2 py-0.5 rounded-lg border ${drawMode === 3 ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-black' : 'border-stone-300'}`}
             >
               Vira 3 (Clássico)
             </button>
@@ -1204,27 +1200,27 @@ export function SolitaireEngine({
       )}
 
       {variant === 'spider' && (
-        <div className="flex items-center justify-between px-2 text-[11px] font-bold text-stone-500">
-          <div className="flex items-center gap-1.5">
-            <span>Dificuldade:</span>
+        <div className="flex items-center justify-between px-1 text-[10px] sm:text-[11px] font-bold text-stone-500">
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            <span className="hidden sm:inline">Dificuldade:</span>
             <button
               type="button"
               onClick={() => { setSpiderSuitsCount(1); }}
-              className={`px-2 py-0.5 rounded-lg border ${spiderSuitsCount === 1 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'border-stone-300'}`}
+              className={`px-1.5 sm:px-2 py-0.5 rounded-lg border ${spiderSuitsCount === 1 ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-black' : 'border-stone-300'}`}
             >
-              1 Naipe ♠ (Fácil)
+              1 Naipe ♠
             </button>
             <button
               type="button"
               onClick={() => { setSpiderSuitsCount(2); }}
-              className={`px-2 py-0.5 rounded-lg border ${spiderSuitsCount === 2 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'border-stone-300'}`}
+              className={`px-1.5 sm:px-2 py-0.5 rounded-lg border ${spiderSuitsCount === 2 ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-black' : 'border-stone-300'}`}
             >
               2 Naipes ♠♥
             </button>
             <button
               type="button"
               onClick={() => { setSpiderSuitsCount(4); }}
-              className={`px-2 py-0.5 rounded-lg border ${spiderSuitsCount === 4 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'border-stone-300'}`}
+              className={`px-1.5 sm:px-2 py-0.5 rounded-lg border ${spiderSuitsCount === 4 ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-black' : 'border-stone-300'}`}
             >
               4 Naipes
             </button>
@@ -1234,8 +1230,8 @@ export function SolitaireEngine({
       )}
 
       {/* ── Status Message Banner ── */}
-      <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 p-2.5 rounded-2xl flex items-center justify-between gap-2 shadow-2xs">
-        <p className="font-bold text-xs text-emerald-950 dark:text-emerald-200 truncate">
+      <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 p-2 sm:p-2.5 rounded-xl sm:rounded-2xl flex items-center justify-between gap-2 shadow-2xs">
+        <p className="font-bold text-[11px] sm:text-xs text-emerald-950 dark:text-emerald-200 truncate">
           {message}
         </p>
         {canAutoComplete && (
@@ -1252,44 +1248,44 @@ export function SolitaireEngine({
 
       {/* ── KLONDIKE & FREECELL & SPIDER TABLEAU ── */}
       {variant !== 'tripeaks' && (
-        <div className="bg-[#1b4332] dark:bg-[#081c15] p-2.5 sm:p-3 rounded-3xl border-4 border-[#081c15] shadow-xl space-y-3">
+        <div className="bg-[#1b4332] dark:bg-[#081c15] p-1.5 sm:p-3 rounded-2xl sm:rounded-3xl border-2 sm:border-4 border-[#081c15] shadow-xl space-y-2 sm:space-y-3 w-full">
           
-          {/* Top Row: Stock / Waste / Foundations */}
-          <div className="flex items-center justify-between gap-1">
-            
-            {/* Klondike Stock & Waste */}
-            {variant === 'klondike' && (
-              <div className="flex gap-1.5">
-                {/* Stock Pile */}
+          {/* Top Row: Perfectly Aligned 7-Column Grid in Klondike */}
+          {variant === 'klondike' && (
+            <div className="grid grid-cols-7 gap-1 sm:gap-1.5 items-start">
+              {/* Col 0: Stock */}
+              <div className="w-full">
                 <button
                   type="button"
                   onClick={handleStockClick}
-                  className={`${cardW} ${cardH} rounded-lg bg-gradient-to-br from-blue-700 to-indigo-900 border-2 border-blue-400 flex items-center justify-center text-white font-black text-xs shadow-md active:scale-95 transition-transform`}
+                  className="w-full aspect-[5/7] rounded-md sm:rounded-lg bg-gradient-to-br from-blue-700 to-indigo-900 border-2 border-blue-400 flex items-center justify-center text-white font-black text-xs shadow-md active:scale-95 transition-transform"
                   title="Comprar carta do baralho"
                 >
                   {stock.length > 0 ? (
                     <div className="flex flex-col items-center">
-                      <span className="text-base sm:text-lg">🂠</span>
-                      <span className="text-[10px] font-black">{stock.length}</span>
+                      <span className="text-sm sm:text-base">🂠</span>
+                      <span className="text-[9px] sm:text-[10px] font-black">{stock.length}</span>
                     </div>
                   ) : (
-                    <RotateCcw className="h-5 w-5 text-blue-200 animate-pulse" />
+                    <RotateCcw className="h-4 w-4 sm:h-5 sm:w-5 text-blue-200 animate-pulse" />
                   )}
                 </button>
+              </div>
 
-                {/* Waste Pile */}
+              {/* Col 1: Waste */}
+              <div className="w-full">
                 <button
                   type="button"
                   onClick={handleWasteClick}
-                  className={`${cardW} ${cardH} rounded-lg border-2 shadow-md transition-all ${
+                  className={`w-full aspect-[5/7] rounded-md sm:rounded-lg border-2 shadow-md transition-all ${
                     waste.length > 0
                       ? 'bg-white border-amber-400'
                       : 'bg-emerald-950/40 border-dashed border-emerald-600/40 flex items-center justify-center'
                   } ${
                     selection?.type === 'waste'
-                      ? 'ring-4 ring-amber-400 scale-105 z-20'
+                      ? 'ring-3 sm:ring-4 ring-amber-400 scale-105 z-20'
                       : highlightMove?.fromWaste
-                      ? 'ring-4 ring-emerald-400 animate-pulse'
+                      ? 'ring-3 sm:ring-4 ring-emerald-400 animate-pulse'
                       : ''
                   }`}
                   title="Carta do descarte"
@@ -1297,93 +1293,124 @@ export function SolitaireEngine({
                   {waste.length > 0 ? (
                     <CardFace card={waste[waste.length - 1]} />
                   ) : (
-                    <span className="text-emerald-500/40 text-[10px] font-black">LIXO</span>
+                    <span className="text-emerald-500/40 text-[9px] font-black">LIXO</span>
                   )}
                 </button>
               </div>
-            )}
 
-            {/* FreeCell: 4 Free Cells */}
-            {variant === 'freecell' && (
-              <div className="flex gap-1">
-                {freeCells.map((cell, idx) => {
-                  const isSelected = selection?.type === 'freecell' && selection.cellIdx === idx;
-                  return (
+              {/* Col 2: Spacer */}
+              <div className="w-full aspect-[5/7] opacity-0 pointer-events-none" />
+
+              {/* Cols 3..6: 4 Foundations */}
+              {foundations.map((pile, fIdx) => {
+                const top = pile.length > 0 ? pile[pile.length - 1] : null;
+                const isHintTarget = highlightMove?.toF === fIdx;
+                return (
+                  <div key={fIdx} className="w-full">
                     <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleFreeCellClick(idx)}
-                      className={`${cardW} ${cardH} rounded-lg border-2 shadow-xs transition-all flex items-center justify-center ${
-                        cell
-                          ? 'bg-white border-stone-300'
-                          : 'bg-emerald-950/40 border-dashed border-emerald-600/40'
-                      } ${isSelected ? 'ring-4 ring-amber-400 scale-105 z-20' : ''}`}
-                    >
-                      {cell ? (
-                        <CardFace card={cell} />
-                      ) : (
-                        <span className="text-emerald-500/40 text-[10px] font-bold">C{idx + 1}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Spider: Stock & Completed Suites */}
-            {variant === 'spider' && (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={stock.length === 0}
-                  onClick={handleSpiderDealStock}
-                  className={`${cardW} ${cardH} rounded-lg bg-gradient-to-br from-blue-700 to-indigo-900 border-2 border-blue-400 flex items-center justify-center text-white font-black text-xs shadow-md active:scale-95 disabled:opacity-40`}
-                >
-                  {stock.length > 0 ? (
-                    <div className="flex flex-col items-center">
-                      <span className="text-sm">🂠</span>
-                      <span className="text-[10px]">{stock.length / 10}</span>
-                    </div>
-                  ) : '0'}
-                </button>
-                <div className="text-white text-xs font-black">
-                  <span>{foundations.filter(p => p.length === 13).length} / 8</span>
-                </div>
-              </div>
-            )}
-
-            {/* Foundations (Klondike & FreeCell) */}
-            {(variant === 'klondike' || variant === 'freecell') && (
-              <div className="flex gap-1">
-                {foundations.map((pile, fIdx) => {
-                  const top = pile.length > 0 ? pile[pile.length - 1] : null;
-                  const isHintTarget = highlightMove?.toF === fIdx;
-                  return (
-                    <button
-                      key={fIdx}
                       type="button"
                       onClick={() => handleFoundationClick(fIdx)}
-                      className={`${cardW} ${cardH} rounded-lg border-2 shadow-xs flex flex-col items-center justify-center transition-all ${
+                      className={`w-full aspect-[5/7] rounded-md sm:rounded-lg border-2 shadow-xs flex flex-col items-center justify-center transition-all ${
                         top
                           ? 'bg-white border-stone-300'
                           : 'bg-emerald-950/40 border-dashed border-emerald-600/40'
-                      } ${isHintTarget ? 'ring-4 ring-emerald-400 animate-pulse' : ''}`}
+                      } ${isHintTarget ? 'ring-3 sm:ring-4 ring-emerald-400 animate-pulse' : ''}`}
                     >
                       {top ? (
                         <CardFace card={top} />
                       ) : (
-                        <span className="text-emerald-400/50 text-xs font-black">A</span>
+                        <span className="text-emerald-400/50 text-[11px] sm:text-xs font-black">A</span>
                       )}
                     </button>
-                  );
-                })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Top Row: FreeCell (4 FreeCells + 4 Foundations = 8 cols) */}
+          {variant === 'freecell' && (
+            <div className="grid grid-cols-8 gap-0.5 sm:gap-1 items-start">
+              {/* FreeCells 0..3 */}
+              {freeCells.map((cell, idx) => {
+                const isSelected = selection?.type === 'freecell' && selection.cellIdx === idx;
+                return (
+                  <div key={idx} className="w-full">
+                    <button
+                      type="button"
+                      onClick={() => handleFreeCellClick(idx)}
+                      className={`w-full aspect-[5/7] rounded-md sm:rounded-lg border-2 shadow-xs transition-all flex items-center justify-center ${
+                        cell
+                          ? 'bg-white border-stone-300'
+                          : 'bg-emerald-950/40 border-dashed border-emerald-600/40'
+                      } ${isSelected ? 'ring-3 sm:ring-4 ring-amber-400 scale-105 z-20' : ''}`}
+                    >
+                      {cell ? (
+                        <CardFace card={cell} />
+                      ) : (
+                        <span className="text-emerald-500/40 text-[9px] font-bold">C{idx + 1}</span>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+
+              {/* Foundations 0..3 */}
+              {foundations.map((pile, fIdx) => {
+                const top = pile.length > 0 ? pile[pile.length - 1] : null;
+                const isHintTarget = highlightMove?.toF === fIdx;
+                return (
+                  <div key={fIdx} className="w-full">
+                    <button
+                      type="button"
+                      onClick={() => handleFoundationClick(fIdx)}
+                      className={`w-full aspect-[5/7] rounded-md sm:rounded-lg border-2 shadow-xs flex flex-col items-center justify-center transition-all ${
+                        top
+                          ? 'bg-white border-stone-300'
+                          : 'bg-emerald-950/40 border-dashed border-emerald-600/40'
+                      } ${isHintTarget ? 'ring-3 sm:ring-4 ring-emerald-400 animate-pulse' : ''}`}
+                    >
+                      {top ? (
+                        <CardFace card={top} />
+                      ) : (
+                        <span className="text-emerald-400/50 text-[10px] sm:text-xs font-black">A</span>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Top Row: Spider (Stock + Foundations Counter) */}
+          {variant === 'spider' && (
+            <div className="flex items-center justify-between px-1">
+              <button
+                type="button"
+                disabled={stock.length === 0}
+                onClick={handleSpiderDealStock}
+                className="w-12 sm:w-14 aspect-[5/7] rounded-md sm:rounded-lg bg-gradient-to-br from-blue-700 to-indigo-900 border-2 border-blue-400 flex items-center justify-center text-white font-black text-xs shadow-md active:scale-95 disabled:opacity-40"
+              >
+                {stock.length > 0 ? (
+                  <div className="flex flex-col items-center">
+                    <span className="text-xs sm:text-sm">🂠</span>
+                    <span className="text-[9px] font-black">{stock.length / 10}</span>
+                  </div>
+                ) : '0'}
+              </button>
+              <div className="text-white text-[11px] sm:text-xs font-black bg-emerald-900/60 px-2 py-1 rounded-lg border border-emerald-700/40">
+                Sequências completas: <span className="text-amber-300">{foundations.filter(p => p.length === 13).length}</span> / 8
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Tableau Columns */}
-          <div className={`grid gap-1 sm:gap-1.5 overflow-x-auto ${
-            variant === 'spider' ? 'grid-cols-10 min-w-[340px]' : variant === 'freecell' ? 'grid-cols-8' : 'grid-cols-7'
+          <div className={`grid items-start ${
+            variant === 'spider' 
+              ? 'grid-cols-10 gap-0.5' 
+              : variant === 'freecell' 
+              ? 'grid-cols-8 gap-0.5 sm:gap-1' 
+              : 'grid-cols-7 gap-1 sm:gap-1.5'
           }`}>
             {tableau.map((col, colIdx) => {
               const isColHintTarget = highlightMove?.toCol === colIdx;
@@ -1393,12 +1420,12 @@ export function SolitaireEngine({
                 <div
                   key={colIdx}
                   onClick={() => col.length === 0 && handleEmptyColumnClick(colIdx)}
-                  className={`flex flex-col items-center min-h-[200px] sm:min-h-[230px] rounded-xl p-0.5 cursor-pointer transition-colors ${
+                  className={`flex flex-col items-center w-full min-h-[190px] sm:min-h-[250px] rounded-lg p-0.5 cursor-pointer transition-colors ${
                     col.length === 0 ? 'bg-emerald-950/20 hover:bg-emerald-900/30' : ''
                   } ${isColHintTarget ? 'ring-2 ring-emerald-400' : ''}`}
                 >
                   {col.length === 0 ? (
-                    <div className={`${cardW} ${cardH} rounded-lg border-2 border-dashed border-emerald-600/40 flex items-center justify-center text-emerald-400/50 text-xs font-black`}>
+                    <div className="w-full aspect-[5/7] rounded-md sm:rounded-lg border-2 border-dashed border-emerald-600/40 flex items-center justify-center text-emerald-400/50 text-[10px] sm:text-xs font-black">
                       {variant === 'klondike' ? 'K' : '—'}
                     </div>
                   ) : (
@@ -1413,12 +1440,12 @@ export function SolitaireEngine({
                           key={card.id}
                           onClick={(e) => handleCardClick(colIdx, cardIdx, e)}
                           className={`
-                            ${cardW} rounded-lg border-2 shadow-xs transition-all shrink-0 cursor-pointer
+                            w-full aspect-[5/7] rounded-md sm:rounded-lg border shadow-xs transition-all shrink-0 cursor-pointer overflow-hidden
                             ${card.isFaceUp ? 'bg-white border-stone-300' : 'bg-transparent border-transparent'}
-                            ${isSelected ? 'ring-4 ring-amber-400 border-amber-400 z-30 scale-[1.03] shadow-lg' : ''}
-                            ${isColHintSource && isTopCard ? 'ring-4 ring-emerald-400 animate-pulse' : ''}
-                            ${cardIdx > 0 ? (card.isFaceUp ? '-mt-10 sm:-mt-12' : '-mt-11 sm:-mt-13') : ''}
-                            ${isTopCard ? `${cardH} z-10` : 'h-11 sm:h-13'}
+                            ${isSelected ? 'ring-3 sm:ring-4 ring-amber-400 border-amber-400 z-30 scale-[1.03] shadow-md' : ''}
+                            ${isColHintSource && isTopCard ? 'ring-3 sm:ring-4 ring-emerald-400 animate-pulse' : ''}
+                            ${cardIdx > 0 ? (card.isFaceUp ? '-mt-8 sm:-mt-11' : '-mt-9 sm:-mt-12') : ''}
+                            ${isTopCard ? 'z-10' : ''}
                           `}
                         >
                           {card.isFaceUp ? (
@@ -1439,36 +1466,36 @@ export function SolitaireEngine({
 
       {/* ── TRIPEAKS (TRÊS PICOS) TABLEAU ── */}
       {variant === 'tripeaks' && (
-        <div className="bg-[#1b4332] dark:bg-[#081c15] p-4 rounded-3xl border-4 border-[#081c15] shadow-xl space-y-4">
+        <div className="bg-[#1b4332] dark:bg-[#081c15] p-2.5 sm:p-4 rounded-2xl sm:rounded-3xl border-2 sm:border-4 border-[#081c15] shadow-xl space-y-3 w-full overflow-hidden">
           
           {/* Streak bonus pill */}
           <div className="flex items-center justify-between text-xs font-black text-white px-2">
             <span className="flex items-center gap-1 text-amber-300">
               <Flame className="h-4 w-4" /> Combo: x{tripeaksStreak}
             </span>
-            <span className="text-emerald-200">Pontuação: {score}</span>
+            <span className="text-emerald-200">Pontos: {score}</span>
           </div>
 
           {/* 4 Rows of Pyramids */}
-          <div className="flex flex-col items-center gap-2 py-2">
+          <div className="flex flex-col items-center gap-1 sm:gap-2 py-1 w-full">
             {tripeaksRows.map((row, rIdx) => (
-              <div key={rIdx} className="flex justify-center gap-1.5 sm:gap-2">
+              <div key={rIdx} className="flex justify-center gap-1 sm:gap-1.5 w-full">
                 {row.map((card, cIdx) => (
                   <button
                     key={card.id}
                     type="button"
                     disabled={!card.isFaceUp}
                     onClick={() => handleTripeaksCardClick(rIdx, cIdx)}
-                    className={`${cardW} ${cardH} rounded-lg border-2 shadow-md transition-all ${
+                    className={`w-[9%] max-w-[44px] aspect-[5/7] rounded-md sm:rounded-lg border shadow-sm transition-all overflow-hidden ${
                       card.isFaceUp
                         ? 'bg-white border-stone-200 hover:scale-105 active:scale-95'
                         : 'border-transparent opacity-85'
                     }`}
                   >
                     {card.isFaceUp ? (
-                      <CardFace card={card} />
+                      <CardFace card={card} small />
                     ) : (
-                      <CardBack />
+                      <CardBack small />
                     )}
                   </button>
                 ))}
@@ -1477,7 +1504,7 @@ export function SolitaireEngine({
           </div>
 
           {/* Bottom Stock & Waste Pile */}
-          <div className="flex items-center justify-center gap-4 pt-2 border-t border-emerald-900/50">
+          <div className="flex items-center justify-center gap-3 sm:gap-4 pt-2 border-t border-emerald-900/50">
             {/* Stock */}
             <button
               type="button"
@@ -1493,18 +1520,18 @@ export function SolitaireEngine({
                 setTripeaksStreak(0);
                 setMoves(m => m + 1);
               }}
-              className={`${cardW} ${cardH} rounded-lg bg-gradient-to-br from-blue-700 to-indigo-900 border-2 border-blue-400 flex items-center justify-center text-white font-black text-xs shadow-md active:scale-95 disabled:opacity-40`}
+              className="w-12 sm:w-14 aspect-[5/7] rounded-md sm:rounded-lg bg-gradient-to-br from-blue-700 to-indigo-900 border-2 border-blue-400 flex items-center justify-center text-white font-black text-xs shadow-md active:scale-95 disabled:opacity-40"
             >
               {stock.length > 0 ? (
                 <div className="flex flex-col items-center">
-                  <span className="text-lg">🂠</span>
+                  <span className="text-base">🂠</span>
                   <span className="text-[10px]">{stock.length}</span>
                 </div>
               ) : '0'}
             </button>
 
             {/* Waste */}
-            <div className={`${cardW} ${cardH} rounded-lg border-2 border-amber-400 bg-white shadow-md`}>
+            <div className="w-12 sm:w-14 aspect-[5/7] rounded-md sm:rounded-lg border-2 border-amber-400 bg-white shadow-md overflow-hidden">
               {waste.length > 0 && (
                 <CardFace card={waste[waste.length - 1]} />
               )}
@@ -1514,14 +1541,15 @@ export function SolitaireEngine({
       )}
 
       {/* ── Universal Action Bar ── */}
-      <div className="grid grid-cols-4 gap-2 pt-1">
+      <div className="grid grid-cols-4 gap-1 sm:gap-1.5 pt-1">
         <Button
           type="button"
           onClick={handleHint}
           variant="outline"
-          className="h-11 border-amber-300 bg-amber-50/50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 font-bold text-xs sm:text-sm rounded-xl gap-1 shadow-2xs"
+          className="h-10 sm:h-11 px-1 border-amber-300 bg-amber-50/50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 font-bold text-[11px] sm:text-xs rounded-xl gap-1 shadow-2xs"
         >
-          <Lightbulb className="h-4 w-4" /> {tGame.hint}
+          <Lightbulb className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+          <span>{tGame.hint}</span>
         </Button>
 
         <Button
@@ -1529,40 +1557,43 @@ export function SolitaireEngine({
           disabled={!canUndo}
           onClick={handleUndo}
           variant="outline"
-          className="h-11 border-stone-300 dark:border-stone-700 font-bold text-xs sm:text-sm rounded-xl gap-1 disabled:opacity-40"
+          className="h-10 sm:h-11 px-1 border-stone-300 dark:border-stone-700 font-bold text-[11px] sm:text-xs rounded-xl gap-1 disabled:opacity-40"
         >
-          <Undo2 className="h-4 w-4" /> Desfazer
+          <Undo2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+          <span>Desfazer</span>
         </Button>
 
         <Button
           type="button"
           onClick={initGame}
           variant="outline"
-          className="h-11 border-stone-300 dark:border-stone-700 font-bold text-xs sm:text-sm rounded-xl gap-1"
+          className="h-10 sm:h-11 px-1 border-stone-300 dark:border-stone-700 font-bold text-[11px] sm:text-xs rounded-xl gap-1"
         >
-          <Shuffle className="h-4 w-4" /> Embaralhar
+          <Shuffle className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+          <span>Misturar</span>
         </Button>
 
         <Button
           type="button"
           onClick={initGame}
           variant="outline"
-          className="h-11 border-stone-300 dark:border-stone-700 font-bold text-xs sm:text-sm rounded-xl gap-1"
+          className="h-10 sm:h-11 px-1 border-stone-300 dark:border-stone-700 font-bold text-[11px] sm:text-xs rounded-xl gap-1"
         >
-          <RotateCcw className="h-4 w-4" /> Novo Jogo
+          <RotateCcw className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+          <span>Novo</span>
         </Button>
       </div>
 
       {/* ── Victory Celebration Card ── */}
       {isCompleted && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/80 border-2 border-emerald-400 p-6 rounded-3xl text-center space-y-3 shadow-xl animate-in fade-in zoom-in-95">
-          <div className="w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center mx-auto text-3xl shadow-lg">
+        <div className="bg-emerald-50 dark:bg-emerald-950/80 border-2 border-emerald-400 p-5 sm:p-6 rounded-3xl text-center space-y-3 shadow-xl animate-in fade-in zoom-in-95">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center mx-auto text-2xl sm:text-3xl shadow-lg">
             👑
           </div>
-          <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-100">
+          <h3 className="text-lg sm:text-xl font-black text-emerald-900 dark:text-emerald-100">
             {tGame.solitaire.winTitle}
           </h3>
-          <p className="text-sm font-semibold text-stone-700 dark:text-stone-300 max-w-sm mx-auto">
+          <p className="text-xs sm:text-sm font-semibold text-stone-700 dark:text-stone-300 max-w-sm mx-auto">
             {tGame.solitaire.winDesc}
           </p>
           <div className="flex gap-2 pt-2">
@@ -1570,7 +1601,7 @@ export function SolitaireEngine({
               type="button"
               onClick={initGame}
               variant="outline"
-              className="flex-1 h-12 rounded-xl font-bold border-stone-300"
+              className="flex-1 h-11 sm:h-12 rounded-xl font-bold border-stone-300 text-xs sm:text-sm"
             >
               Jogar Novamente
             </Button>
@@ -1578,7 +1609,7 @@ export function SolitaireEngine({
               <Button
                 type="button"
                 onClick={onNextLevel}
-                className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold gap-1 shadow-md"
+                className="flex-1 h-11 sm:h-12 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold gap-1 shadow-md text-xs sm:text-sm"
               >
                 Próxima Fase <ArrowRight className="h-4 w-4" />
               </Button>
