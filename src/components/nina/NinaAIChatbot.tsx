@@ -24,7 +24,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { speakPleasantVoice, stopVoiceSpeech } from '@/lib/audio/voice-synthesizer';
+import { speakPleasantVoice, stopVoiceSpeech, unlockAudio } from '@/lib/audio/voice-synthesizer';
 import { VoiceSettingsModal } from '@/components/shared/VoiceSettingsModal';
 
 export interface NinaAIChatbotProps {
@@ -162,6 +162,7 @@ export function NinaAIChatbot({
 
   // ── Send Message ──
   const handleSend = async (messageText?: string) => {
+    unlockAudio();
     const textToSend = (messageText || input).trim();
     if (!textToSend || loading) return;
 
@@ -341,6 +342,7 @@ export function NinaAIChatbot({
 
   // ── Start Audio Recording (Universal: iOS Safari, Android, Chrome, Edge) ──
   const startRecording = async () => {
+    unlockAudio();
     stopVoiceSpeech();
     setIsSpeaking(false);
     setSpeakingMsgId(null);
@@ -456,6 +458,7 @@ export function NinaAIChatbot({
 
   // ── Speak a specific message toggle ──
   const handleSpeakMessage = (msg: Message) => {
+    unlockAudio();
     if (speakingMsgId === msg.id && isSpeaking) {
       stopVoiceSpeech();
       setIsSpeaking(false);
@@ -471,6 +474,7 @@ export function NinaAIChatbot({
   };
 
   const handleQuickQuestion = (q: string) => {
+    unlockAudio();
     if (!chatStarted) setChatStarted(true);
     handleSend(q);
   };

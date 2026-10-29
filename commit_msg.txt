@@ -1,9 +1,8 @@
-Traduz graus de parentesco e termos da tela do idoso para ingles e demais idiomas
+Corrige reproducao de audio ao clicar em ouvir no chat da Nina IA
 
-- Cria dicionario multilingue relationship-translations.ts cobrindo termos de familia e parentesco em 5 idiomas (pt-BR, en, es, fr, de)
-- Corrige traducao de contatos de emergencia na tela do idoso (Filho(a) -> Son / Daughter, etc.)
-- Traduz legendas da rotina (remedios tomados/agendados, refeicoes, tarefas e atividades) de acordo com o idioma ativo
-- Formata data da rotina respeitando cada idioma sem 'de' fixo
-- Traduz botao de confirmacao rapida da rotina (Fiz / Done / Hecho / Fait / Erledigt)
-- Traduz mensagens de status e retorno de voz do SOS e de Quero Conversar
-- Implementa rota de API /api/tts com vozes neurais de IA (Google Gemini TTS)
+- Atualiza rota /api/tts com modelos Gemini TTS modernos (gemini-3.8-flash-lite-tts, gemini-3.8-flash-tts e gemini-3.1-flash-tts-preview) com fallback entre modelos
+- Adiciona prefixo de instrucao de fala no prompt do Gemini TTS para eliminar erro 400
+- Adiciona cache de audio em memoria para respostas instantaneas e preservacao de quota
+- Implementa unlockAudio para compatibilidade universal com politicas de autoplay do iOS Safari e mobile
+- Adiciona reproducao robusta via HTMLAudioElement (Blob URL) com fallback para Web Audio Buffer
+- Garante parada limpa de todos os canais de audio ao pausar ou alternar mensagens

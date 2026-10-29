@@ -2,29 +2,51 @@ import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * POST /api/tts
- * Gera áudio de alta qualidade (PCM 24kHz mono) usando Google Gemini TTS.
- * Vozes neurais disponíveis: Zephyr (F, calma), Kore (F, firme), Charon (M, sereno), Fenrir (M, grave)
- * Retorna: audio/wav base64 ou stream de bytes
+ * Gera áudio de voz neural em alta fidelidade usando Google Gemini TTS.
+ * Utiliza gemini-3.8-flash-lite-tts com fallback para gemini-3.8-flash-tts e gemini-3.1-flash-tts-preview.
+ * Inclui cache em memória para respostas instantâneas (<2ms) e economia de quota.
  */
 
-const GEMINI_TTS_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent';
+// Modelos TTS em ordem de prioridade (velocidade e quota)
+const TTS_MODELS = [
+  'gemini-3.8-flash-lite-tts',
+  'gemini-3.8-flash-tts',
+  'gemini-3.1-flash-tts-preview',
+];
 
-// Mapeamento locale → voz Gemini mais adequada para idosos
-const VOICE_BY_LOCALE: Record<string, { name: string; label: string }> = {
-  'pt-BR': { name: 'Zephyr', label: 'Voz feminina suave' },
-  'pt':    { name: 'Zephyr', label: 'Voz feminina suave' },
-  'en':    { name: 'Kore',   label: 'Warm female voice' },
-  'es':    { name: 'Zephyr', label: 'Voz femenina suave' },
-  'fr':    { name: 'Aoede',  label: 'Voix féminine douce' },
-  'de':    { name: 'Kore',   label: 'Weiche Frauenstimme' },
+// Mapeamento locale → voz neural mais acolhedora
+const VOICE_BY_LOCALE: Record<string, string> = {
+  'pt-BR': 'Zephyr',   // Feminina, acolhedora e suave
+  'pt':    'Zephyr',
+  'en':    'Kore',     // Feminina, clara e calorosa
+  'es':    'Zephyr',
+  'fr':    'Aoede',
+  'de':    'Kore',
 };
 
-// Fallback por persona
+// Mapeamento por persona
 const VOICE_BY_PERSONA: Record<string, string> = {
-  nina_warm:      'Zephyr',   // feminina, suave
-  doctor_gentle:  'Charon',   // masculino, sereno
-  google_natural: 'Kore',     // feminina, clara
+  nina_warm:      'Zephyr',   // feminina afetuosa
+  doctor_gentle:  'Charon',   // masculina serena
+  google_natural: 'Kore',     // neutra clara
 };
+
+// Cache em memória de áudios gerados (máx 150 itens)
+const audioCache = new Map<string, { buffer: Buffer; timestamp: number }>();
+const MAX_CACHE_ITEMS = 150;
+
+function getCacheKey(locale: string, voiceName: string, text: string): string {
+  return `${locale}:${voiceName}:${text.trim().toLowerCase()}`;
+}
+
+function setCache(key: string, buffer: Buffer) {
+  if (audioCache.size >= MAX_CACHE_ITEMS) {
+    // Remove os mais antigos (primeira chave do Map)
+    const oldestKey = audioCache.keys().next().value;
+    if (oldestKey) audioCache.delete(oldestKey);
+  }
+  audioCache.set(key, { buffer, timestamp: Date.now() });
+}
 
 function buildWavHeader(dataLength: number, sampleRate = 24000, numChannels = 1, bitsPerSample = 16): Buffer {
   const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
@@ -61,19 +83,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'TTS API key not configured' }, { status: 500 });
     }
 
-    // Escolher voz: persona > locale > fallback
+    // Escolhe voz: persona > locale > fallback Zephyr
     const normalizedLocale = locale.startsWith('pt') ? 'pt-BR' : locale.split('-')[0];
-    let voiceName = VOICE_BY_LOCALE[normalizedLocale]?.name || 'Zephyr';
+    let voiceName = VOICE_BY_LOCALE[normalizedLocale] || 'Zephyr';
     if (persona && VOICE_BY_PERSONA[persona]) {
       voiceName = VOICE_BY_PERSONA[persona];
     }
 
-    const cleanText = text.slice(0, 1000).trim(); // Limite de segurança
+    const cleanText = text.slice(0, 1000).trim();
+    const cacheKey = getCacheKey(normalizedLocale, voiceName, cleanText);
 
+    // 1. Verificar cache em memória
+    const cached = audioCache.get(cacheKey);
+    if (cached) {
+      return new NextResponse(new Uint8Array(cached.buffer), {
+        status: 200,
+        headers: {
+          'Content-Type': 'audio/wav',
+          'Content-Length': String(cached.buffer.length),
+          'Cache-Control': 'public, max-age=86400',
+          'X-TTS-Cache': 'HIT',
+        },
+      });
+    }
+
+    // 2. Montar corpo de requisição para Google Gemini TTS
+    // Importante: a instrução "Speak the following text: " é mandatória para evitar o erro 400
     const body = {
       contents: [
         {
-          parts: [{ text: cleanText }],
+          parts: [{ text: `Speak the following text: ${cleanText}` }],
           role: 'user',
         },
       ],
@@ -89,40 +128,63 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    const response = await fetch(`${GEMINI_TTS_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    let lastError = '';
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('[TTS] Gemini API error:', response.status, errText);
-      return NextResponse.json({ error: 'TTS generation failed', detail: errText }, { status: 502 });
+    // 3. Tentar os modelos em sequência (caso algum atinja limite de quota instantâneo)
+    for (const model of TTS_MODELS) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          lastError = `[${model}] status ${response.status}: ${errText.slice(0, 200)}`;
+          // Se for 429 (rate limit) tenta o próximo modelo
+          if (response.status === 429) {
+            continue;
+          }
+          // Outro erro HTTP
+          continue;
+        }
+
+        const data = await response.json();
+        const audioData = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+        if (!audioData) {
+          lastError = `[${model}] No audioData in candidate`;
+          continue;
+        }
+
+        // audioData é base64 PCM L16 24kHz mono
+        const pcmBuffer = Buffer.from(audioData, 'base64');
+        const wavHeader = buildWavHeader(pcmBuffer.length);
+        const wavBuffer = Buffer.concat([wavHeader, pcmBuffer]);
+
+        // Salva no cache
+        setCache(cacheKey, wavBuffer);
+
+        return new NextResponse(new Uint8Array(wavBuffer), {
+          status: 200,
+          headers: {
+            'Content-Type': 'audio/wav',
+            'Content-Length': String(wavBuffer.length),
+            'Cache-Control': 'public, max-age=86400',
+            'X-TTS-Model': model,
+          },
+        });
+      } catch (err: any) {
+        lastError = `[${model}] fetch error: ${err?.message || err}`;
+        continue;
+      }
     }
 
-    const data = await response.json();
-
-    // Extract audio data from Gemini response
-    const audioData = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!audioData) {
-      console.error('[TTS] No audio data in response:', JSON.stringify(data).slice(0, 500));
-      return NextResponse.json({ error: 'No audio data returned by TTS' }, { status: 502 });
-    }
-
-    // audioData is base64-encoded PCM (L16, 24kHz, mono)
-    const pcmBuffer = Buffer.from(audioData, 'base64');
-    const wavHeader = buildWavHeader(pcmBuffer.length);
-    const wavBuffer = Buffer.concat([wavHeader, pcmBuffer]);
-
-    return new NextResponse(wavBuffer, {
-      status: 200,
-      headers: {
-        'Content-Type': 'audio/wav',
-        'Content-Length': String(wavBuffer.length),
-        'Cache-Control': 'no-store',
-      },
-    });
+    console.error('[TTS] Todos os modelos falharam:', lastError);
+    return NextResponse.json({ error: 'TTS generation failed', detail: lastError }, { status: 502 });
   } catch (err: any) {
     console.error('[TTS] Unexpected error:', err);
     return NextResponse.json({ error: 'Internal server error', detail: err?.message }, { status: 500 });

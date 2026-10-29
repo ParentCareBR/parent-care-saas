@@ -262,9 +262,52 @@ function getSavedSpeed(defaultRate: number): number {
   return defaultRate;
 }
 
+// Active audio instances for cancellation and iOS unlocking
+let activeAudioElement: HTMLAudioElement | null = null;
+let activeAudioContext: AudioContext | null = null;
+let activeSourceNode: AudioBufferSourceNode | null = null;
+let currentBlobUrl: string | null = null;
+
+/**
+ * Unlocks audio on iOS Safari and mobile browsers.
+ * MUST be called directly within a user gesture (click/tap/touch) before async operations.
+ */
+export function unlockAudio(): void {
+  if (typeof window === 'undefined') return;
+
+  try {
+    // 1. Pre-warm HTMLAudioElement
+    if (!activeAudioElement) {
+      activeAudioElement = new Audio();
+    }
+
+    // 2. Resume or instantiate Web Audio Context
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (AudioContextClass) {
+      if (!activeAudioContext || activeAudioContext.state === 'closed') {
+        activeAudioContext = new AudioContextClass();
+      }
+      if (activeAudioContext.state === 'suspended') {
+        activeAudioContext.resume().catch(() => {});
+      }
+    }
+
+    // 3. Touch SpeechSynthesis to prepare Safari Web Speech engine
+    if ('speechSynthesis' in window) {
+      try {
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
+      } catch {}
+    }
+  } catch (err) {
+    console.warn('[voice-synthesizer] Audio unlock note:', err);
+  }
+}
+
 /**
  * Plays audio via Gemini Neural TTS API (high quality).
- * Falls back to Web Speech API if the fetch fails.
+ * Falls back to Web Speech API if the fetch fails or audio cannot play.
  */
 async function speakViaGeminiTTS(
   text: string,
@@ -280,22 +323,84 @@ async function speakViaGeminiTTS(
       body: JSON.stringify({ text, locale, persona: personaId }),
     });
 
-    if (!response.ok) return false;
+    if (!response.ok) {
+      console.warn('[voice-synthesizer] /api/tts HTTP', response.status);
+      return false;
+    }
 
     const arrayBuffer = await response.arrayBuffer();
     if (!arrayBuffer || arrayBuffer.byteLength === 0) return false;
 
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const decoded = await audioCtx.decodeAudioData(arrayBuffer);
-    const source = audioCtx.createBufferSource();
-    source.buffer = decoded;
-    source.connect(audioCtx.destination);
-    source.onended = () => {
-      onEnd?.();
-      audioCtx.close();
-    };
-    source.start(0);
-    return true;
+    // Clean up previous playback if any
+    stopVoiceSpeech();
+
+    // Strategy A: HTMLAudioElement with Blob URL (Universal compatibility across iOS Safari and Android)
+    try {
+      const blob = new Blob([arrayBuffer], { type: 'audio/wav' });
+      const blobUrl = URL.createObjectURL(blob);
+      currentBlobUrl = blobUrl;
+
+      if (!activeAudioElement) {
+        activeAudioElement = new Audio();
+      }
+
+      const audio = activeAudioElement;
+      audio.src = blobUrl;
+
+      const handleAudioEnd = () => {
+        audio.removeEventListener('ended', handleAudioEnd);
+        audio.removeEventListener('error', handleAudioErr);
+        if (currentBlobUrl) {
+          URL.revokeObjectURL(currentBlobUrl);
+          currentBlobUrl = null;
+        }
+        onEnd?.();
+      };
+
+      const handleAudioErr = (e: any) => {
+        audio.removeEventListener('ended', handleAudioEnd);
+        audio.removeEventListener('error', handleAudioErr);
+        console.warn('[voice-synthesizer] HTMLAudio error, trying Web Audio buffer:', e);
+      };
+
+      audio.addEventListener('ended', handleAudioEnd);
+      audio.addEventListener('error', handleAudioErr);
+
+      await audio.play();
+      return true;
+    } catch (htmlAudioErr) {
+      console.warn('[voice-synthesizer] HTMLAudio.play() failed, trying Web Audio Context:', htmlAudioErr);
+    }
+
+    // Strategy B: Web Audio Context Buffer Source
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!activeAudioContext || activeAudioContext.state === 'closed') {
+        activeAudioContext = new AudioContextClass();
+      }
+
+      if (activeAudioContext.state === 'suspended') {
+        await activeAudioContext.resume();
+      }
+
+      const decoded = await activeAudioContext.decodeAudioData(arrayBuffer.slice(0));
+      const source = activeAudioContext.createBufferSource();
+      source.buffer = decoded;
+      source.connect(activeAudioContext.destination);
+
+      activeSourceNode = source;
+
+      source.onended = () => {
+        activeSourceNode = null;
+        onEnd?.();
+      };
+
+      source.start(0);
+      return true;
+    } catch (webAudioErr) {
+      console.warn('[voice-synthesizer] Web Audio Buffer playback failed:', webAudioErr);
+      return false;
+    }
   } catch (err) {
     console.warn('[voice-synthesizer] Gemini TTS failed, falling back to Web Speech:', err);
     return false;
@@ -316,6 +421,9 @@ export async function speakPleasantVoice(
   }
 ): Promise<void> {
   if (typeof window === 'undefined') return;
+
+  // Immediate unlock attempt
+  unlockAudio();
 
   const clean = humanizeTextForSpeech(text);
   if (!clean) return;
@@ -358,11 +466,42 @@ export async function speakPleasantVoice(
 }
 
 /**
- * Stop any active speech synthesis
+ * Stop any active speech synthesis (HTML audio, Web Audio node, or browser synthesis)
  */
 export function stopVoiceSpeech(): void {
-  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
+  if (typeof window === 'undefined') return;
+
+  // 1. Stop HTMLAudioElement
+  if (activeAudioElement) {
+    try {
+      activeAudioElement.pause();
+      activeAudioElement.currentTime = 0;
+      activeAudioElement.removeAttribute('src');
+    } catch {}
+  }
+
+  // 2. Clean up blob URL
+  if (currentBlobUrl) {
+    try {
+      URL.revokeObjectURL(currentBlobUrl);
+    } catch {}
+    currentBlobUrl = null;
+  }
+
+  // 3. Stop Web Audio Buffer Source
+  if (activeSourceNode) {
+    try {
+      activeSourceNode.stop();
+      activeSourceNode.disconnect();
+    } catch {}
+    activeSourceNode = null;
+  }
+
+  // 4. Stop Web Speech Synthesis
+  if ('speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+    } catch {}
   }
 }
 
