@@ -238,6 +238,15 @@ export function GamePlayerModal({
                 onNextLevel={handleNextLevel}
               />
             )}
+            {gameId === 'tripeaks' && (
+              <SolitaireEngine locale={locale}
+                key={`tripeaks-${levelNumber}`}
+                variant="tripeaks"
+                levelNumber={levelNumber}
+                onComplete={handleGameComplete}
+                onNextLevel={handleNextLevel}
+              />
+            )}
             {gameId === 'domino' && (
               <DominoEngine locale={locale}
                 key={`domino-${levelNumber}`}

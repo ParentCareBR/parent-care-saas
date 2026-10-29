@@ -1,1 +1,1 @@
-Adiciona secao 'Para quem e' na landing page com cards para filhos, cuidadores, parentes, idoso independente e familia a distancia
+Reestrutura Paciencia com suporte a multi-cartas, desfazer, dicas inteligentes e modos inspirados no paciencia.co (Klondike, Spider, FreeCell e TriPeaks)

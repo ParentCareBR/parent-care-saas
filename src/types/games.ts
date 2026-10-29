@@ -11,6 +11,7 @@ export type GameId =
   | 'memorias_familia'
   | 'freecell'
   | 'spider'
+  | 'tripeaks'
   | 'combine_tres'
   | 'encontre_diferencas'
   | 'perguntas_respostas'
