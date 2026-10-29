@@ -1,1 +1,1 @@
-Traduz label do seletor de idioma na tela do idoso
+Adiciona secao 'Para quem e' na landing page com cards para filhos, cuidadores, parentes, idoso independente e familia a distancia

@@ -1,7 +1,7 @@
 import { useTranslations } from 'next-intl';
 import { setRequestLocale } from 'next-intl/server';
 import Link from 'next/link';
-import { Heart, Activity, CheckCircle2, Shield, Calendar, Users, Smartphone, CreditCard, ChevronRight, PlayCircle } from 'lucide-react';
+import { Heart, Activity, CheckCircle2, Shield, Calendar, Users, Smartphone, CreditCard, ChevronRight, PlayCircle, UserCheck, Baby, Stethoscope, Home as HomeIcon } from 'lucide-react';
 import Image from 'next/image';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { InteractiveElderSimulator } from '@/components/landing/InteractiveElderSimulator';
@@ -74,6 +74,87 @@ export default function Home({ params: { locale } }: { params: { locale: string 
             className="object-cover"
             priority
           />
+        </div>
+      </section>
+
+      {/* ── "Para quem é" Section ── */}
+      <section className="py-16 bg-gradient-to-b from-white to-stone-50 border-b border-stone-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 text-emerald-800 text-xs font-extrabold border border-emerald-200 mb-4">
+              <Users className="h-3.5 w-3.5" /> {t('for_whom_badge')}
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight mb-4">
+              {t('for_whom_title')}
+            </h2>
+            <p className="text-gray-500 text-lg max-w-2xl mx-auto">
+              {t('for_whom_subtitle')}
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Card 1 - Filhos */}
+            <div className="bg-white rounded-3xl p-7 border-2 border-blue-100 hover:border-blue-300 hover:shadow-lg transition-all group">
+              <div className="w-14 h-14 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+                <Baby className="h-7 w-7" />
+              </div>
+              <h3 className="text-lg font-black text-gray-900 mb-2">{t('for_whom_card1_title')}</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">{t('for_whom_card1_desc')}</p>
+            </div>
+
+            {/* Card 2 - Cuidadores */}
+            <div className="bg-white rounded-3xl p-7 border-2 border-purple-100 hover:border-purple-300 hover:shadow-lg transition-all group">
+              <div className="w-14 h-14 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+                <Stethoscope className="h-7 w-7" />
+              </div>
+              <h3 className="text-lg font-black text-gray-900 mb-2">{t('for_whom_card2_title')}</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">{t('for_whom_card2_desc')}</p>
+            </div>
+
+            {/* Card 3 - Parentes */}
+            <div className="bg-white rounded-3xl p-7 border-2 border-rose-100 hover:border-rose-300 hover:shadow-lg transition-all group">
+              <div className="w-14 h-14 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+                <Heart className="h-7 w-7" />
+              </div>
+              <h3 className="text-lg font-black text-gray-900 mb-2">{t('for_whom_card3_title')}</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">{t('for_whom_card3_desc')}</p>
+            </div>
+
+            {/* Card 4 - Idoso Independente */}
+            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl p-7 border-2 border-emerald-400 hover:shadow-xl transition-all group sm:col-span-2 lg:col-span-1 text-white">
+              <div className="w-14 h-14 rounded-2xl bg-white/20 text-white flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+                <UserCheck className="h-7 w-7" />
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 text-white text-[11px] font-extrabold mb-3">
+                ✨ {t('for_whom_card4_badge')}
+              </div>
+              <h3 className="text-lg font-black text-white mb-2">{t('for_whom_card4_title')}</h3>
+              <p className="text-emerald-100 text-sm leading-relaxed">{t('for_whom_card4_desc')}</p>
+            </div>
+
+            {/* Card 5 - Quem mora longe */}
+            <div className="bg-white rounded-3xl p-7 border-2 border-amber-100 hover:border-amber-300 hover:shadow-lg transition-all group">
+              <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+                <HomeIcon className="h-7 w-7" />
+              </div>
+              <h3 className="text-lg font-black text-gray-900 mb-2">{t('for_whom_card5_title')}</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">{t('for_whom_card5_desc')}</p>
+            </div>
+
+            {/* Card 6 - CTA */}
+            <div className="bg-stone-900 rounded-3xl p-7 border-2 border-stone-800 hover:shadow-xl transition-all flex flex-col justify-between">
+              <div>
+                <h3 className="text-lg font-black text-white mb-2">{t('for_whom_cta_title')}</h3>
+                <p className="text-stone-400 text-sm leading-relaxed mb-6">{t('for_whom_cta_desc')}</p>
+              </div>
+              <Link
+                href={`/${locale}/auth/signup`}
+                className="inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white px-5 py-3 rounded-2xl font-bold text-sm transition-all"
+              >
+                {t('for_whom_cta_btn')} <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 
