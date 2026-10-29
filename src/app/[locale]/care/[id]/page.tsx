@@ -2421,6 +2421,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               caredPersonId={params.id}
               caredPersonName={personInfo.name}
               userRole='elderly'
+              locale={params.locale}
               isOpen={true}
               onClose={() => setNinaModalOpen(false)}
             />

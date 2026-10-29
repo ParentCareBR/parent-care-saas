@@ -17,6 +17,9 @@ import {
   ShieldCheck,
   Square,
   Sliders,
+  Loader2,
+  Check,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +34,7 @@ export interface NinaAIChatbotProps {
   onClose?: () => void;
   inline?: boolean;
   userRole?: 'host' | 'elderly';
+  locale?: string;
 }
 
 interface Message {
@@ -40,28 +44,51 @@ interface Message {
   time: string;
 }
 
-const SUGGESTED_QUESTIONS = [
-  'Qual a agenda de hoje?',
-  'Quais os remédios cadastrados?',
-  'Quais os cuidados com a pressão alta no idoso?',
-  'Como identificar sinais de desidratação?',
-  'O que fazer em caso de tontura súbita?',
-  'Como prevenir quedas no banheiro?',
-];
+const SUGGESTED_QUESTIONS_BY_LOCALE: Record<string, string[]> = {
+  'pt-BR': [
+    'Qual a agenda de hoje?',
+    'Quais os remédios cadastrados?',
+    'Quais os cuidados com a pressão alta no idoso?',
+    'Como identificar sinais de desidratação?',
+    'O que fazer em caso de tontura súbita?',
+    'Como prevenir quedas no banheiro?',
+  ],
+  'en': [
+    'What is on the schedule for today?',
+    'What medications are registered?',
+    'How to prevent falls at home?',
+    'What are the signs of dehydration in seniors?',
+    'What to do in case of sudden dizziness?',
+  ],
+  'es': [
+    '¿Cuál es la agenda de hoy?',
+    '¿Cuáles son los medicamentos registrados?',
+    '¿Cómo prevenir caídas en el hogar?',
+    '¿Cuáles son los signos de deshidratación?',
+    '¿Qué hacer en caso de mareo repentino?',
+  ],
+  'fr': [
+    'Quel est le programme d’aujourd’hui ?',
+    'Quels sont les médicaments enregistrés ?',
+    'Comment prévenir les chutes à domicile ?',
+    'Quels sont les signes de déshydratation ?',
+  ],
+  'de': [
+    'Was steht heute auf dem Plan?',
+    'Welche Medikamente sind registriert?',
+    'Wie beugt man Stürzen zu Hause vor?',
+    'Was sind Anzeichen von Dehydrierung?',
+  ],
+};
 
-// ─── Speech Synthesis helpers ─────────────────────────────────────────────────
-function speakText(text: string, onEnd?: () => void) {
-  speakPleasantVoice(text, {
-    locale: 'pt-BR',
-    onEnd,
-  });
-}
+const WELCOME_MESSAGES: Record<string, (name: string) => string> = {
+  'pt-BR': (name) => `Olá! Eu sou a **Nina IA**, sua assistente virtual no Parent Care 🩺💙\n\nEstou aqui para tirar dúvidas sobre a agenda, remédios, saúde e bem-estar de ${name}.\n\nComo posso ajudar hoje?`,
+  'en': (name) => `Hello! I am **Nina AI**, your virtual assistant in Parent Care 🩺💙\n\nI am here to answer questions about ${name}’s schedule, medications, health, and well-being.\n\nHow can I help today?`,
+  'es': (name) => `¡Hola! Soy **Nina IA**, tu asistente virtual en Parent Care 🩺💙\n\nEstoy aquí para responder dudas sobre la agenda, medicamentos y bienestar de ${name}.\n\n¿Cómo puedo ayudarte hoy?`,
+  'fr': (name) => `Bonjour ! Je suis **Nina IA**, votre assistante virtuelle dans Parent Care 🩺💙\n\nJe suis là pour répondre à vos questions sur le planning, les médicaments et la santé de ${name}.\n\nComment puis-je vous aider aujourd’hui ?`,
+  'de': (name) => `Hallo! Ich bin **Nina KI**, Ihre virtuelle Assistentin bei Parent Care 🩺💙\n\nIch helfe Ihnen bei Fragen zum Tagesablauf, zu Medikamenten und zum Wohlbefinden von ${name}.\n\nWie kann ich heute helfen?`,
+};
 
-function stopSpeech() {
-  stopVoiceSpeech();
-}
-
-// ─── Component ────────────────────────────────────────────────────────────────
 export function NinaAIChatbot({
   caredPersonId,
   caredPersonName = 'seu familiar',
@@ -69,28 +96,43 @@ export function NinaAIChatbot({
   onClose,
   inline = false,
   userRole = 'host',
+  locale = 'pt-BR',
 }: NinaAIChatbotProps) {
+  const normLocale = locale.startsWith('pt') ? 'pt-BR' : locale.split('-')[0];
+  const welcomeFn = WELCOME_MESSAGES[normLocale] || WELCOME_MESSAGES['pt-BR'];
+  const suggestedList = SUGGESTED_QUESTIONS_BY_LOCALE[normLocale] || SUGGESTED_QUESTIONS_BY_LOCALE['pt-BR'];
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      content: `Olá! Eu sou a **Nina IA**, sua assistente virtual no Parent Care 🩺💙\n\nEstou aqui para tirar dúvidas sobre a agenda, remédios, saúde e bem-estar de ${caredPersonName}.\n\nComo posso ajudar hoje?`,
-      time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      content: welcomeFn(caredPersonName),
+      time: new Date().toLocaleTimeString(normLocale === 'pt-BR' ? 'pt-BR' : 'en-US', { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  // autoVoice: Nina responde automaticamente em áudio
   const [autoVoice, setAutoVoice] = useState(true);
   const [voiceModalOpen, setVoiceModalOpen] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const [chatStarted, setChatStarted] = useState(!inline);
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
 
+  // ── Robust Voice Recording State ──
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordingNotice, setRecordingNotice] = useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<any>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // MediaRecorder refs
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -98,55 +140,27 @@ export function NinaAIChatbot({
 
   useEffect(() => { scrollToBottom(); }, [messages, loading, scrollToBottom]);
 
-  // Voice recognition setup
+  // Clean up recording stream & timer on unmount
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'pt-BR';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setInput(transcript);
-      setIsRecording(false);
+    return () => {
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      stopVoiceSpeech();
     };
-    recognition.onerror = () => setIsRecording(false);
-    recognition.onend = () => setIsRecording(false);
-    recognitionRef.current = recognition;
   }, []);
 
-  const handleToggleMic = () => {
-    if (isRecording) {
-      recognitionRef.current?.stop();
-      setIsRecording(false);
-    } else {
-      if (recognitionRef.current) {
-        setIsRecording(true);
-        recognitionRef.current.start();
-      } else {
-        alert('Reconhecimento de voz não suportado pelo seu navegador.');
-      }
-    }
-  };
-
-  // Speak a specific message — toggle if already speaking this one
-  const handleSpeakMessage = (msg: Message) => {
-    if (speakingMsgId === msg.id && isSpeaking) {
-      stopSpeech();
-      setIsSpeaking(false);
-      setSpeakingMsgId(null);
-      return;
-    }
-    setIsSpeaking(true);
-    setSpeakingMsgId(msg.id);
-    speakText(msg.content, () => {
-      setIsSpeaking(false);
-      setSpeakingMsgId(null);
+  // ── Speech Synthesis Helpers ──
+  const speakText = useCallback((text: string, onEnd?: () => void) => {
+    speakPleasantVoice(text, {
+      locale: normLocale,
+      onEnd,
+      onError: () => onEnd?.(),
     });
-  };
+  }, [normLocale]);
 
+  // ── Send Message ──
   const handleSend = async (messageText?: string) => {
     const textToSend = (messageText || input).trim();
     if (!textToSend || loading) return;
@@ -155,16 +169,17 @@ export function NinaAIChatbot({
       id: `u-${Date.now()}`,
       role: 'user',
       content: textToSend,
-      time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      time: new Date().toLocaleTimeString(normLocale === 'pt-BR' ? 'pt-BR' : 'en-US', { hour: '2-digit', minute: '2-digit' }),
     };
 
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInput('');
     setLoading(true);
-    stopSpeech();
+    stopVoiceSpeech();
     setIsSpeaking(false);
     setSpeakingMsgId(null);
+    setRecordingNotice(null);
 
     try {
       const res = await fetch('/api/nina/chat', {
@@ -178,19 +193,18 @@ export function NinaAIChatbot({
       });
 
       const data = await res.json();
-      const replyContent = data.reply || 'Pode repetir sua dúvida? Estou aqui. 🩺';
+      const replyContent = data.reply || (normLocale === 'en' ? 'Could you please repeat your question? I am here to help. 🩺' : 'Pode repetir sua dúvida? Estou aqui. 🩺');
       const botMsgId = `a-${Date.now()}`;
 
       const botMsg: Message = {
         id: botMsgId,
         role: 'assistant',
         content: replyContent,
-        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        time: new Date().toLocaleTimeString(normLocale === 'pt-BR' ? 'pt-BR' : 'en-US', { hour: '2-digit', minute: '2-digit' }),
       };
 
       setMessages((prev) => [...prev, botMsg]);
 
-      // Auto-speak if enabled
       if (autoVoice) {
         setIsSpeaking(true);
         setSpeakingMsgId(botMsgId);
@@ -200,13 +214,15 @@ export function NinaAIChatbot({
         });
       }
     } catch (err) {
-      console.error('Erro na Nina IA:', err);
+      console.error('[Nina IA] Erro:', err);
       setMessages((prev) => [
         ...prev,
         {
           id: `err-${Date.now()}`,
           role: 'assistant',
-          content: 'Desculpe, tive uma instabilidade passageira. Por favor, tente enviar novamente. 🩺',
+          content: normLocale === 'en'
+            ? 'I had a brief connection issue. Please try sending again. 🩺'
+            : 'Desculpe, tive uma instabilidade passageira. Por favor, tente enviar novamente. 🩺',
           time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -215,9 +231,255 @@ export function NinaAIChatbot({
     }
   };
 
+  // ── Stop Recording & Transcribe with Gemini AI ──
+  const stopRecordingAndTranscribe = useCallback(async (discard = false) => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+
+    setIsRecording(false);
+    setRecordingSeconds(0);
+
+    // Stop Web Speech if active
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+    }
+
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) return;
+
+    if (discard) {
+      audioChunksRef.current = [];
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+      setRecordingNotice(null);
+      return;
+    }
+
+    // Wait for recorder to stop and deliver data
+    await new Promise<void>((resolve) => {
+      if (recorder.state === 'inactive') {
+        resolve();
+      } else {
+        recorder.onstop = () => resolve();
+        try { recorder.stop(); } catch { resolve(); }
+      }
+    });
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+
+    const chunks = audioChunksRef.current;
+    if (!chunks || chunks.length === 0) {
+      setRecordingNotice(null);
+      return;
+    }
+
+    const audioBlob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+    audioChunksRef.current = [];
+
+    // Ignore accidental clicks under 0.4s or under 600 bytes
+    if (audioBlob.size < 600) {
+      setRecordingNotice(
+        normLocale === 'en'
+          ? 'Audio too short. Please speak while holding or tapping the microphone.'
+          : 'Áudio muito curto. Por favor, fale por alguns segundos após tocar no microfone.'
+      );
+      setTimeout(() => setRecordingNotice(null), 4000);
+      return;
+    }
+
+    setIsTranscribing(true);
+    setRecordingNotice(
+      normLocale === 'en' ? 'Transcribing your voice with AI...' : 'Transcrevendo sua voz com IA...'
+    );
+
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'audio.webm');
+
+      const res = await fetch('/api/nina/transcribe', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error('Falha na transcrição');
+
+      const data = await res.json();
+      const transcribedText = (data.text || '').trim();
+
+      if (transcribedText) {
+        setRecordingNotice(null);
+        setInput(transcribedText);
+        // Auto-send voice question
+        handleSend(transcribedText);
+      } else {
+        setRecordingNotice(
+          normLocale === 'en'
+            ? 'Could not hear clearly. Please speak closer to the microphone and try again.'
+            : 'Não consegui ouvir com clareza. Fale mais próximo ao microfone e tente novamente.'
+        );
+        setTimeout(() => setRecordingNotice(null), 4000);
+      }
+    } catch (err: any) {
+      console.error('[Transcribe] Error:', err);
+      setRecordingNotice(
+        normLocale === 'en'
+          ? 'Error processing audio. Please try typing your question.'
+          : 'Erro ao processar áudio. Você também pode digitar sua dúvida.'
+      );
+      setTimeout(() => setRecordingNotice(null), 4000);
+    } finally {
+      setIsTranscribing(false);
+    }
+  }, [normLocale]);
+
+  // ── Start Audio Recording (Universal: iOS Safari, Android, Chrome, Edge) ──
+  const startRecording = async () => {
+    stopVoiceSpeech();
+    setIsSpeaking(false);
+    setSpeakingMsgId(null);
+    setRecordingNotice(null);
+
+    if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setRecordingNotice(
+        normLocale === 'en'
+          ? 'Your browser does not support audio recording.'
+          : 'Seu navegador não suporta gravação de áudio direto.'
+      );
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+
+      streamRef.current = stream;
+
+      // Detect supported mime type
+      let chosenMime = '';
+      const candidateTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/aac',
+        'audio/ogg',
+      ];
+      for (const t of candidateTypes) {
+        if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) {
+          chosenMime = t;
+          break;
+        }
+      }
+
+      const recorder = chosenMime ? new MediaRecorder(stream, { mimeType: chosenMime }) : new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.start(250); // collect chunks every 250ms
+      setIsRecording(true);
+      setRecordingSeconds(0);
+
+      // Start timer
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => {
+          if (prev >= 45) {
+            // Auto stop at 45 seconds
+            stopRecordingAndTranscribe(false);
+            return 0;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+
+      // Optional: live Web Speech preview in parallel if supported
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        try {
+          const rec = new SpeechRecognition();
+          rec.lang = normLocale === 'pt-BR' ? 'pt-BR' : normLocale === 'es' ? 'es-ES' : normLocale === 'fr' ? 'fr-FR' : normLocale === 'de' ? 'de-DE' : 'en-US';
+          rec.continuous = true;
+          rec.interimResults = true;
+          rec.onresult = (evt: any) => {
+            const cur = evt.results[evt.results.length - 1];
+            if (cur && cur[0]?.transcript) {
+              setInput(cur[0].transcript);
+            }
+          };
+          rec.onerror = () => {};
+          rec.start();
+          recognitionRef.current = rec;
+        } catch {}
+      }
+    } catch (err: any) {
+      console.error('[Microphone Permission Error]:', err);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setRecordingNotice(
+          normLocale === 'en'
+            ? 'Microphone access was denied. Please allow microphone permissions in your browser settings.'
+            : 'Acesso ao microfone negado. Por favor, libere a permissão de microfone nas configurações do seu navegador para falar com a Nina.'
+        );
+      } else {
+        setRecordingNotice(
+          normLocale === 'en'
+            ? 'Could not activate microphone. Please check your device audio settings.'
+            : 'Não foi possível ativar o microfone. Verifique o dispositivo de áudio do seu aparelho.'
+        );
+      }
+    }
+  };
+
+  // ── Toggle Mic button ──
+  const handleToggleMic = () => {
+    if (isRecording) {
+      stopRecordingAndTranscribe(false);
+    } else {
+      startRecording();
+    }
+  };
+
+  // ── Speak a specific message toggle ──
+  const handleSpeakMessage = (msg: Message) => {
+    if (speakingMsgId === msg.id && isSpeaking) {
+      stopVoiceSpeech();
+      setIsSpeaking(false);
+      setSpeakingMsgId(null);
+      return;
+    }
+    setIsSpeaking(true);
+    setSpeakingMsgId(msg.id);
+    speakText(msg.content, () => {
+      setIsSpeaking(false);
+      setSpeakingMsgId(null);
+    });
+  };
+
   const handleQuickQuestion = (q: string) => {
     if (!chatStarted) setChatStarted(true);
     handleSend(q);
+  };
+
+  // Format seconds mm:ss
+  const formatTimer = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
   // ─── Landing screen ────────────────────────────────────────────────────────
@@ -238,14 +500,16 @@ export function NinaAIChatbot({
         <div className="space-y-2 max-w-md mx-auto">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/70 dark:bg-stone-800/80 border border-sky-300 dark:border-sky-600 text-xs font-black text-indigo-700 dark:text-sky-300 uppercase tracking-widest shadow-2xs">
             <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-            Inteligência Artificial em Saúde
+            {normLocale === 'en' ? 'Healthcare Artificial Intelligence' : 'Inteligência Artificial em Saúde'}
           </div>
           <h2 className="text-3xl sm:text-4xl font-black text-stone-900 dark:text-white tracking-tight">Nina IA</h2>
           <p className="text-sm sm:text-base font-extrabold text-indigo-900 dark:text-sky-200 leading-snug">
-            Núcleo Inteligente de Navegação e Apoio
+            {normLocale === 'en' ? 'Smart Healthcare Navigation & Support' : 'Núcleo Inteligente de Navegação e Apoio'}
           </p>
           <p className="text-xs sm:text-sm text-stone-700 dark:text-stone-300 font-semibold leading-relaxed">
-            Assistência humanizada e respostas rápidas para suas dúvidas em saúde 🩺💡
+            {normLocale === 'en'
+              ? 'Humanized assistance and fast answers to your health and routine questions 🩺💡'
+              : 'Assistência humanizada e respostas rápidas para suas dúvidas em saúde 🩺💡'}
           </p>
         </div>
 
@@ -255,7 +519,7 @@ export function NinaAIChatbot({
             onClick={() => setChatStarted(true)}
             className="w-full sm:max-w-xs mx-auto bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-stone-950 font-black text-base sm:text-lg py-4 px-8 rounded-full shadow-xl hover:shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-2 border-2 border-amber-300"
           >
-            <span>Acessar Chatbot</span>
+            <span>{normLocale === 'en' ? 'Start Chatting' : 'Acessar Chatbot'}</span>
             <span className="text-xl">🚀</span>
           </button>
         </div>
@@ -266,9 +530,13 @@ export function NinaAIChatbot({
               <Stethoscope className="h-6 w-6" />
             </div>
             <div>
-              <h4 className="text-xs font-black text-stone-900 dark:text-white">Responde dúvidas de saúde</h4>
+              <h4 className="text-xs font-black text-stone-900 dark:text-white">
+                {normLocale === 'en' ? 'Answers health questions' : 'Responde dúvidas de saúde'}
+              </h4>
               <p className="text-[11px] text-stone-600 dark:text-stone-400 mt-0.5 leading-snug">
-                Agenda, remédios, sintomas, prevenção e bem-estar. Orientação responsável.
+                {normLocale === 'en'
+                  ? 'Schedule, medications, symptoms, prevention and well-being.'
+                  : 'Agenda, remédios, sintomas, prevenção e bem-estar. Orientação responsável.'}
               </p>
             </div>
           </div>
@@ -277,9 +545,13 @@ export function NinaAIChatbot({
               <Heart className="h-6 w-6" />
             </div>
             <div>
-              <h4 className="text-xs font-black text-stone-900 dark:text-white">Fala por áudio</h4>
+              <h4 className="text-xs font-black text-stone-900 dark:text-white">
+                {normLocale === 'en' ? 'Natural voice speech' : 'Fala por áudio'}
+              </h4>
               <p className="text-[11px] text-stone-600 dark:text-stone-400 mt-0.5 leading-snug">
-                Ouça as respostas da Nina em voz alta — ideal para idosos e cuidadores.
+                {normLocale === 'en'
+                  ? 'Listen to Nina’s answers out loud with calm, warm tone.'
+                  : 'Ouça as respostas da Nina em voz alta com calma e carinho.'}
               </p>
             </div>
           </div>
@@ -288,9 +560,13 @@ export function NinaAIChatbot({
               <Mic className="h-6 w-6" />
             </div>
             <div>
-              <h4 className="text-xs font-black text-stone-900 dark:text-white">Entrada por voz</h4>
+              <h4 className="text-xs font-black text-stone-900 dark:text-white">
+                {normLocale === 'en' ? 'Voice input via microphone' : 'Entrada por voz'}
+              </h4>
               <p className="text-[11px] text-stone-600 dark:text-stone-400 mt-0.5 leading-snug">
-                Fale sua pergunta pelo microfone, sem precisar digitar.
+                {normLocale === 'en'
+                  ? 'Speak your question directly without needing to type.'
+                  : 'Fale sua pergunta pelo microfone, sem precisar digitar.'}
               </p>
             </div>
           </div>
@@ -299,9 +575,13 @@ export function NinaAIChatbot({
               <ShieldCheck className="h-6 w-6" />
             </div>
             <div>
-              <h4 className="text-xs font-black text-stone-900 dark:text-white">Dados do app em tempo real</h4>
+              <h4 className="text-xs font-black text-stone-900 dark:text-white">
+                {normLocale === 'en' ? 'Real-time routine context' : 'Dados do app em tempo real'}
+              </h4>
               <p className="text-[11px] text-stone-600 dark:text-stone-400 mt-0.5 leading-snug">
-                Agenda, remédios e rotina integrados — Nina sabe tudo sobre {caredPersonName}.
+                {normLocale === 'en'
+                  ? `Routine and medications integrated — Nina knows about ${caredPersonName}.`
+                  : `Agenda, remédios e rotina integrados — Nina sabe tudo sobre ${caredPersonName}.`}
               </p>
             </div>
           </div>
@@ -331,7 +611,7 @@ export function NinaAIChatbot({
               </Badge>
             </div>
             <p className="text-[11px] text-sky-100 leading-tight">
-              Apoiando o cuidado de {caredPersonName}
+              {normLocale === 'en' ? `Supporting ${caredPersonName}` : `Apoiando o cuidado de ${caredPersonName}`}
             </p>
           </div>
         </div>
@@ -345,7 +625,7 @@ export function NinaAIChatbot({
             title="Escolher Voz Agradável da IA"
           >
             <Sliders className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Voz</span>
+            <span className="hidden sm:inline">{normLocale === 'en' ? 'Voice' : 'Voz'}</span>
           </button>
 
           {/* Auto-voz toggle */}
@@ -354,13 +634,13 @@ export function NinaAIChatbot({
             onClick={() => {
               const next = !autoVoice;
               setAutoVoice(next);
-              if (!next) { stopSpeech(); setIsSpeaking(false); setSpeakingMsgId(null); }
+              if (!next) { stopVoiceSpeech(); setIsSpeaking(false); setSpeakingMsgId(null); }
             }}
             className={cn(
               'flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all',
               autoVoice ? 'bg-white text-indigo-700 shadow-sm' : 'bg-white/15 text-white hover:bg-white/25'
             )}
-            title={autoVoice ? 'Voz automática ativada — clique para desativar' : 'Ativar voz automática'}
+            title={autoVoice ? 'Voz automática ativada' : 'Ativar voz automática'}
           >
             {autoVoice ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             <span className="hidden sm:inline">{autoVoice ? 'Voz ON' : 'Voz OFF'}</span>
@@ -370,12 +650,12 @@ export function NinaAIChatbot({
           {isSpeaking && (
             <button
               type="button"
-              onClick={() => { stopSpeech(); setIsSpeaking(false); setSpeakingMsgId(null); }}
+              onClick={() => { stopVoiceSpeech(); setIsSpeaking(false); setSpeakingMsgId(null); }}
               className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-red-500/80 hover:bg-red-500 text-white text-xs font-bold transition-all"
               title="Parar áudio"
             >
               <Square className="h-3.5 w-3.5 fill-white" />
-              <span className="hidden sm:inline">Parar</span>
+              <span className="hidden sm:inline">{normLocale === 'en' ? 'Stop' : 'Parar'}</span>
             </button>
           )}
 
@@ -391,7 +671,7 @@ export function NinaAIChatbot({
         </div>
       </div>
 
-      {/* ── Audio status bar ── */}
+      {/* ── Audio speaking status bar ── */}
       {isSpeaking && (
         <div className="bg-indigo-600/10 dark:bg-indigo-900/30 border-b border-indigo-200 dark:border-indigo-800 px-4 py-1.5 flex items-center gap-2 shrink-0">
           <div className="flex items-center gap-1">
@@ -403,13 +683,15 @@ export function NinaAIChatbot({
               />
             ))}
           </div>
-          <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">Nina está falando...</span>
+          <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">
+            {normLocale === 'en' ? 'Nina is speaking...' : 'Nina está falando...'}
+          </span>
           <button
             type="button"
-            onClick={() => { stopSpeech(); setIsSpeaking(false); setSpeakingMsgId(null); }}
+            onClick={() => { stopVoiceSpeech(); setIsSpeaking(false); setSpeakingMsgId(null); }}
             className="ml-auto text-xs text-indigo-500 hover:text-red-500 font-bold transition-colors"
           >
-            Parar ✕
+            {normLocale === 'en' ? 'Stop ✕' : 'Parar ✕'}
           </button>
         </div>
       )}
@@ -424,7 +706,6 @@ export function NinaAIChatbot({
               key={msg.id}
               className={cn('flex items-start gap-2.5 max-w-[88%]', isBot ? 'self-start' : 'self-end ml-auto flex-row-reverse')}
             >
-              {/* Avatar */}
               {isBot ? (
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-400 to-indigo-600 text-white flex items-center justify-center text-sm shrink-0 shadow-xs mt-1">
                   👩‍⚕️
@@ -435,7 +716,6 @@ export function NinaAIChatbot({
                 </div>
               )}
 
-              {/* Bubble */}
               <div className={cn(
                 'rounded-3xl p-3.5 text-xs sm:text-sm shadow-xs space-y-2',
                 isBot
@@ -450,7 +730,6 @@ export function NinaAIChatbot({
                   <span className={cn('text-[10px]', isBot ? 'text-stone-400' : 'text-blue-100')}>
                     {msg.time}
                   </span>
-                  {/* Per-message speak button for bot messages */}
                   {isBot && (
                     <button
                       type="button"
@@ -464,9 +743,9 @@ export function NinaAIChatbot({
                       title={isThisSpeaking ? 'Parar' : 'Ouvir resposta'}
                     >
                       {isThisSpeaking ? (
-                        <><Square className="h-2.5 w-2.5 fill-current" /> Parar</>
+                        <><Square className="h-2.5 w-2.5 fill-current" /> {normLocale === 'en' ? 'Stop' : 'Parar'}</>
                       ) : (
-                        <><Volume2 className="h-2.5 w-2.5" /> Ouvir</>
+                        <><Volume2 className="h-2.5 w-2.5" /> {normLocale === 'en' ? 'Listen' : 'Ouvir'}</>
                       )}
                     </button>
                   )}
@@ -476,7 +755,6 @@ export function NinaAIChatbot({
           );
         })}
 
-        {/* Loading indicator */}
         {loading && (
           <div className="flex items-center gap-2.5 max-w-[85%] self-start">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-400 to-indigo-600 text-white flex items-center justify-center text-sm shrink-0">
@@ -485,7 +763,7 @@ export function NinaAIChatbot({
             <div className="bg-white dark:bg-[#16253C] border border-stone-200 dark:border-stone-700 rounded-3xl rounded-tl-xs p-3.5 shadow-xs flex items-center gap-2">
               <RefreshCw className="h-4 w-4 text-sky-500 animate-spin" />
               <span className="text-xs text-stone-500 dark:text-stone-300 font-semibold">
-                Nina está analisando sua pergunta...
+                {normLocale === 'en' ? 'Nina is analyzing your question...' : 'Nina está analisando sua pergunta...'}
               </span>
             </div>
           </div>
@@ -496,12 +774,12 @@ export function NinaAIChatbot({
 
       {/* ── Suggested Questions ── */}
       <div className="px-3 py-2 bg-white dark:bg-[#0C1728] border-t border-stone-100 dark:border-[#1E293B] overflow-x-auto flex gap-1.5 shrink-0">
-        {SUGGESTED_QUESTIONS.map((q, idx) => (
+        {suggestedList.map((q, idx) => (
           <button
             key={idx}
             type="button"
             onClick={() => handleQuickQuestion(q)}
-            disabled={loading}
+            disabled={loading || isRecording}
             className="text-[11px] font-bold text-indigo-700 dark:text-sky-300 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 rounded-full px-3 py-1 whitespace-nowrap shrink-0 transition-all active:scale-95 disabled:opacity-50"
           >
             <Lightbulb className="inline h-3 w-3 mr-1" />{q}
@@ -509,24 +787,74 @@ export function NinaAIChatbot({
         ))}
       </div>
 
+      {/* ── Active Recording / Transcribing Bar ── */}
+      {isRecording && (
+        <div className="bg-red-500 text-white px-4 py-2.5 flex items-center justify-between gap-3 animate-pulse shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="w-3 h-3 rounded-full bg-white animate-ping shrink-0" />
+            <span className="text-xs font-black truncate">
+              {normLocale === 'en' ? 'Recording your voice...' : 'Gravando sua voz... Pode falar!'} ({formatTimer(recordingSeconds)})
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => stopRecordingAndTranscribe(true)}
+              className="text-xs font-bold text-red-100 hover:text-white px-2 py-1 rounded-lg"
+            >
+              {normLocale === 'en' ? 'Cancel' : 'Cancelar'}
+            </button>
+            <button
+              type="button"
+              onClick={() => stopRecordingAndTranscribe(false)}
+              className="bg-white text-red-700 hover:bg-red-50 text-xs font-black px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-1 active:scale-95 transition"
+            >
+              <Check className="h-3.5 w-3.5 stroke-[3]" />
+              <span>{normLocale === 'en' ? 'Done & Send' : 'Concluir'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Transcribing Status ── */}
+      {isTranscribing && (
+        <div className="bg-indigo-600 text-white px-4 py-2 flex items-center gap-2 text-xs font-bold shrink-0">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>{normLocale === 'en' ? 'Processing audio with AI...' : 'Transcrevendo áudio com Inteligência Artificial...'}</span>
+        </div>
+      )}
+
+      {/* ── Error / Notice Banner ── */}
+      {recordingNotice && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 border-t border-amber-200 dark:border-amber-800 px-4 py-2 flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-200 shrink-0">
+          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+          <span className="flex-1">{recordingNotice}</span>
+          <button type="button" onClick={() => setRecordingNotice(null)} className="text-stone-400 hover:text-stone-700 ml-2">
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* ── Input bar ── */}
       <form
         onSubmit={(e) => { e.preventDefault(); handleSend(); }}
         className="p-3 bg-white dark:bg-[#0C1728] border-t border-stone-200 dark:border-[#1E293B] flex items-center gap-2 shrink-0"
       >
-        {/* Mic button */}
+        {/* Mic button with recording visual */}
         <button
           type="button"
           onClick={handleToggleMic}
+          disabled={loading || isTranscribing}
           className={cn(
-            'w-10 h-10 rounded-2xl flex items-center justify-center transition-all shrink-0',
+            'w-11 h-11 rounded-2xl flex items-center justify-center transition-all shrink-0 active:scale-95 shadow-xs',
             isRecording
-              ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-300'
-              : 'bg-stone-100 dark:bg-[#16253C] text-stone-600 dark:text-stone-300 hover:bg-stone-200'
+              ? 'bg-red-600 text-white ring-4 ring-red-400 animate-pulse'
+              : 'bg-indigo-50 dark:bg-[#16253C] text-indigo-700 dark:text-sky-300 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800'
           )}
-          title={isRecording ? 'Parar gravação' : 'Falar por voz'}
+          title={isRecording ? 'Clique para concluir gravação' : 'Falar por áudio com a Nina'}
         >
-          {isRecording ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+          {isRecording ? <Square className="h-5 w-5 fill-white" /> : <Mic className="h-5 w-5" />}
         </button>
 
         <input
@@ -534,14 +862,18 @@ export function NinaAIChatbot({
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Pergunte sobre a saúde, agenda ou remédios..."
+          placeholder={
+            isRecording
+              ? (normLocale === 'en' ? 'Listening to your voice...' : 'Ouvindo sua voz... Fale com a Nina!')
+              : (normLocale === 'en' ? 'Ask about medications, schedule, or health...' : 'Pergunte sobre remédios, agenda ou saúde...')
+          }
           className="flex-1 bg-stone-50 dark:bg-[#16253C] border border-stone-200 dark:border-stone-700 rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-stone-900 dark:text-white placeholder:text-stone-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
         />
 
         <Button
           type="submit"
-          disabled={!input.trim() || loading}
-          className="bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white rounded-2xl w-10 h-10 p-0 flex items-center justify-center shrink-0 shadow-md active:scale-95"
+          disabled={!input.trim() || loading || isRecording}
+          className="bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white rounded-2xl w-11 h-11 p-0 flex items-center justify-center shrink-0 shadow-md active:scale-95"
         >
           <Send className="h-4 w-4" />
         </Button>
@@ -551,7 +883,7 @@ export function NinaAIChatbot({
       <VoiceSettingsModal
         open={voiceModalOpen}
         onOpenChange={setVoiceModalOpen}
-        locale="pt-BR"
+        locale={normLocale}
       />
     </div>
   );
