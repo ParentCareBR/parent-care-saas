@@ -43,6 +43,15 @@ export function ElderlyLanguageSwitcher({
   const currentLocale = currentLocaleOverride || (isFirstSegmentLocale ? firstSegment : 'pt-BR');
   const currentLang = SENIOR_LANGUAGES.find((l) => l.code === currentLocale) || SENIOR_LANGUAGES[0];
 
+  const chooseLanguageLabel: Record<string, string> = {
+    'pt-BR': 'Escolha seu idioma',
+    'en':    'Choose your language',
+    'es':    'Elige tu idioma',
+    'fr':    'Choisissez votre langue',
+    'de':    'Sprache wählen',
+  };
+  const dropdownLabel = chooseLanguageLabel[currentLocale] ?? chooseLanguageLabel['pt-BR'];
+
   const handleSelectLanguage = async (newLocale: string) => {
     if (newLocale === currentLocale || saving) return;
 
@@ -103,7 +112,7 @@ export function ElderlyLanguageSwitcher({
       >
         <div className="px-3 py-2 text-xs font-black uppercase tracking-wider text-stone-400 dark:text-stone-500 border-b border-stone-100 dark:border-stone-800 flex items-center gap-1.5">
           <Globe className="h-3.5 w-3.5" />
-          Escolha seu idioma
+          {dropdownLabel}
         </div>
 
         <div className="py-1 space-y-1">

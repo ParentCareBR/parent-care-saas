@@ -1,1 +1,1 @@
-Traduz saudacao e aviso de plano para o idioma selecionado; corrige palavras cruzadas e caca-palavras
+Traduz label do seletor de idioma na tela do idoso
