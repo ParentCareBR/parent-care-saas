@@ -27,6 +27,7 @@ import { VoiceSettingsModal } from '@/components/shared/VoiceSettingsModal';
 import { CaringNoteCard } from '@/components/care/CaringNoteCard';
 import { EmergencyContactsBlock } from '@/components/care/EmergencyContactsBlock';
 import { getElderlyCardsTexts } from '@/lib/i18n/elderly-cards-translations';
+import { normalizeLang } from '@/lib/i18n/relationship-translations';
 
 // ── Shared Audio Engine (Web Audio API Synthesizer) ──
 let globalAudioCtx: AudioContext | null = null;
@@ -320,6 +321,57 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     playAlarmChime();
     triggerHaptic([150, 100, 150, 100, 200]);
 
+    const sosLang = normalizeLang(params.locale);
+    const sosTexts = {
+      'pt-BR': {
+        sentMsg: '🚨 ALERTA DE EMERGÊNCIA ENVIADO! Toda a família e cuidadores foram alertados.',
+        sentSpeech: (name: string) => `Alerta de emergência enviado, ${name}! Sua família foi avisada agora mesmo e já está ciente.`,
+        fallbackMsg: '⚠️ Pedido de emergência registrado no sistema. Por favor, tente também ligar para um contato de emergência.',
+        fallbackSpeech: (name: string) => `Atenção, ${name}. Registramos seu chamado no sistema, mas por favor, tente também ligar para um dos números logo abaixo.`,
+        networkErrorMsg: '⚠️ Falha de rede no envio automático. Por favor, use a discagem direta para a família ou para os serviços de emergência.',
+        networkErrorSpeech: (name: string) => `Atenção, ${name}. Houve uma instabilidade de conexão. Por favor, use os botões de ligação rápida logo abaixo.`,
+      },
+      'en': {
+        sentMsg: '🚨 EMERGENCY ALERT SENT! All family members and caregivers have been alerted.',
+        sentSpeech: (name: string) => `Emergency alert sent, ${name}! Your family has been notified right now and is aware.`,
+        fallbackMsg: '⚠️ Emergency request logged in the system. Please also try calling an emergency contact directly.',
+        fallbackSpeech: (name: string) => `Notice, ${name}. We registered your request, but please also try calling one of the numbers below.`,
+        networkErrorMsg: '⚠️ Network failure during auto-send. Please use direct dialing below for family or emergency services.',
+        networkErrorSpeech: (name: string) => `Notice, ${name}. There was a connection issue. Please use the quick call buttons below.`,
+      },
+      'es': {
+        sentMsg: '🚨 ¡ALERTA DE EMERGENCIA ENVIADA! Toda la familia y cuidadores han sido avisados.',
+        sentSpeech: (name: string) => `¡Alerta de emergencia enviada, ${name}! Su familia ha sido notificada ahora mismo.`,
+        fallbackMsg: '⚠️ Solicitud de emergencia registrada en el sistema. Por favor, intente también llamar a un contacto de emergencia.',
+        fallbackSpeech: (name: string) => `Atención, ${name}. Registramos su llamado, pero por favor intente también llamar a uno de los números abajo.`,
+        networkErrorMsg: '⚠️ Falla de red en el envío automático. Por favor, use el marcado directo para la familia o emergencias.',
+        networkErrorSpeech: (name: string) => `Atención, ${name}. Hubo una inestabilidad de conexión. Por favor, use los botones de llamada rápida abajo.`,
+      },
+      'fr': {
+        sentMsg: '🚨 ALERTE D’URGENCE ENVOYÉE ! Toute la famille et les soignants ont été alertés.',
+        sentSpeech: (name: string) => `Alerte d’urgence envoyée, ${name} ! Votre famille est prévenue dès maintenant.`,
+        fallbackMsg: '⚠️ Demande d’urgence enregistrée dans le système. Veuillez également essayer d’appeler un contact d’urgence.',
+        fallbackSpeech: (name: string) => `Attention, ${name}. Votre appel est enregistré, mais veuillez aussi appeler un des numéros ci-dessous.`,
+        networkErrorMsg: '⚠️ Échec réseau lors de l’envoi automatique. Veuillez utiliser la composition directe ci-dessous.',
+        networkErrorSpeech: (name: string) => `Attention, ${name}. Instabilité de connexion. Veuillez utiliser les boutons d’appel rapide ci-dessous.`,
+      },
+      'de': {
+        sentMsg: '🚨 NOTRUF GESENDET! Die gesamte Familie und Pflegekräfte wurden benachrichtigt.',
+        sentSpeech: (name: string) => `Notruf gesendet, ${name}! Ihre Familie wurde soeben benachrichtigt und informiert.`,
+        fallbackMsg: '⚠️ Notfallanfrage im System erfasst. Bitte versuchen Sie auch, einen Notfallkontakt direkt anzurufen.',
+        fallbackSpeech: (name: string) => `Achtung, ${name}. Ihr Anruf ist erfasst, bitte rufen Sie zusätzlich eine der Nummern unten an.`,
+        networkErrorMsg: '⚠️ Netzwerkfehler beim automatischen Senden. Bitte nutzen Sie die Direktwahl für Familie oder Notruf.',
+        networkErrorSpeech: (name: string) => `Achtung, ${name}. Verbindungsfehler. Bitte nutzen Sie die Schnellanruftasten unten.`,
+      },
+    }[sosLang] || {
+      sentMsg: '🚨 ALERTA DE EMERGÊNCIA ENVIADO! Toda a família e cuidadores foram alertados.',
+      sentSpeech: (name: string) => `Alerta de emergência enviado, ${name}! Sua família foi avisada agora mesmo e já está ciente.`,
+      fallbackMsg: '⚠️ Pedido de emergência registrado no sistema. Por favor, tente também ligar para um contato de emergência.',
+      fallbackSpeech: (name: string) => `Atenção, ${name}. Registramos seu chamado no sistema, mas por favor, tente também ligar para um dos números logo abaixo.`,
+      networkErrorMsg: '⚠️ Falha de rede no envio automático. Por favor, use a discagem direta para a família ou para os serviços de emergência.',
+      networkErrorSpeech: (name: string) => `Atenção, ${name}. Houve uma instabilidade de conexão. Por favor, use os botões de ligação rápida logo abaixo.`,
+    };
+
     try {
       const res = await fetch('/api/care/alert', {
         method: 'POST',
@@ -332,16 +384,16 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
       });
 
       if (res.ok) {
-        setSuccessMsg('🚨 ALERTA DE EMERGÊNCIA ENVIADO! Toda a família e cuidadores foram alertados.');
-        speakReminder(`Alerta de emergência enviado, ${personInfo.name}! Sua família foi avisada agora mesmo e já está ciente.`, params.locale);
+        setSuccessMsg(sosTexts.sentMsg);
+        speakReminder(sosTexts.sentSpeech(personInfo.name), params.locale);
       } else {
-        setSuccessMsg('⚠️ Pedido de emergência registrado no sistema. Por favor, tente também ligar para um contato de emergência.');
-        speakReminder(`Atenção, ${personInfo.name}. Registramos seu chamado no sistema, mas por favor, tente também ligar para um dos números logo abaixo.`, params.locale);
+        setSuccessMsg(sosTexts.fallbackMsg);
+        speakReminder(sosTexts.fallbackSpeech(personInfo.name), params.locale);
       }
     } catch (e) {
       console.error('Error sending SOS alert:', e);
-      setSuccessMsg('⚠️ Falha de rede no envio automático. Por favor, use a discagem direta para a família ou para o SAMU.');
-      speakReminder(`Atenção, ${personInfo.name}. Houve uma instabilidade de conexão. Por favor, use os botões de ligação rápida logo abaixo.`, params.locale);
+      setSuccessMsg(sosTexts.networkErrorMsg);
+      speakReminder(sosTexts.networkErrorSpeech(personInfo.name), params.locale);
     } finally {
       setSendingSos(false);
       setSosModalOpen(false);
@@ -601,10 +653,15 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                   return false;
                 });
 
+                const normLang = normalizeLang(params.locale);
+                const medSubText = isConfirmed
+                  ? (normLang === 'en' ? '✓ Taken' : normLang === 'es' ? '✓ Tomado' : normLang === 'fr' ? '✓ Pris' : normLang === 'de' ? '✓ Eingenommen' : '✓ Remédio tomado')
+                  : (normLang === 'en' ? 'Scheduled dose' : normLang === 'es' ? 'Dosis programada' : normLang === 'fr' ? 'Dose programmée' : normLang === 'de' ? 'Geplante Dosis' : 'Horário do medicamento');
+
                 allEvents.push({
                   id: eventId,
                   title: `${med.name} ${med.dosage || ''}${med.unit || ''}`.trim(),
-                  subtitle: isConfirmed ? '✓ Remédio tomado' : 'Horário do medicamento',
+                  subtitle: medSubText,
                   time: timeStr,
                   date: new Date(d),
                   type: 'medication',
@@ -619,7 +676,16 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
         });
 
         // Meals
-        const emojiMap: Record<string, string> = { breakfast: '🥣 Café da Manhã', lunch: '🥗 Almoço', snack: '🍎 Lanche da Tarde', dinner: '🍲 Jantar', supper: '🥛 Ceia', other: '🍽️ Refeição' };
+        const normLang = normalizeLang(params.locale);
+        const mealEmojiMapByLocale: Record<string, Record<string, string>> = {
+          'pt-BR': { breakfast: '🥣 Café da Manhã', lunch: '🥗 Almoço', snack: '🍎 Lanche da Tarde', dinner: '🍲 Jantar', supper: '🥛 Ceia', other: '🍽️ Refeição' },
+          'en': { breakfast: '🥣 Breakfast', lunch: '🥗 Lunch', snack: '🍎 Afternoon Snack', dinner: '🍲 Dinner', supper: '🥛 Supper', other: '🍽️ Meal' },
+          'es': { breakfast: '🥣 Desayuno', lunch: '🥗 Almuerzo', snack: '🍎 Merienda', dinner: '🍲 Cena', supper: '🥛 Colación', other: '🍽️ Comida' },
+          'fr': { breakfast: '🥣 Petit-déjeuner', lunch: '🥗 Déjeuner', snack: '🍎 Goûter', dinner: '🍲 Dîner', supper: '🥛 Collation', other: '🍽️ Repas' },
+          'de': { breakfast: '🥣 Frühstück', lunch: '🥗 Mittagessen', snack: '🍎 Nachmittagssnack', dinner: '🍲 Abendessen', supper: '🥛 Spätmahlzeit', other: '🍽️ Mahlzeit' },
+        };
+        const emojiMap = mealEmojiMapByLocale[normLang] || mealEmojiMapByLocale['pt-BR'];
+        const defaultMealLabel = emojiMap['other'] || '🍽️ Refeição';
         const seenCareMeals = new Set<string>();
 
         (notesRes?.data || []).forEach((n: any) => {
@@ -635,7 +701,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
 
           allEvents.push({
             id: 'meal-' + n.id,
-            title: emojiMap[mealType] || '🍽️ Refeição',
+            title: emojiMap[mealType] || defaultMealLabel,
             subtitle: mealName !== 'Refeição' ? mealName : undefined,
             time: timeStr,
             date: d,
@@ -649,13 +715,13 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
         (directMealsRes?.data || []).forEach((m: any) => {
           const d = new Date(m.consumed_at || m.created_at);
           const mealType = m.meal_type || 'other';
-          const mealName = m.description || 'Refeição';
+          const mealName = m.description || defaultMealLabel.replace(/^[^\s]+\s*/, '');
           const key = `${format(d, 'yyyy-MM-dd')}-${mealType}-${mealName.toLowerCase().slice(0, 10)}`;
           if (!seenCareMeals.has(key)) {
             seenCareMeals.add(key);
             allEvents.push({
               id: 'meal-direct-' + m.id,
-              title: emojiMap[mealType] || '🍽️ Refeição',
+              title: emojiMap[mealType] || defaultMealLabel,
               subtitle: mealName,
               time: format(d, 'HH:mm'),
               date: d,
@@ -668,12 +734,16 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
         });
 
         // Tasks
+        const taskCompletedText = normLang === 'en' ? '✓ Completed' : normLang === 'es' ? '✓ Completada' : normLang === 'fr' ? '✓ Terminée' : normLang === 'de' ? '✓ Erledigt' : '✓ Concluída';
+        const taskPendingText = normLang === 'en' ? 'Routine task' : normLang === 'es' ? 'Tarea de la rutina' : normLang === 'fr' ? 'Tâche de la routine' : normLang === 'de' ? 'Routineaufgabe' : 'Tarefa da rotina';
+        const activityDefaultSub = normLang === 'en' ? 'Routine activity' : normLang === 'es' ? 'Actividad de la rutina' : normLang === 'fr' ? 'Activité de la routine' : normLang === 'de' ? 'Routineaktivität' : 'Atividade da rotina';
+
         (tasksRes?.data || []).forEach((t: any) => {
           const d = t.due_date ? new Date(t.due_date) : new Date();
           allEvents.push({
             id: 'task-' + t.id,
             title: t.title,
-            subtitle: t.status === 'completed' ? '✓ Concluída' : 'Tarefa da rotina',
+            subtitle: t.status === 'completed' ? taskCompletedText : taskPendingText,
             time: format(d, 'HH:mm'),
             date: d,
             type: 'task',
@@ -699,7 +769,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
               allEvents.push({
                 id: `act-${act.id}-${i}`,
                 title: `${icon} ${act.title}`,
-                subtitle: [act.location_name, act.instructor_name].filter(Boolean).join(' · ') || 'Atividade da rotina',
+                subtitle: [act.location_name, act.instructor_name].filter(Boolean).join(' · ') || activityDefaultSub,
                 time: timeStr,
                 date: new Date(d),
                 type: 'activity',
@@ -1065,8 +1135,8 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
     setConversationModalOpen(true);
     setSendingCallRequest(true);
 
-    speakReminder(`Avisamos sua família, ${personInfo.name}! Logo alguém vai te dar uma ligadinha para conversar.`, params.locale);
-    setSuccessMsg('📞 Pedido de conversa enviado para a família!');
+    speakReminder(tCare.speechCallRequested(personInfo.name), params.locale);
+    setSuccessMsg(`📞 ${tCare.familyNotified}`);
 
     try {
       await fetch('/api/care/action', {
@@ -1478,7 +1548,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                   </p>
                   <p className='text-[11px] text-stone-500 font-semibold truncate'>
                     {todayEvents.filter(e => !e.completed).length > 0
-                      ? `${todayEvents.filter(e => !e.completed).length} atividades restantes para hoje`
+                      ? tCards.routineSummary.remainingText(todayEvents.filter(e => !e.completed).length)
                       : tCards.routineSummary.allDone}
                   </p>
                 </div>
@@ -1659,7 +1729,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                 <div>
                   <h2 className='text-lg font-black text-stone-900 dark:text-stone-100'>{tCare.routineTitle}</h2>
                   <p className='text-xs text-stone-500 font-bold capitalize'>
-                    {format(selectedDate, "EEEE, dd 'de' MMMM", { locale: dateFnsLoc })}
+                    {format(selectedDate, normalizeLang(params.locale) === 'en' ? "EEEE, MMMM do" : normalizeLang(params.locale) === 'de' ? "EEEE, d. MMMM" : normalizeLang(params.locale) === 'fr' ? "EEEE d MMMM" : "EEEE, dd 'de' MMMM", { locale: dateFnsLoc })}
                   </p>
                 </div>
                 <button
@@ -1778,7 +1848,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                         className='px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white text-xs font-black shrink-0 active:scale-95 shadow-xs flex items-center gap-1 transition'
                       >
                         <Check className='h-4 w-4 stroke-[3]' />
-                        <span>Fiz</span>
+                        <span>{normalizeLang(params.locale) === 'en' ? 'Done' : normalizeLang(params.locale) === 'es' ? 'Hecho' : normalizeLang(params.locale) === 'fr' ? 'Fait' : normalizeLang(params.locale) === 'de' ? 'Erledigt' : 'Fiz'}</span>
                       </button>
                     )}
                   </div>

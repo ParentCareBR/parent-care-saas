@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Phone, AlertTriangle, ShieldAlert, User } from 'lucide-react';
+import { formatContactNameWithRelationship } from '@/lib/i18n/relationship-translations';
 
 interface PersonalContact {
   id?: string;
@@ -151,7 +152,7 @@ export function EmergencyContactsBlock({ locale = 'pt-BR', personalContacts = []
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-black text-stone-900 dark:text-stone-100 truncate">
-                      {contact.name || 'Contato da Família'} {contact.relationship ? `(${contact.relationship})` : ''}
+                      {formatContactNameWithRelationship(contact.name, contact.relationship, norm)}
                     </p>
                     <p className="text-[11px] font-bold text-red-700 dark:text-red-400 truncate">
                       {contact.phone}

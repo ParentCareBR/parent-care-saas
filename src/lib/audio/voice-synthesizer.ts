@@ -263,7 +263,48 @@ function getSavedSpeed(defaultRate: number): number {
 }
 
 /**
- * Main pleasant speech function: speaks text out loud with warm human pacing
+ * Plays audio via Gemini Neural TTS API (high quality).
+ * Falls back to Web Speech API if the fetch fails.
+ */
+async function speakViaGeminiTTS(
+  text: string,
+  locale: string,
+  personaId: string | undefined,
+  onEnd?: () => void,
+  onError?: (err: any) => void
+): Promise<boolean> {
+  try {
+    const response = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, locale, persona: personaId }),
+    });
+
+    if (!response.ok) return false;
+
+    const arrayBuffer = await response.arrayBuffer();
+    if (!arrayBuffer || arrayBuffer.byteLength === 0) return false;
+
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+    const source = audioCtx.createBufferSource();
+    source.buffer = decoded;
+    source.connect(audioCtx.destination);
+    source.onended = () => {
+      onEnd?.();
+      audioCtx.close();
+    };
+    source.start(0);
+    return true;
+  } catch (err) {
+    console.warn('[voice-synthesizer] Gemini TTS failed, falling back to Web Speech:', err);
+    return false;
+  }
+}
+
+/**
+ * Main pleasant speech function: speaks text out loud.
+ * Priority: Gemini Neural TTS API → Web Speech API (local voices).
  */
 export async function speakPleasantVoice(
   text: string,
@@ -274,38 +315,44 @@ export async function speakPleasantVoice(
     onError?: (err: any) => void;
   }
 ): Promise<void> {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  if (typeof window === 'undefined') return;
 
   const clean = humanizeTextForSpeech(text);
   if (!clean) return;
 
+  const locale = options?.locale || 'pt-BR';
+  const personaId = options?.personaId;
+
+  // 1. Try Gemini Neural TTS (high quality)
+  const geminiSuccess = await speakViaGeminiTTS(clean, locale, personaId, options?.onEnd, options?.onError);
+  if (geminiSuccess) return;
+
+  // 2. Fallback: Web Speech API (local device voices)
+  if (!('speechSynthesis' in window)) return;
+
   try {
     window.speechSynthesis.cancel();
 
-    const { voice, rate, pitch } = await getBestVoice(options?.personaId, options?.locale || 'pt-BR');
+    const { voice, rate, pitch } = await getBestVoice(personaId, locale);
 
     const utterance = new SpeechSynthesisUtterance(clean);
     if (voice) {
       utterance.voice = voice;
       utterance.lang = voice.lang;
     } else {
-      utterance.lang = options?.locale || 'pt-BR';
+      utterance.lang = locale;
     }
 
     utterance.rate = rate;
     utterance.pitch = pitch;
     utterance.volume = 1.0;
 
-    if (options?.onEnd) {
-      utterance.onend = () => options.onEnd?.();
-    }
-    if (options?.onError) {
-      utterance.onerror = (e) => options.onError?.(e);
-    }
+    if (options?.onEnd) utterance.onend = () => options.onEnd?.();
+    if (options?.onError) utterance.onerror = (e) => options.onError?.(e);
 
     window.speechSynthesis.speak(utterance);
   } catch (err) {
-    console.warn('[voice-synthesizer] Speech error:', err);
+    console.warn('[voice-synthesizer] Web Speech fallback error:', err);
     options?.onError?.(err);
   }
 }

@@ -1,9 +1,9 @@
-Corrige card Consultas e 404 no card Idosos
+Traduz graus de parentesco e termos da tela do idoso para ingles e demais idiomas
 
-- Card "Consultas" agora direciona para /dashboard/consultas (pagina dedicada)
-- Nova pagina /dashboard/consultas com cadastro e listagem de consultas/exames
-- Campos: titulo, medico, especialidade, local, data/hora, observacoes, recorrencia
-- Acoes: agendar, editar, marcar como concluida, cancelar, excluir
-- Filtros: Proximas, Todas, Historico
-- Corrige 404 no card "Idosos": cria /dashboard/cared-people/page.tsx com lista de idosos cadastrados
-- Card Idosos exibe perfis com nome, idade, telefone e links para perfil e modo idoso
+- Cria dicionario multilingue relationship-translations.ts cobrindo termos de familia e parentesco em 5 idiomas (pt-BR, en, es, fr, de)
+- Corrige traducao de contatos de emergencia na tela do idoso (Filho(a) -> Son / Daughter, etc.)
+- Traduz legendas da rotina (remedios tomados/agendados, refeicoes, tarefas e atividades) de acordo com o idioma ativo
+- Formata data da rotina respeitando cada idioma sem 'de' fixo
+- Traduz botao de confirmacao rapida da rotina (Fiz / Done / Hecho / Fait / Erledigt)
+- Traduz mensagens de status e retorno de voz do SOS e de Quero Conversar
+- Implementa rota de API /api/tts com vozes neurais de IA (Google Gemini TTS)

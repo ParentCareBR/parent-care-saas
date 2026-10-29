@@ -27,6 +27,12 @@ interface VoiceSettingsModalProps {
   locale?: string;
 }
 
+export const NEURAL_VOICE_NAMES: Record<string, string> = {
+  nina_warm: 'Zephyr (Google Neural)',
+  doctor_gentle: 'Charon (Google Neural)',
+  google_natural: 'Kore (Google Neural)',
+};
+
 export function VoiceSettingsModal({ open, onOpenChange, locale = 'pt-BR' }: VoiceSettingsModalProps) {
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('nina_warm');
   const [speed, setSpeed] = useState<number>(0.96);
@@ -93,9 +99,9 @@ export function VoiceSettingsModal({ open, onOpenChange, locale = 'pt-BR' }: Voi
               🎙️
             </div>
             <div>
-              <DialogTitle className="text-lg font-black text-white">Vozes Agradáveis de IA</DialogTitle>
+              <DialogTitle className="text-lg font-black text-white">Vozes Neurais de IA ✨</DialogTitle>
               <DialogDescription className="text-xs text-white/80 font-medium">
-                Escolha o tom de voz mais acolhedor e natural para o seu Parent Care
+                Vozes neurais do Google geradas por IA — naturais, suaves e agradáveis para o idoso
               </DialogDescription>
             </div>
           </div>
@@ -107,7 +113,7 @@ export function VoiceSettingsModal({ open, onOpenChange, locale = 'pt-BR' }: Voi
           <div className="space-y-2.5">
             <label className="text-xs font-black uppercase tracking-wider text-stone-500 dark:text-stone-400 flex items-center gap-1.5">
               <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-              Estilos de Voz Disponíveis
+              Estilos de Voz Neural (Google AI)
             </label>
 
             {VOICE_PERSONAS.map((persona) => {
@@ -136,10 +142,13 @@ export function VoiceSettingsModal({ open, onOpenChange, locale = 'pt-BR' }: Voi
                         {persona.gender === 'female' ? '🌸' : persona.gender === 'male' ? '👨‍⚕️' : '🌿'}
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="text-sm font-black text-stone-900 dark:text-stone-100 truncate">
                             {persona.name}
                           </h4>
+                          <Badge className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-[9px] px-1.5 py-0 font-bold border-0 shrink-0">
+                            🧠 Neural AI
+                          </Badge>
                           {isSelected && (
                             <Badge className="bg-indigo-600 text-white text-[10px] px-1.5 py-0 font-bold border-0">
                               Ativa

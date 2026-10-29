@@ -23,6 +23,7 @@ export interface ElderlyMainCardsTranslations {
   };
   routineSummary: {
     completedText: (completed: number, total: number) => string;
+    remainingText: (remaining: number) => string;
     allDone: string;
     seeAgenda: string;
   };
@@ -60,6 +61,7 @@ export const ELDERLY_CARDS_I18N: Record<string, ElderlyMainCardsTranslations> = 
     },
     routineSummary: {
       completedText: (c, t) => `${c} de ${t} atividades concluídas hoje`,
+      remainingText: (r) => `${r} ${r === 1 ? 'atividade restante' : 'atividades restantes'} para hoje`,
       allDone: 'Parabéns! Todas as atividades de hoje estão concluídas.',
       seeAgenda: 'Ver agenda completa',
     },
@@ -95,6 +97,7 @@ export const ELDERLY_CARDS_I18N: Record<string, ElderlyMainCardsTranslations> = 
     },
     routineSummary: {
       completedText: (c, t) => `${c} of ${t} activities completed today`,
+      remainingText: (r) => `${r} ${r === 1 ? 'activity' : 'activities'} remaining for today`,
       allDone: 'Great job! All activities for today are completed.',
       seeAgenda: 'View full schedule',
     },
@@ -130,6 +133,7 @@ export const ELDERLY_CARDS_I18N: Record<string, ElderlyMainCardsTranslations> = 
     },
     routineSummary: {
       completedText: (c, t) => `${c} de ${t} actividades realizadas hoy`,
+      remainingText: (r) => `${r} ${r === 1 ? 'actividad restante' : 'actividades restantes'} para hoy`,
       allDone: '¡Excelente! Todas las actividades de hoy están completadas.',
       seeAgenda: 'Ver agenda completa',
     },
@@ -165,6 +169,7 @@ export const ELDERLY_CARDS_I18N: Record<string, ElderlyMainCardsTranslations> = 
     },
     routineSummary: {
       completedText: (c, t) => `${c} sur ${t} activités terminées aujourd’hui`,
+      remainingText: (r) => `${r} ${r === 1 ? 'activité restante' : 'activités restantes'} pour aujourd’hui`,
       allDone: 'Félicitations ! Toutes les activités d’aujourd’hui sont terminées.',
       seeAgenda: 'Voir l’agenda complet',
     },
@@ -200,6 +205,7 @@ export const ELDERLY_CARDS_I18N: Record<string, ElderlyMainCardsTranslations> = 
     },
     routineSummary: {
       completedText: (c, t) => `${c} von ${t} Aktivitäten heute erledigt`,
+      remainingText: (r) => `${r} ${r === 1 ? 'Aktivität' : 'Aktivitäten'} für heute verbleibend`,
       allDone: 'Sehr gut! Alle heutigen Aktivitäten sind abgeschlossen.',
       seeAgenda: 'Ganzen Kalender ansehen',
     },

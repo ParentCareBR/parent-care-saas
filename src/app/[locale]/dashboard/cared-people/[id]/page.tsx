@@ -44,6 +44,7 @@ import {
   Key
 } from 'lucide-react';
 import type { CaredPersonFullProfile } from '@/types/cared-person';
+import { translateRelationship } from '@/lib/i18n/relationship-translations';
 
 export default function CaredPersonProfilePage() {
   const params = useParams();
@@ -365,7 +366,7 @@ export default function CaredPersonProfilePage() {
                   <h1 className="text-2xl font-bold text-stone-900 dark:text-stone-100">{displayName}</h1>
                   {profile.relationship && (
                     <Badge variant="secondary" className="text-xs font-semibold">
-                      {profile.relationship}
+                      {translateRelationship(profile.relationship, locale)}
                     </Badge>
                   )}
                   {isArchived ? (
@@ -465,7 +466,7 @@ export default function CaredPersonProfilePage() {
                       <div>
                         <div className="flex items-center gap-1.5">
                           <span className="font-bold text-stone-800 dark:text-stone-200">{c.name}</span>
-                          <span className="text-stone-400">({c.relationship || 'Familiar'})</span>
+                          <span className="text-stone-400">({translateRelationship(c.relationship || 'Familiar', locale)})</span>
                           {c.is_emergency && <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">SOS</Badge>}
                         </div>
                         <p className="text-stone-500 font-mono mt-0.5">{c.phone || c.whatsapp || 'Sem telefone'}</p>
@@ -531,7 +532,7 @@ export default function CaredPersonProfilePage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-stone-900 dark:text-stone-100">{c.name}</span>
-                        <Badge variant="secondary" className="text-[10px]">{c.relationship || 'Familiar'}</Badge>
+                        <Badge variant="secondary" className="text-[10px]">{translateRelationship(c.relationship || 'Familiar', locale)}</Badge>
                         {c.is_primary && <Badge className="bg-emerald-600 text-white text-[9px]">Principal</Badge>}
                         {c.is_emergency && <Badge variant="destructive" className="text-[9px]">SOS</Badge>}
                       </div>
