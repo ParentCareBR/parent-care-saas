@@ -236,7 +236,7 @@ export function SolitaireEngine({
 
   // Interaction State
   const [selection, setSelection]     = useState<Selection>(null);
-  const [highlightMove, setHighlightMove] = useState<{ fromCol?: number; toCol?: number; fromWaste?: boolean; toF?: number } | null>(null);
+  const [highlightMove, setHighlightMove] = useState<{ fromCol?: number; toCol?: number; fromWaste?: boolean; toF?: number; toStock?: boolean } | null>(null);
   const [moves, setMoves]             = useState(0);
   const [score, setScore]             = useState(0);
   const [hintsUsed, setHintsUsed]     = useState(0);
@@ -1006,14 +1006,34 @@ export function SolitaireEngine({
     onComplete({ stars: 3, score: 1000, moves: moves + 10, hints: hintsUsed });
   };
 
+  // Helper to check if cards from fromIdx to end form a valid movable sequence
+  const isMovableSubstack = (col: Card[], fromIdx: number, gameVariant: SolitaireVariant): boolean => {
+    if (fromIdx < 0 || fromIdx >= col.length) return false;
+    if (!col[fromIdx].isFaceUp) return false;
+    for (let k = fromIdx; k < col.length - 1; k++) {
+      const cur = col[k];
+      const next = col[k + 1];
+      if (!next.isFaceUp) return false;
+      if (gameVariant === 'spider') {
+        if (cur.suit !== next.suit || cur.value !== next.value + 1) return false;
+      } else {
+        const alt = SUITS[cur.suit].isRed !== SUITS[next.suit].isRed;
+        if (!alt || cur.value !== next.value + 1) return false;
+      }
+    }
+    return true;
+  };
+
   // ─── Smart Hint System ─────────────────────────────────────────────────────
   const handleHint = () => {
     setHintsUsed(h => h + 1);
     setHighlightMove(null);
 
-    // 1. Can any card go to Foundation?
+    // ─────────────────────────────────────────────────────────────────────────
+    // 1. KLONDIKE & FREECELL
+    // ─────────────────────────────────────────────────────────────────────────
     if (variant === 'klondike' || variant === 'freecell') {
-      // Check waste
+      // 1.1 Foundation from Waste
       if (waste.length > 0) {
         const topW = waste[waste.length - 1];
         const fIdx = tryFoundationDestination(topW, foundations);
@@ -1024,43 +1044,59 @@ export function SolitaireEngine({
         }
       }
 
-      // Check tableau tops
-      for (let c = 0; c < tableau.length; c++) {
-        const col = tableau[c];
-        if (col.length > 0) {
-          const top = col[col.length - 1];
-          const fIdx = tryFoundationDestination(top, foundations);
-          if (fIdx !== null) {
-            setHighlightMove({ fromCol: c, toF: fIdx });
-            setMessage(`Dica: O ${formatValue(top.value)}${SUITS[top.suit].symbol} da coluna ${c + 1} pode ir para a Base!`);
-            return;
+      // 1.2 Foundation from FreeCell
+      if (variant === 'freecell') {
+        for (let cellIdx = 0; cellIdx < freeCells.length; cellIdx++) {
+          const cellCard = freeCells[cellIdx];
+          if (cellCard) {
+            const fIdx = tryFoundationDestination(cellCard, foundations);
+            if (fIdx !== null) {
+              setHighlightMove({ toF: fIdx });
+              setMessage(`Dica: O ${formatValue(cellCard.value)}${SUITS[cellCard.suit].symbol} da célula livre pode ir para a Base!`);
+              return;
+            }
           }
         }
       }
 
-      // 2. Can any tableau sequence reveal a face-down card?
+      // 1.3 Foundation from Tableau
+      for (let c = 0; c < tableau.length; c++) {
+        const col = tableau[c];
+        if (col.length > 0) {
+          const top = col[col.length - 1];
+          if (top.isFaceUp) {
+            const fIdx = tryFoundationDestination(top, foundations);
+            if (fIdx !== null) {
+              setHighlightMove({ fromCol: c, toF: fIdx });
+              setMessage(`Dica: O ${formatValue(top.value)}${SUITS[top.suit].symbol} da coluna ${c + 1} pode ir para a Base!`);
+              return;
+            }
+          }
+        }
+      }
+
+      // 1.4 Move sequence in Tableau that reveals a face-down card (Highest Priority!)
       for (let c = 0; c < tableau.length; c++) {
         const col = tableau[c];
         for (let i = 0; i < col.length; i++) {
           if (!col[i].isFaceUp) continue;
-          const card = col[i];
-
-          // Check if this card can move to another column
-          for (let d = 0; d < tableau.length; d++) {
-            if (c === d) continue;
-            if (canPlaceOnTableau(card, tableau[d])) {
-              // Priority: does moving reveal a hidden card?
-              if (i > 0 && !col[i - 1].isFaceUp) {
-                setHighlightMove({ fromCol: c, toCol: d });
-                setMessage(`Dica: Mova o ${formatValue(card.value)}${SUITS[card.suit].symbol} da coluna ${c + 1} para a coluna ${d + 1} para revelar uma nova carta!`);
-                return;
+          if (isMovableSubstack(col, i, variant)) {
+            if (i > 0 && !col[i - 1].isFaceUp) {
+              const card = col[i];
+              for (let d = 0; d < tableau.length; d++) {
+                if (c === d) continue;
+                if (canPlaceOnTableau(card, tableau[d])) {
+                  setHighlightMove({ fromCol: c, toCol: d });
+                  setMessage(`Dica: Mova o ${formatValue(card.value)}${SUITS[card.suit].symbol} da coluna ${c + 1} para a coluna ${d + 1} para revelar uma nova carta!`);
+                  return;
+                }
               }
             }
           }
         }
       }
 
-      // 3. Can any waste card move to tableau?
+      // 1.5 Waste card to Tableau
       if (waste.length > 0) {
         const topW = waste[waste.length - 1];
         for (let d = 0; d < tableau.length; d++) {
@@ -1072,16 +1108,15 @@ export function SolitaireEngine({
         }
       }
 
-      // 4. Can a King move to an empty space to reveal hidden card?
-      for (let c = 0; c < tableau.length; c++) {
-        const col = tableau[c];
-        if (col.length > 0 && col[0].value !== 13) {
-          for (let i = 1; i < col.length; i++) {
-            if (col[i].isFaceUp && col[i].value === 13) {
-              const emptyCol = tableau.findIndex(tc => tc.length === 0);
-              if (emptyCol !== -1) {
-                setHighlightMove({ fromCol: c, toCol: emptyCol });
-                setMessage(`Dica: Mova o Rei da coluna ${c + 1} para a coluna vazia ${emptyCol + 1}.`);
+      // 1.6 FreeCell card to Tableau
+      if (variant === 'freecell') {
+        for (let cellIdx = 0; cellIdx < freeCells.length; cellIdx++) {
+          const cellCard = freeCells[cellIdx];
+          if (cellCard) {
+            for (let d = 0; d < tableau.length; d++) {
+              if (canPlaceOnTableau(cellCard, tableau[d])) {
+                setHighlightMove({ toCol: d });
+                setMessage(`Dica: Mova o ${formatValue(cellCard.value)}${SUITS[cellCard.suit].symbol} da célula livre para a coluna ${d + 1}.`);
                 return;
               }
             }
@@ -1089,13 +1124,152 @@ export function SolitaireEngine({
         }
       }
 
-      // 5. Draw from stock
-      if (stock.length > 0) {
-        setMessage('Dica: Compre novas cartas clicando no baralho.');
+      // 1.7 Move King to empty column to reveal hidden cards
+      const emptyColIdx = tableau.findIndex(tc => tc.length === 0);
+      if (emptyColIdx !== -1) {
+        for (let c = 0; c < tableau.length; c++) {
+          if (c === emptyColIdx) continue;
+          const col = tableau[c];
+          for (let i = 0; i < col.length; i++) {
+            if (col[i].isFaceUp && col[i].value === 13 && isMovableSubstack(col, i, variant)) {
+              if (i > 0) {
+                setHighlightMove({ fromCol: c, toCol: emptyColIdx });
+                setMessage(`Dica: Mova o Rei da coluna ${c + 1} para a coluna vazia ${emptyColIdx + 1} para liberar as cartas ocultas!`);
+                return;
+              }
+            }
+          }
+        }
+      }
+
+      // 1.8 ANY valid Tableau-to-Tableau move (Crucial! Even if no hidden card behind)
+      for (let c = 0; c < tableau.length; c++) {
+        const col = tableau[c];
+        for (let i = 0; i < col.length; i++) {
+          if (!col[i].isFaceUp) continue;
+          if (isMovableSubstack(col, i, variant)) {
+            const card = col[i];
+            for (let d = 0; d < tableau.length; d++) {
+              if (c === d) continue;
+              // Don't move a single King from one empty space to another empty space
+              if (card.value === 13 && i === 0 && tableau[d].length === 0) continue;
+
+              if (canPlaceOnTableau(card, tableau[d])) {
+                setHighlightMove({ fromCol: c, toCol: d });
+                setMessage(`Dica: Mova o ${formatValue(card.value)}${SUITS[card.suit].symbol} da coluna ${c + 1} para a coluna ${d + 1}.`);
+                return;
+              }
+            }
+          }
+        }
+      }
+
+      // 1.9 King to ANY empty column
+      if (emptyColIdx !== -1) {
+        for (let c = 0; c < tableau.length; c++) {
+          if (c === emptyColIdx) continue;
+          const col = tableau[c];
+          // If column starts with King but has multiple cards, moving can help reorganize
+          if (col.length > 1 && col[0].value === 13 && col[0].isFaceUp) {
+            setHighlightMove({ fromCol: c, toCol: emptyColIdx });
+            setMessage(`Dica: Mova o Rei da coluna ${c + 1} para a coluna vazia ${emptyColIdx + 1}.`);
+            return;
+          }
+        }
+      }
+
+      // 1.10 Draw from Stock (Klondike)
+      if (variant === 'klondike') {
+        if (stock.length > 0) {
+          setHighlightMove({ toStock: true });
+          setMessage(`Dica: Compre novas cartas clicando no baralho (${stock.length} restantes).`);
+          return;
+        }
+        if (stock.length === 0 && waste.length > 0) {
+          setHighlightMove({ toStock: true });
+          setMessage('Dica: O baralho acabou. Clique nele para recolher o descarte e continuar!');
+          return;
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 2. SPIDER SOLITAIRE
+    // ─────────────────────────────────────────────────────────────────────────
+    if (variant === 'spider') {
+      // 2.1 Sequence move that uncovers a face-down card
+      for (let c = 0; c < tableau.length; c++) {
+        const col = tableau[c];
+        for (let i = 0; i < col.length; i++) {
+          if (!col[i].isFaceUp) continue;
+          if (isMovableSubstack(col, i, 'spider')) {
+            if (i > 0 && !col[i - 1].isFaceUp) {
+              const card = col[i];
+              for (let d = 0; d < tableau.length; d++) {
+                if (c === d) continue;
+                if (canPlaceOnTableau(card, tableau[d])) {
+                  setHighlightMove({ fromCol: c, toCol: d });
+                  setMessage(`Dica: Mova a sequência a partir de ${formatValue(card.value)}${SUITS[card.suit].symbol} da coluna ${c + 1} para a coluna ${d + 1}!`);
+                  return;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // 2.2 ANY valid Spider move (prefer matching suit)
+      for (let c = 0; c < tableau.length; c++) {
+        const col = tableau[c];
+        for (let i = 0; i < col.length; i++) {
+          if (!col[i].isFaceUp) continue;
+          if (isMovableSubstack(col, i, 'spider')) {
+            const card = col[i];
+            for (let d = 0; d < tableau.length; d++) {
+              if (c === d) continue;
+              if (canPlaceOnTableau(card, tableau[d])) {
+                const destTop = tableau[d][tableau[d].length - 1];
+                if (destTop && destTop.suit === card.suit) {
+                  setHighlightMove({ fromCol: c, toCol: d });
+                  setMessage(`Dica: Mova ${formatValue(card.value)}${SUITS[card.suit].symbol} da coluna ${c + 1} para o ${formatValue(destTop.value)}${SUITS[destTop.suit].symbol} da coluna ${d + 1}!`);
+                  return;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      for (let c = 0; c < tableau.length; c++) {
+        const col = tableau[c];
+        for (let i = 0; i < col.length; i++) {
+          if (!col[i].isFaceUp) continue;
+          if (isMovableSubstack(col, i, 'spider')) {
+            const card = col[i];
+            for (let d = 0; d < tableau.length; d++) {
+              if (c === d) continue;
+              if (col.length === 1 && tableau[d].length === 0) continue;
+              if (canPlaceOnTableau(card, tableau[d])) {
+                setHighlightMove({ fromCol: c, toCol: d });
+                setMessage(`Dica: Mova ${formatValue(card.value)}${SUITS[card.suit].symbol} da coluna ${c + 1} para a coluna ${d + 1}.`);
+                return;
+              }
+            }
+          }
+        }
+      }
+
+      // 2.3 Deal from Stock
+      if (stock.length >= 10) {
+        setHighlightMove({ toStock: true });
+        setMessage('Dica: Distribua 10 novas cartas clicando no baralho.');
         return;
       }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // 3. TRIPEAKS
+    // ─────────────────────────────────────────────────────────────────────────
     if (variant === 'tripeaks') {
       const currentWaste = waste[waste.length - 1];
       if (currentWaste) {
@@ -1105,7 +1279,7 @@ export function SolitaireEngine({
             if (card && card.isFaceUp) {
               const diff = Math.abs(card.value - currentWaste.value);
               if (diff === 1 || diff === 12) {
-                setMessage(`Dica: Toque no ${formatValue(card.value)}${SUITS[card.suit].symbol}!`);
+                setMessage(`Dica: Toque no ${formatValue(card.value)}${SUITS[card.suit].symbol} nos picos!`);
                 return;
               }
             }
@@ -1113,12 +1287,14 @@ export function SolitaireEngine({
         }
       }
       if (stock.length > 0) {
-        setMessage('Dica: Compre uma nova carta do monte para continuar o combo.');
+        setHighlightMove({ toStock: true });
+        setMessage('Dica: Compre uma nova carta do monte para continuar a sequência.');
         return;
       }
     }
 
-    setMessage('Sem mais jogadas visíveis. Você pode Desfazer as últimas jogadas ou Iniciar Nova Partida!');
+    // Truly no moves anywhere!
+    setMessage('Não há mais jogadas nesta rodada. Toque em "Desfazer" para tentar outro caminho ou em "Novo Jogo"!');
   };
 
   return (
@@ -1258,7 +1434,9 @@ export function SolitaireEngine({
                 <button
                   type="button"
                   onClick={handleStockClick}
-                  className="w-full aspect-[5/7] rounded-md sm:rounded-lg bg-gradient-to-br from-blue-700 to-indigo-900 border-2 border-blue-400 flex items-center justify-center text-white font-black text-xs shadow-md active:scale-95 transition-transform"
+                  className={`w-full aspect-[5/7] rounded-md sm:rounded-lg bg-gradient-to-br from-blue-700 to-indigo-900 border-2 border-blue-400 flex items-center justify-center text-white font-black text-xs shadow-md active:scale-95 transition-transform ${
+                    highlightMove?.toStock ? 'ring-4 ring-emerald-400 animate-pulse border-emerald-300 scale-105 z-20' : ''
+                  }`}
                   title="Comprar carta do baralho"
                 >
                   {stock.length > 0 ? (
@@ -1389,7 +1567,9 @@ export function SolitaireEngine({
                 type="button"
                 disabled={stock.length === 0}
                 onClick={handleSpiderDealStock}
-                className="w-12 sm:w-14 aspect-[5/7] rounded-md sm:rounded-lg bg-gradient-to-br from-blue-700 to-indigo-900 border-2 border-blue-400 flex items-center justify-center text-white font-black text-xs shadow-md active:scale-95 disabled:opacity-40"
+                className={`w-12 sm:w-14 aspect-[5/7] rounded-md sm:rounded-lg bg-gradient-to-br from-blue-700 to-indigo-900 border-2 border-blue-400 flex items-center justify-center text-white font-black text-xs shadow-md active:scale-95 disabled:opacity-40 ${
+                  highlightMove?.toStock ? 'ring-4 ring-emerald-400 animate-pulse border-emerald-300' : ''
+                }`}
               >
                 {stock.length > 0 ? (
                   <div className="flex flex-col items-center">
@@ -1520,7 +1700,9 @@ export function SolitaireEngine({
                 setTripeaksStreak(0);
                 setMoves(m => m + 1);
               }}
-              className="w-12 sm:w-14 aspect-[5/7] rounded-md sm:rounded-lg bg-gradient-to-br from-blue-700 to-indigo-900 border-2 border-blue-400 flex items-center justify-center text-white font-black text-xs shadow-md active:scale-95 disabled:opacity-40"
+              className={`w-12 sm:w-14 aspect-[5/7] rounded-md sm:rounded-lg bg-gradient-to-br from-blue-700 to-indigo-900 border-2 border-blue-400 flex items-center justify-center text-white font-black text-xs shadow-md active:scale-95 disabled:opacity-40 ${
+                highlightMove?.toStock ? 'ring-4 ring-emerald-400 animate-pulse border-emerald-300' : ''
+              }`}
             >
               {stock.length > 0 ? (
                 <div className="flex flex-col items-center">

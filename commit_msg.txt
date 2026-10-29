@@ -1,1 +1,1 @@
-Ajusta layout responsivo mobile da Paciencia: grid fluido alinhado 1-para-1, proporcao aspect-[5/7], sem estouro horizontal em celulares
+Corrige sistema de dicas da Paciencia: cobre movimentos de base, revelacao de ocultas, transferencias gerais no tabuleiro, descarte e compra no baralho
