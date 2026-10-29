@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
@@ -801,19 +801,78 @@ export function SolitaireEngine({
     saveSnapshot();
     playCardClick();
 
-    setTableau(prev => prev.map((col, idx) => {
-      if (idx === destColIdx) {
-        return [...col, ...movingCards];
-      }
-      if (idx === fromColIdx) {
-        const remaining = col.slice(0, fromCardIdx);
-        if (remaining.length > 0) {
-          remaining[remaining.length - 1] = { ...remaining[remaining.length - 1], isFaceUp: true };
+    // Check Spider sequence completion (K to A) - done atomically inside setTableau
+    if (variant === 'spider') {
+      setTableau(prev => {
+        // 1. Apply the move
+        let newTab = prev.map((col, idx) => {
+          if (idx === destColIdx) return [...col, ...movingCards];
+          if (idx === fromColIdx) {
+            const remaining = col.slice(0, fromCardIdx);
+            if (remaining.length > 0)
+              remaining[remaining.length - 1] = { ...remaining[remaining.length - 1], isFaceUp: true };
+            return remaining;
+          }
+          return col;
+        });
+
+        // 2. Detect ALL completed K->A sequences of same suit (synchronous - no stale state race)
+        const completions: Array<{ colIdx: number; sequence: Card[] }> = [];
+        for (let c = 0; c < newTab.length; c++) {
+          const col = newTab[c];
+          if (col.length < 13) continue;
+          const last13 = col.slice(-13);
+          const suit = last13[0].suit;
+          let ok = true;
+          for (let i = 0; i < 13; i++) {
+            if (!last13[i].isFaceUp || last13[i].suit !== suit || last13[i].value !== 13 - i) {
+              ok = false; break;
+            }
+          }
+          if (ok) completions.push({ colIdx: c, sequence: last13 });
         }
-        return remaining;
-      }
-      return col;
-    }));
+
+        // 3. Remove completed sequences (highest index first so indices stay valid)
+        if (completions.length > 0) {
+          [...completions].sort((a, b) => b.colIdx - a.colIdx).forEach(({ colIdx }) => {
+            const col = newTab[colIdx].slice(0, -13);
+            if (col.length > 0) col[col.length - 1] = { ...col[col.length - 1], isFaceUp: true };
+            newTab = newTab.map((c, i) => i === colIdx ? col : c);
+          });
+
+          // Update foundations & message in next microtask (safe: no stale closure)
+          setTimeout(() => {
+            setFoundations(prevF => {
+              const nextF = [...prevF];
+              completions.forEach(({ sequence }) => {
+                const emptyIdx = nextF.findIndex(p => p.length === 0);
+                if (emptyIdx !== -1) nextF[emptyIdx] = sequence;
+              });
+              return nextF;
+            });
+            const names = completions.map(s => SUITS[s.sequence[0].suit].name).join(', ');
+            setMessage(`SequÃªncia completa de ${names} finalizada! ParabÃ©ns!`);
+            playWinFanfare();
+          }, 0);
+        } else {
+          setTimeout(() => setMessage('Cartas movidas com sucesso!'), 0);
+        }
+
+        return newTab;
+      });
+    } else {
+      setTableau(prev => prev.map((col, idx) => {
+        if (idx === destColIdx) return [...col, ...movingCards];
+        if (idx === fromColIdx) {
+          const remaining = col.slice(0, fromCardIdx);
+          if (remaining.length > 0)
+            remaining[remaining.length - 1] = { ...remaining[remaining.length - 1], isFaceUp: true };
+          return remaining;
+        }
+        return col;
+      }));
+      setMessage('Cartas movidas com sucesso!');
+    }
 
     if (fromWaste) setWaste(prev => prev.slice(0, -1));
     if (fromCellIdx !== undefined) setFreeCells(prev => prev.map((c, i) => i === fromCellIdx ? null : c));
@@ -822,72 +881,69 @@ export function SolitaireEngine({
     setScore(s => s + 10);
     setSelection(null);
     setHighlightMove(null);
-    setMessage('Cartas movidas com sucesso!');
-
-    // Check Spider sequence completion (K to A)
-    if (variant === 'spider') {
-      checkSpiderCompletedSequences(destColIdx, movingCards);
-    }
 
     checkWinCondition();
   };
 
-  // ─── Spider Completed Sequence Check (K down to A of same suit) ────────────
-  const checkSpiderCompletedSequences = (destColIdx: number, newlyAdded: Card[]) => {
-    setTimeout(() => {
-      setTableau(currentTableau => {
-        const col = currentTableau[destColIdx];
-        if (col.length < 13) return currentTableau;
-
-        // Check if last 13 cards are K down to A of same suit
-        const last13 = col.slice(-13);
-        const suit = last13[0].suit;
-        let isComplete = true;
-
-        for (let i = 0; i < 13; i++) {
-          if (!last13[i].isFaceUp || last13[i].suit !== suit || last13[i].value !== 13 - i) {
-            isComplete = false;
-            break;
-          }
-        }
-
-        if (isComplete) {
-          playWinFanfare();
-          setMessage(`Sequência completa de ${SUITS[suit].name} finalizada! Parabéns!`);
-          setFoundations(prevF => {
-            const nextF = [...prevF];
-            const emptyIdx = nextF.findIndex(p => p.length === 0);
-            if (emptyIdx !== -1) nextF[emptyIdx] = last13;
-            return nextF;
-          });
-
-          return currentTableau.map((c, idx) => {
-            if (idx !== destColIdx) return c;
-            const updated = c.slice(0, -13);
-            if (updated.length > 0) updated[updated.length - 1] = { ...updated[updated.length - 1], isFaceUp: true };
-            return updated;
-          });
-        }
-
-        return currentTableau;
-      });
-    }, 150);
-  };
-
-  // ─── Spider: Deal 10 Cards from Stock ──────────────────────────────────────
+  // --- Spider: Deal 10 Cards from Stock (with synchronous sequence detection) -
   const handleSpiderDealStock = () => {
     if (stock.length < 10) return;
     saveSnapshot();
     playCardClick();
 
     const nextStock = [...stock];
-    setTableau(prev => prev.map(col => {
-      const card = nextStock.pop()!;
-      return [...col, { ...card, isFaceUp: true }];
-    }));
+
+    setTableau(prev => {
+      // 1. Deal one card face-up to each of the 10 columns
+      let newTab = prev.map(col => {
+        const card = nextStock.pop()!;
+        return [...col, { ...card, isFaceUp: true }];
+      });
+
+      // 2. Detect completed K->A sequences synchronously across ALL columns
+      const completions: Array<{ colIdx: number; sequence: Card[] }> = [];
+      for (let c = 0; c < newTab.length; c++) {
+        const col = newTab[c];
+        if (col.length < 13) continue;
+        const last13 = col.slice(-13);
+        const suit = last13[0].suit;
+        let ok = true;
+        for (let i = 0; i < 13; i++) {
+          if (!last13[i].isFaceUp || last13[i].suit !== suit || last13[i].value !== 13 - i) {
+            ok = false; break;
+          }
+        }
+        if (ok) completions.push({ colIdx: c, sequence: last13 });
+      }
+
+      // 3. Remove completed sequences
+      if (completions.length > 0) {
+        [...completions].sort((a, b) => b.colIdx - a.colIdx).forEach(({ colIdx }) => {
+          const col = newTab[colIdx].slice(0, -13);
+          if (col.length > 0) col[col.length - 1] = { ...col[col.length - 1], isFaceUp: true };
+          newTab = newTab.map((c, i) => i === colIdx ? col : c);
+        });
+        setTimeout(() => {
+          setFoundations(prevF => {
+            const nextF = [...prevF];
+            completions.forEach(({ sequence }) => {
+              const emptyIdx = nextF.findIndex(p => p.length === 0);
+              if (emptyIdx !== -1) nextF[emptyIdx] = sequence;
+            });
+            return nextF;
+          });
+          const names = completions.map(s => SUITS[s.sequence[0].suit].name).join(', ');
+          setMessage(`SequÃªncia completa de ${names} finalizada! ParabÃ©ns!`);
+          playWinFanfare();
+        }, 0);
+      }
+
+      return newTab;
+    });
+
     setStock(nextStock);
     setMoves(m => m + 1);
-    setMessage('10 novas cartas distribuídas pelo tabuleiro.');
+    setMessage('10 novas cartas distribuÃ­das pelo tabuleiro.');
   };
 
   // ─── TriPeaks: Click Peak Card ─────────────────────────────────────────────
