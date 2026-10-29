@@ -111,6 +111,7 @@ export function WordSearchEngine({
   const [earnedStars, setEarnedStars] = useState(3);
 
   const gridContainerRef = useRef<HTMLDivElement>(null);
+  const victoryCardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const p = getWordSearchLevel(levelNumber, locale);
@@ -232,6 +233,11 @@ export function WordSearchEngine({
           moves: nextFound.length,
           hints: hintsUsed,
         });
+
+        // Smoothly scroll the celebration card and Next Level button into view
+        setTimeout(() => {
+          victoryCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 150);
       }
       return true;
     }
@@ -429,7 +435,10 @@ export function WordSearchEngine({
 
       {/* Victory Celebration */}
       {isCompleted && (
-        <div className="w-full bg-emerald-50 dark:bg-emerald-950/80 border-3 border-emerald-500 p-5 rounded-3xl text-center space-y-3 shadow-lg animate-in zoom-in-95">
+        <div
+          ref={victoryCardRef}
+          className="w-full bg-emerald-50 dark:bg-emerald-950/80 border-3 border-emerald-500 p-5 rounded-3xl text-center space-y-3 shadow-lg animate-in zoom-in-95"
+        >
           <div className="flex justify-center text-3xl">
             {Array.from({ length: earnedStars }).map((_, i) => (
               <span key={i} className="animate-bounce">

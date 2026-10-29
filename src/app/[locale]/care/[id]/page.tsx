@@ -1330,7 +1330,7 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
 
   // Greeting based on time of day
   const hour = currentTime.getHours();
-  const greetingText = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+  const greetingText = hour < 12 ? tCare.greetingMorning : hour < 18 ? tCare.greetingAfternoon : tCare.greetingEvening;
   const greetingIcon = hour < 12 ? '☀️' : hour < 18 ? '🌤️' : '🌙';
 
   return (
@@ -1402,12 +1402,12 @@ export default function ElderlyViewPage({ params }: { params: { id: string; loca
                   {tCare.trialBadge(trialInfo.daysRemaining)}
                 </p>
                 <p className='text-[11px] text-emerald-800 dark:text-emerald-300 font-semibold truncate'>
-                  {trialInfo.daysRemaining === 1 ? '1 dia' : `${trialInfo.daysRemaining} dias`}
+                  {trialInfo.daysRemaining === 1 ? `1 ${tCare.trialDaysLabel}` : `${trialInfo.daysRemaining} ${tCare.trialDaysLabel}`}
                 </p>
               </div>
             </div>
             <span className='text-[10px] uppercase tracking-wider font-black text-emerald-800 dark:text-emerald-200 bg-white dark:bg-stone-900 border border-emerald-300 dark:border-emerald-700 px-2.5 py-1 rounded-xl shrink-0 shadow-2xs'>
-              30 Dias
+              30 {tCare.trialDaysLabel}
             </span>
           </div>
         )}

@@ -153,15 +153,16 @@ export function getWordSearchLevel(level: number, locale: string = 'pt-BR'): Wor
 
   // Initialize empty grid
   const grid: string[][] = Array(size).fill(null).map(() => Array(size).fill(''));
+  const placedWords: string[] = [];
 
   // Place words horizontally or vertically (always left-to-right or top-to-bottom for seniors)
   wordsToPlace.forEach((word, wIdx) => {
-    const isHorizontal = wIdx % 2 === 0;
     let placed = false;
     let attempts = 0;
 
-    while (!placed && attempts < 50) {
+    while (!placed && attempts < 80) {
       attempts++;
+      const isHorizontal = attempts % 2 === 0;
       if (isHorizontal) {
         const row = (wIdx * 2 + attempts) % size;
         const maxCol = size - word.length;
@@ -178,6 +179,7 @@ export function getWordSearchLevel(level: number, locale: string = 'pt-BR'): Wor
             for (let i = 0; i < word.length; i++) {
               grid[row][col + i] = word[i];
             }
+            placedWords.push(word);
             placed = true;
           }
         }
@@ -197,6 +199,30 @@ export function getWordSearchLevel(level: number, locale: string = 'pt-BR'): Wor
             for (let i = 0; i < word.length; i++) {
               grid[row + i][col] = word[i];
             }
+            placedWords.push(word);
+            placed = true;
+          }
+        }
+      }
+    }
+
+    // Deterministic fallback if random attempts did not fit
+    if (!placed) {
+      for (let r = 0; r < size && !placed; r++) {
+        const maxCol = size - word.length;
+        for (let c = 0; c <= maxCol && !placed; c++) {
+          let canPlace = true;
+          for (let i = 0; i < word.length; i++) {
+            if (grid[r][c + i] !== '' && grid[r][c + i] !== word[i]) {
+              canPlace = false;
+              break;
+            }
+          }
+          if (canPlace) {
+            for (let i = 0; i < word.length; i++) {
+              grid[r][c + i] = word[i];
+            }
+            placedWords.push(word);
             placed = true;
           }
         }
@@ -216,7 +242,7 @@ export function getWordSearchLevel(level: number, locale: string = 'pt-BR'): Wor
 
   return {
     grid,
-    words: wordsToPlace,
+    words: placedWords.length > 0 ? placedWords : wordsToPlace.slice(0, 3),
     theme: currentTheme.theme,
     size,
   };

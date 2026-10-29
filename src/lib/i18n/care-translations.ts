@@ -55,6 +55,10 @@ export interface CareTexts {
   alarmSpeech: (params: { name: string; title: string; time: string; doctor?: string | null; location?: string | null }) => string;
 
   // Header & Status
+  greetingMorning: string;
+  greetingAfternoon: string;
+  greetingEvening: string;
+  trialDaysLabel: string;
   greeting: (name: string) => string;
   familyConnected: string;
   signOut: string;
@@ -283,6 +287,10 @@ export const CARE_TRANSLATIONS: Record<SupportedLocale, CareTexts> = {
     alarmSpeech: ({ name, title, time, doctor, location }) =>
       `Atenção, ${name}! Lembrete do seu compromisso: ${title}, hoje às ${time}.${doctor ? ` Com ${doctor}.` : ''}${location ? ` No local: ${location}.` : ''}`,
 
+    greetingMorning: 'Bom dia',
+    greetingAfternoon: 'Boa tarde',
+    greetingEvening: 'Boa noite',
+    trialDaysLabel: 'dias',
     greeting: (name) => `Olá, ${name}!`,
     familyConnected: 'Família Conectada',
     signOut: 'Sair',
@@ -530,6 +538,10 @@ export const CARE_TRANSLATIONS: Record<SupportedLocale, CareTexts> = {
     alarmSpeech: ({ name, title, time, doctor, location }) =>
       `Attention, ${name}! Reminder for your appointment: ${title}, today at ${time}.${doctor ? ` With ${doctor}.` : ''}${location ? ` At: ${location}.` : ''}`,
 
+    greetingMorning: 'Good morning',
+    greetingAfternoon: 'Good afternoon',
+    greetingEvening: 'Good evening',
+    trialDaysLabel: 'days',
     greeting: (name) => `Hello, ${name}!`,
     familyConnected: 'Family Connected',
     signOut: 'Sign Out',
@@ -768,6 +780,10 @@ export const CARE_TRANSLATIONS: Record<SupportedLocale, CareTexts> = {
     alarmSpeech: ({ name, title, time, doctor, location }) =>
       `¡Atención, ${name}! Recordatorio de su cita: ${title}, hoy a las ${time}.${doctor ? ` Con ${doctor}.` : ''}${location ? ` En: ${location}.` : ''}`,
 
+    greetingMorning: 'Buenos días',
+    greetingAfternoon: 'Buenas tardes',
+    greetingEvening: 'Buenas noches',
+    trialDaysLabel: 'días',
     greeting: (name) => `¡Hola, ${name}!`,
     familyConnected: 'Familia Conectada',
     signOut: 'Salir',
@@ -1006,6 +1022,10 @@ export const CARE_TRANSLATIONS: Record<SupportedLocale, CareTexts> = {
     alarmSpeech: ({ name, title, time, doctor, location }) =>
       `Attention, ${name}! Rappel pour votre rendez-vous: ${title}, aujourd'hui à ${time}.${doctor ? ` Avec ${doctor}.` : ''}${location ? ` Lieu: ${location}.` : ''}`,
 
+    greetingMorning: 'Bonjour',
+    greetingAfternoon: 'Bon après-midi',
+    greetingEvening: 'Bonsoir',
+    trialDaysLabel: 'jours',
     greeting: (name) => `Bonjour, ${name}!`,
     familyConnected: 'Famille Connectée',
     signOut: 'Déconnexion',
@@ -1244,6 +1264,10 @@ export const CARE_TRANSLATIONS: Record<SupportedLocale, CareTexts> = {
     alarmSpeech: ({ name, title, time, doctor, location }) =>
       `Achtung, ${name}! Erinnerung an Ihren Termin: ${title}, heute um ${time}.${doctor ? ` Mit ${doctor}.` : ''}${location ? ` Ort: ${location}.` : ''}`,
 
+    greetingMorning: 'Guten Morgen',
+    greetingAfternoon: 'Guten Nachmittag',
+    greetingEvening: 'Guten Abend',
+    trialDaysLabel: 'Tage',
     greeting: (name) => `Hallo, ${name}!`,
     familyConnected: 'Familie Verbunden',
     signOut: 'Abmelden',

@@ -1,8 +1,1 @@
-Corrige reproducao de audio ao clicar em ouvir no chat da Nina IA
-
-- Atualiza rota /api/tts com modelos Gemini TTS modernos (gemini-3.8-flash-lite-tts, gemini-3.8-flash-tts e gemini-3.1-flash-tts-preview) com fallback entre modelos
-- Adiciona prefixo de instrucao de fala no prompt do Gemini TTS para eliminar erro 400
-- Adiciona cache de audio em memoria para respostas instantaneas e preservacao de quota
-- Implementa unlockAudio para compatibilidade universal com politicas de autoplay do iOS Safari e mobile
-- Adiciona reproducao robusta via HTMLAudioElement (Blob URL) com fallback para Web Audio Buffer
-- Garante parada limpa de todos os canais de audio ao pausar ou alternar mensagens
+Traduz saudacao e aviso de plano para o idioma selecionado; corrige palavras cruzadas e caca-palavras
